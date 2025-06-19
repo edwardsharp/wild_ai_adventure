@@ -1,5 +1,5 @@
 use crate::analytics::AnalyticsService;
-use crate::config::{AppConfig, ConfigError};
+use crate::config::{AppConfig, ConfigError, SecretsConfig};
 use crate::database::Database;
 use clap::{Parser, Subcommand};
 use rand::distributions::Alphanumeric;
@@ -19,6 +19,10 @@ pub struct Cli {
     /// Path to configuration file
     #[arg(long, short, default_value = "config.jsonc")]
     pub config: PathBuf,
+
+    /// Path to secrets configuration file
+    #[arg(long, default_value = "config.secrets.jsonc")]
+    pub secrets: PathBuf,
 
     /// Database URL (overrides config file)
     #[arg(long, env = "DATABASE_URL")]
@@ -85,9 +89,18 @@ pub enum ConfigCommands {
         /// Force overwrite existing config file
         #[arg(short, long)]
         force: bool,
+        /// Also generate secrets file
+        #[arg(long)]
+        with_secrets: bool,
     },
     /// Validate the configuration file
     Validate,
+    /// Generate default secrets configuration
+    InitSecrets {
+        /// Force overwrite existing secrets file
+        #[arg(short, long)]
+        force: bool,
+    },
     /// Generate JSON Schema for editor support
     Schema {
         /// Output path for schema file
@@ -125,7 +138,7 @@ impl Cli {
         }
 
         // For non-config commands, we need database access
-        let config = self.load_config().await?;
+        let (config, _secrets) = self.load_config_with_secrets().await?;
         let database_url = self
             .database_url
             .clone()
@@ -168,6 +181,13 @@ impl Cli {
     }
 
     async fn load_config(&self) -> Result<AppConfig, Box<dyn std::error::Error>> {
+        let (config, _) = self.load_config_with_secrets().await?;
+        Ok(config)
+    }
+
+    async fn load_config_with_secrets(
+        &self,
+    ) -> Result<(AppConfig, Option<SecretsConfig>), Box<dyn std::error::Error>> {
         if !self.config.exists() {
             eprintln!(
                 "⚠️  Configuration file '{}' not found.",
@@ -176,11 +196,22 @@ impl Cli {
             eprintln!("💡 Run 'cargo run --bin webauthn-admin config init' to create one.");
             eprintln!("🔄 Falling back to default configuration...");
             println!();
-            return Ok(AppConfig::default());
+            return Ok((AppConfig::default(), None));
         }
 
-        match AppConfig::from_file(&self.config) {
-            Ok(config) => Ok(config),
+        let secrets_path = if self.secrets.exists() {
+            Some(&self.secrets)
+        } else {
+            None
+        };
+
+        match AppConfig::from_files(&self.config, secrets_path) {
+            Ok((config, secrets)) => {
+                if secrets.is_some() {
+                    println!("🔐 Loaded secrets from {}", self.secrets.display());
+                }
+                Ok((config, secrets))
+            }
             Err(e) => {
                 eprintln!("❌ Failed to load configuration: {}", e);
                 eprintln!("💡 Run 'cargo run --bin webauthn-admin config validate' for details.");
@@ -194,8 +225,14 @@ impl Cli {
         command: ConfigCommands,
     ) -> Result<(), Box<dyn std::error::Error>> {
         match command {
-            ConfigCommands::Init { force } => {
-                self.init_config(force).await?;
+            ConfigCommands::Init {
+                force,
+                with_secrets,
+            } => {
+                self.init_config(force, with_secrets).await?;
+            }
+            ConfigCommands::InitSecrets { force } => {
+                self.init_secrets(force).await?;
             }
             ConfigCommands::Validate => {
                 self.validate_config().await?;
@@ -216,7 +253,11 @@ impl Cli {
         Ok(())
     }
 
-    async fn init_config(&self, force: bool) -> Result<(), Box<dyn std::error::Error>> {
+    async fn init_config(
+        &self,
+        force: bool,
+        with_secrets: bool,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         if self.config.exists() && !force {
             eprintln!(
                 "❌ Configuration file '{}' already exists.",
@@ -233,14 +274,65 @@ impl Cli {
 
         println!("✅ Created configuration file: {}", self.config.display());
         println!();
+        if with_secrets {
+            println!("🔐 Also generating secrets file...");
+            self.init_secrets(force).await?;
+        }
+
         println!("📋 Next steps:");
         println!("  1. Edit the configuration file to match your setup");
-        println!("  2. Generate JSON Schema for editor support:");
+        if !with_secrets {
+            println!("  2. Generate secrets file:");
+            println!("     cargo run --bin webauthn-admin config init-secrets");
+        }
+        println!(
+            "  {}. Generate JSON Schema for editor support:",
+            if with_secrets { "2" } else { "3" }
+        );
         println!("     cargo run --bin webauthn-admin config schema");
-        println!("  3. Generate .env file for Docker/SQLx:");
+        println!(
+            "  {}. Generate .env file for Docker/SQLx:",
+            if with_secrets { "3" } else { "4" }
+        );
         println!("     cargo run --bin webauthn-admin config generate-env");
-        println!("  4. Validate your configuration:");
+        println!(
+            "  {}. Validate your configuration:",
+            if with_secrets { "4" } else { "5" }
+        );
         println!("     cargo run --bin webauthn-admin config validate");
+
+        Ok(())
+    }
+
+    async fn init_secrets(&self, force: bool) -> Result<(), Box<dyn std::error::Error>> {
+        if self.secrets.exists() && !force {
+            eprintln!(
+                "❌ Secrets file '{}' already exists.",
+                self.secrets.display()
+            );
+            eprintln!("💡 Use --force to overwrite, or choose a different path with --secrets");
+            return Ok(());
+        }
+
+        println!("🔐 Generating default secrets file...");
+
+        let secrets = SecretsConfig::default();
+        secrets.write_to_file(&self.secrets)?;
+
+        println!("✅ Created secrets file: {}", self.secrets.display());
+        println!();
+        println!("⚠️  SECURITY WARNING ⚠️");
+        println!("📝 Please edit the secrets file and:");
+        println!("  • Change all default passwords");
+        println!("  • Use strong, unique credentials");
+        println!("  • Ensure file permissions are restrictive (chmod 600)");
+        println!("  • Never commit this file to version control");
+        println!();
+        println!("🔧 Set file permissions:");
+        #[cfg(unix)]
+        println!("  chmod 600 {}", self.secrets.display());
+        #[cfg(windows)]
+        println!("  Use Windows file permissions to restrict access");
 
         Ok(())
     }
@@ -257,8 +349,23 @@ impl Cli {
             return Ok(());
         }
 
-        match AppConfig::from_file(&self.config) {
-            Ok(config) => {
+        // Check for secrets file
+        let has_secrets = self.secrets.exists();
+        if has_secrets {
+            println!("🔐 Found secrets file: {}", self.secrets.display());
+        } else {
+            println!("⚠️  No secrets file found at: {}", self.secrets.display());
+            println!("💡 Run 'config init-secrets' to create one");
+        }
+
+        let secrets_path = if has_secrets {
+            Some(&self.secrets)
+        } else {
+            None
+        };
+
+        match AppConfig::from_files(&self.config, secrets_path) {
+            Ok((config, secrets)) => {
                 println!("✅ Configuration is valid!");
                 println!();
                 println!("📊 Configuration summary:");
@@ -291,6 +398,46 @@ impl Cli {
                     && config.app.environment == "production"
                 {
                     warnings.push("Production WebAuthn should use HTTPS");
+                }
+
+                // Validate secrets if present
+                if let Some(ref secrets) = secrets {
+                    println!();
+                    println!("🔐 Secrets validation:");
+
+                    if secrets.database.password == "change_me_secure_password" {
+                        warnings.push("Database password is still using default value");
+                    }
+
+                    if let Some(ref session_secret) = secrets.app.session_secret {
+                        if session_secret == "change_me_session_secret_32_chars_min" {
+                            warnings.push("Session secret is still using default value");
+                        } else if session_secret.len() < 32 {
+                            warnings.push("Session secret should be at least 32 characters");
+                        }
+                    }
+
+                    println!(
+                        "  • Database password: {}",
+                        if secrets.database.password == "change_me_secure_password" {
+                            "❌ Default"
+                        } else {
+                            "✅ Custom"
+                        }
+                    );
+                    println!(
+                        "  • Session secret: {}",
+                        match &secrets.app.session_secret {
+                            Some(s) if s == "change_me_session_secret_32_chars_min" => "❌ Default",
+                            Some(s) if s.len() < 32 => "⚠️  Too short",
+                            Some(_) => "✅ Good",
+                            None => "⚠️  Not set",
+                        }
+                    );
+                } else {
+                    warnings.push(
+                        "No secrets file found - database password will come from environment",
+                    );
                 }
 
                 if !warnings.is_empty() {
@@ -352,21 +499,37 @@ impl Cli {
     ) -> Result<(), Box<dyn std::error::Error>> {
         println!("🔧 Generating .env file...");
 
-        let config = if self.config.exists() {
-            AppConfig::from_file(&self.config)?
+        let (config, secrets) = if self.config.exists() {
+            let secrets_path = if self.secrets.exists() {
+                Some(&self.secrets)
+            } else {
+                None
+            };
+            AppConfig::from_files(&self.config, secrets_path)?
         } else {
             println!("⚠️  Config file not found, using defaults");
-            AppConfig::default()
+            (AppConfig::default(), None)
         };
 
-        let env_vars = config.to_env_vars();
+        let mut env_vars = config.to_env_vars();
+
+        // Add secrets to env vars if available
+        if let Some(ref secrets) = secrets {
+            let secret_env_vars = secrets.to_env_vars();
+            env_vars.extend(secret_env_vars);
+        }
         let mut content = String::new();
 
-        content.push_str("# Generated from configuration file\n");
+        content.push_str("# Generated from configuration and secrets files\n");
         content.push_str("# This file contains environment variables needed for Docker and SQLx\n");
         content.push_str("# \n");
         content.push_str("# DO NOT commit this file to version control!\n");
-        content.push_str("# Add .env to your .gitignore\n\n");
+        content.push_str("# Add .env to your .gitignore\n");
+        if secrets.is_some() {
+            content.push_str("# \n");
+            content.push_str("# ⚠️  Contains sensitive data from secrets file\n");
+        }
+        content.push_str("\n");
 
         // Core variables
         content.push_str("# Database Configuration\n");
@@ -389,12 +552,17 @@ impl Cli {
 
         if with_examples {
             content.push_str("\n# Example additional environment variables:\n");
-            content.push_str("# DATABASE_PASSWORD=your_secure_password_here\n");
-            content.push_str("# POSTGRES_PASSWORD=your_secure_password_here\n");
-            content.push_str("# \n");
+            if secrets.is_none() {
+                content.push_str("# DATABASE_PASSWORD=your_secure_password_here\n");
+                content.push_str("# POSTGRES_PASSWORD=your_secure_password_here\n");
+                content.push_str("# \n");
+            }
             content.push_str("# For Docker Compose:\n");
             content.push_str("# PGADMIN_DEFAULT_EMAIL=admin@example.com\n");
             content.push_str("# PGADMIN_DEFAULT_PASSWORD=admin_password\n");
+            content.push_str("# \n");
+            content.push_str("# To use secrets file instead of environment variables:\n");
+            content.push_str("# cargo run --bin webauthn-admin config init-secrets\n");
         }
 
         std::fs::write(&output, content)?;
@@ -403,7 +571,12 @@ impl Cli {
         println!();
         println!("🔒 Security reminders:");
         println!("  • Add .env to your .gitignore file");
-        println!("  • Set DATABASE_PASSWORD or POSTGRES_PASSWORD");
+        if secrets.is_none() {
+            println!("  • Set DATABASE_PASSWORD or POSTGRES_PASSWORD");
+            println!("  • Consider using secrets file: config init-secrets");
+        } else {
+            println!("  • Secrets loaded from {}", self.secrets.display());
+        }
         println!("  • Never commit environment files to version control");
         println!("  • Use strong, unique passwords in production");
 
@@ -415,12 +588,21 @@ impl Cli {
         json: bool,
         section: Option<String>,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let config = if self.config.exists() {
-            AppConfig::from_file(&self.config)?
+        let (config, secrets) = if self.config.exists() {
+            let secrets_path = if self.secrets.exists() {
+                Some(&self.secrets)
+            } else {
+                None
+            };
+            AppConfig::from_files(&self.config, secrets_path)?
         } else {
             println!("⚠️  Config file not found, showing defaults");
-            AppConfig::default()
+            (AppConfig::default(), None)
         };
+
+        if let Some(ref _secrets) = secrets {
+            println!("🔐 Secrets file loaded from: {}", self.secrets.display());
+        }
 
         if json {
             if let Some(section) = section {

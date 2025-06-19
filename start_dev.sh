@@ -17,13 +17,26 @@ echo "=================================="
 # Check for configuration file
 if [ ! -f "config.jsonc" ]; then
     echo -e "${YELLOW}Configuration file not found. Creating default config...${NC}"
-    cargo run --bin webauthn-admin config init
+    cargo run --bin webauthn-admin config init --with-secrets
     echo ""
     echo -e "${BLUE}📝 Please review and edit config.jsonc for your setup${NC}"
     echo -e "${BLUE}💡 Key settings to check:${NC}"
     echo -e "${BLUE}  • Database connection (host, port, username, database)${NC}"
     echo -e "${BLUE}  • WebAuthn settings (rp_id, rp_origin)${NC}"
     echo -e "${BLUE}  • Server port and host${NC}"
+    echo ""
+fi
+
+# Check for secrets file
+if [ ! -f "config.secrets.jsonc" ]; then
+    echo -e "${YELLOW}Secrets file not found. Creating default secrets...${NC}"
+    cargo run --bin webauthn-admin config init-secrets
+    echo ""
+    echo -e "${BLUE}🔐 Please edit config.secrets.jsonc with your actual secrets${NC}"
+    echo -e "${BLUE}⚠️  Security reminders:${NC}"
+    echo -e "${BLUE}  • Change all default passwords${NC}"
+    echo -e "${BLUE}  • Use strong, unique credentials${NC}"
+    echo -e "${BLUE}  • Set proper file permissions: chmod 600 config.secrets.jsonc${NC}"
     echo ""
 fi
 
@@ -43,13 +56,19 @@ if [ -f ".env" ]; then
     export $(cat .env | grep -v '^#' | grep -v '^$' | xargs)
 fi
 
-# Check if DATABASE_PASSWORD is set
-if [ -z "$DATABASE_PASSWORD" ] && [ -z "$POSTGRES_PASSWORD" ]; then
-    echo -e "${YELLOW}Database password not set in environment.${NC}"
-    echo -e "${YELLOW}Please set DATABASE_PASSWORD or POSTGRES_PASSWORD:${NC}"
-    echo "  export DATABASE_PASSWORD='your_password_here'"
-    echo "  # or add it to your .env file"
-    echo ""
+# Check if we have secrets or need environment variables
+if [ -f "config.secrets.jsonc" ]; then
+    echo -e "${GREEN}Found secrets file: config.secrets.jsonc${NC}"
+    echo -e "${BLUE}💡 Database password will be loaded from secrets file${NC}"
+else
+    # Check if DATABASE_PASSWORD is set
+    if [ -z "$DATABASE_PASSWORD" ] && [ -z "$POSTGRES_PASSWORD" ]; then
+        echo -e "${YELLOW}No secrets file found and database password not set in environment.${NC}"
+        echo -e "${YELLOW}Please either:${NC}"
+        echo "  1. Create secrets file: cargo run --bin webauthn-admin config init-secrets"
+        echo "  2. Set environment variable: export DATABASE_PASSWORD='your_password_here'"
+        echo ""
+    fi
 fi
 
 echo -e "${GREEN}Configuration loaded successfully!${NC}"
@@ -113,9 +132,11 @@ echo -e "${YELLOW}⏹️  Press Ctrl+C to stop the server${NC}"
 echo ""
 echo -e "${BLUE}💡 Useful commands while developing:${NC}"
 echo -e "${BLUE}  • View config: cargo run --bin webauthn-admin config show${NC}"
+echo -e "${BLUE}  • Validate config: cargo run --bin webauthn-admin config validate${NC}"
 echo -e "${BLUE}  • List invite codes: cargo run --bin webauthn-admin list-invites${NC}"
 echo -e "${BLUE}  • Generate codes: cargo run --bin webauthn-admin generate-invite${NC}"
 echo -e "${BLUE}  • View analytics: cargo run --bin webauthn-admin analytics${NC}"
+echo -e "${BLUE}  • Manage secrets: cargo run --bin webauthn-admin config init-secrets${NC}"
 echo ""
 
 # Start the server

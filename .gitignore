@@ -5,6 +5,9 @@
 # Configuration files that might contain secrets
 config.local.jsonc
 config.production.jsonc
+config.secrets.jsonc
+config.secrets.*.jsonc
+*.secrets.jsonc
 
 # Generated files
 config.schema.json
@@ -12,4 +15,3 @@ config.schema.json
 # Logs
 logs/
 *.log
-config.jsonc

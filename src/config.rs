@@ -1,7 +1,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -16,6 +16,8 @@ pub enum ConfigError {
     ValidationError(String),
     #[error("JSON Schema generation failed: {0}")]
     SchemaError(String),
+    #[error("Secrets file not found: {0}")]
+    SecretsNotFound(String),
 }
 
 /// Main application configuration
@@ -452,6 +454,45 @@ pub struct FeatureFlags {
     pub private_static_files: bool,
 }
 
+/// Secrets configuration (separate file for sensitive data)
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SecretsConfig {
+    /// Database secrets
+    pub database: DatabaseSecrets,
+    /// Application secrets
+    pub app: AppSecrets,
+    /// External service secrets
+    pub external: ExternalSecrets,
+}
+
+/// Database-related secrets
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct DatabaseSecrets {
+    /// Database password
+    pub password: String,
+    /// Optional: complete database URL override
+    pub url_override: Option<String>,
+}
+
+/// Application secrets
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct AppSecrets {
+    /// Secret key for sessions (future use)
+    pub session_secret: Option<String>,
+    /// API keys for external services
+    pub api_keys: HashMap<String, String>,
+}
+
+/// External service secrets
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct ExternalSecrets {
+    /// SMTP password for email notifications (future)
+    pub smtp_password: Option<String>,
+    /// Other service credentials
+    pub services: HashMap<String, String>,
+}
+
 // Default value functions
 fn default_app_name() -> String {
     "WebAuthn Demo".to_string()
@@ -647,6 +688,47 @@ impl AppConfig {
 
         config.validate()?;
         Ok(config)
+    }
+
+    /// Load configuration with secrets from separate files
+    pub fn from_files<P: AsRef<Path>>(
+        config_path: P,
+        secrets_path: Option<P>,
+    ) -> Result<(Self, Option<SecretsConfig>), ConfigError> {
+        let mut config = Self::from_file(config_path)?;
+
+        let secrets = if let Some(secrets_path) = secrets_path {
+            let secrets_path = secrets_path.as_ref();
+            if secrets_path.exists() {
+                let secrets_content = std::fs::read_to_string(secrets_path)?;
+                let secrets: SecretsConfig = json5::from_str(&secrets_content).map_err(|e| {
+                    ConfigError::ParseError(format!("Secrets JSON5 parse error: {}", e))
+                })?;
+                Some(secrets)
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        // Apply secrets to config if available
+        if let Some(ref secrets) = secrets {
+            config.apply_secrets(secrets);
+        }
+
+        Ok((config, secrets))
+    }
+
+    /// Apply secrets to configuration
+    fn apply_secrets(&mut self, secrets: &SecretsConfig) {
+        // Apply database password
+        self.database.password = Some(secrets.database.password.clone());
+
+        // Apply URL override if provided
+        if let Some(ref url_override) = secrets.database.url_override {
+            self.database.url = Some(url_override.clone());
+        }
     }
 
     /// Generate a default configuration file
@@ -889,10 +971,14 @@ impl AppConfig {
         if let Some(url) = &self.database.url {
             url.clone()
         } else {
-            // Build URL from components, password will come from environment
-            let password = std::env::var("DATABASE_PASSWORD")
-                .or_else(|_| std::env::var("POSTGRES_PASSWORD"))
-                .unwrap_or_else(|_| "".to_string());
+            // Use password from config, or fall back to environment variables
+            let password = self
+                .database
+                .password
+                .clone()
+                .or_else(|| std::env::var("DATABASE_PASSWORD").ok())
+                .or_else(|| std::env::var("POSTGRES_PASSWORD").ok())
+                .unwrap_or_else(|| "".to_string());
 
             format!(
                 "postgresql://{}:{}@{}:{}/{}",
@@ -968,6 +1054,123 @@ impl AppConfig {
 }
 
 impl Default for AppConfig {
+    fn default() -> Self {
+        Self::generate_default()
+    }
+}
+
+impl SecretsConfig {
+    /// Generate a default secrets configuration
+    pub fn generate_default() -> Self {
+        Self {
+            database: DatabaseSecrets {
+                password: "change_me_secure_password".to_string(),
+                url_override: None,
+            },
+            app: AppSecrets {
+                session_secret: Some("change_me_session_secret_32_chars_min".to_string()),
+                api_keys: HashMap::new(),
+            },
+            external: ExternalSecrets {
+                smtp_password: None,
+                services: HashMap::new(),
+            },
+        }
+    }
+
+    /// Write a pretty-printed JSONC secrets file
+    pub fn write_to_file<P: AsRef<Path>>(&self, path: P) -> Result<(), ConfigError> {
+        let content = self.to_jsonc_string()?;
+        std::fs::write(path, content)?;
+        Ok(())
+    }
+
+    /// Convert to a JSONC string with helpful comments
+    pub fn to_jsonc_string(&self) -> Result<String, ConfigError> {
+        let json = serde_json::to_string_pretty(self)
+            .map_err(|e| ConfigError::ParseError(format!("JSON serialization error: {}", e)))?;
+
+        // Add header comment
+        let header = r#"// WebAuthn Server Secrets Configuration
+//
+// ⚠️  SECURITY WARNING ⚠️
+// This file contains sensitive information!
+//
+// Security Guidelines:
+// - Never commit this file to version control
+// - Use strong, unique passwords
+// - Rotate secrets regularly
+// - Restrict file permissions (chmod 600)
+// - Keep separate secrets files for different environments
+//
+// This file should be in your .gitignore!
+//
+"#;
+
+        Ok(format!("{}{}", header, json))
+    }
+
+    /// Load secrets from a JSONC file
+    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, ConfigError> {
+        let path = path.as_ref();
+
+        if !path.exists() {
+            return Err(ConfigError::SecretsNotFound(path.display().to_string()));
+        }
+
+        let content = std::fs::read_to_string(path)?;
+        let secrets: SecretsConfig = json5::from_str(&content)
+            .map_err(|e| ConfigError::ParseError(format!("Secrets JSON5 parse error: {}", e)))?;
+
+        Ok(secrets)
+    }
+
+    /// Get environment variables map (for backward compatibility)
+    pub fn to_env_vars(&self) -> HashMap<String, String> {
+        let mut env_vars = HashMap::new();
+
+        // Database password
+        env_vars.insert(
+            "DATABASE_PASSWORD".to_string(),
+            self.database.password.clone(),
+        );
+        env_vars.insert(
+            "POSTGRES_PASSWORD".to_string(),
+            self.database.password.clone(),
+        );
+
+        // Database URL override if provided
+        if let Some(ref url) = self.database.url_override {
+            env_vars.insert("DATABASE_URL".to_string(), url.clone());
+        }
+
+        // Session secret
+        if let Some(ref secret) = self.app.session_secret {
+            env_vars.insert("SESSION_SECRET".to_string(), secret.clone());
+        }
+
+        // API keys
+        for (key, value) in &self.app.api_keys {
+            env_vars.insert(format!("API_KEY_{}", key.to_uppercase()), value.clone());
+        }
+
+        // External services
+        if let Some(ref smtp_password) = self.external.smtp_password {
+            env_vars.insert("SMTP_PASSWORD".to_string(), smtp_password.clone());
+        }
+
+        for (service, credential) in &self.external.services {
+            env_vars.insert(
+                format!("{}_CREDENTIAL", service.to_uppercase()),
+                credential.clone(),
+            );
+        }
+
+        env_vars
+    }
+}
+
+impl Default for SecretsConfig {
     fn default() -> Self {
         Self::generate_default()
     }

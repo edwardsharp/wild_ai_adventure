@@ -1,3 +1,15 @@
+// WebAuthn Server Configuration
+//
+// This file configures all aspects of the WebAuthn authentication server.
+// For JSON Schema support in your editor, save this as config.jsonc and
+// configure your editor to use the generated schema file.
+//
+// To generate environment variables for Docker/SQLx:
+//   cargo run --bin webauthn-admin config generate-env
+//
+// To validate this configuration:
+//   cargo run --bin webauthn-admin config validate
+//
 {
   "app": {
     "name": "WebAuthn Demo",
@@ -36,9 +48,18 @@
     "max_request_size_bytes": 1048576,
     "cors": {
       "enabled": false,
-      "allowed_origins": ["http://localhost:8080"],
-      "allowed_methods": ["GET", "POST", "OPTIONS"],
-      "allowed_headers": ["Content-Type", "Authorization"]
+      "allowed_origins": [
+        "http://localhost:8080"
+      ],
+      "allowed_methods": [
+        "GET",
+        "POST",
+        "OPTIONS"
+      ],
+      "allowed_headers": [
+        "Content-Type",
+        "Authorization"
+      ]
     },
     "tls": {
       "enabled": false,
