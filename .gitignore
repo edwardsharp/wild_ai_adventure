@@ -1,3 +1,15 @@
 .env
+.env.local
 .DS_Store
 
+# Configuration files that might contain secrets
+config.local.jsonc
+config.production.jsonc
+
+# Generated files
+config.schema.json
+
+# Logs
+logs/
+*.log
+config.jsonc

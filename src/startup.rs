@@ -1,6 +1,7 @@
 use crate::analytics::AnalyticsService;
+use crate::config::AppConfig;
 use crate::database::Database;
-use sqlx::PgPool;
+
 use std::sync::Arc;
 use webauthn_rs::prelude::*;
 
@@ -24,39 +25,67 @@ pub struct AppState {
     pub database: Database,
     // Analytics service for request tracking
     pub analytics: AnalyticsService,
+    // Application configuration
+    pub config: AppConfig,
 }
 
 impl AppState {
-    pub async fn new(database_url: &str) -> Result<Self, Box<dyn std::error::Error>> {
-        // Effective domain name.
-        let rp_id = "localhost";
-        // Url containing the effective domain name
-        // MUST include the port number!
-        let rp_origin = Url::parse("http://localhost:8080").expect("Invalid URL");
-        let builder = WebauthnBuilder::new(rp_id, &rp_origin).expect("Invalid configuration");
+    pub async fn new(config: AppConfig) -> Result<Self, Box<dyn std::error::Error>> {
+        // Build WebAuthn configuration from config
+        let rp_origin = Url::parse(&config.webauthn.rp_origin)?;
+        let builder = WebauthnBuilder::new(&config.webauthn.rp_id, &rp_origin)?;
 
-        // Now, with the builder you can define other options.
-        // Set a "nice" relying party name. Has no security properties and
-        // may be changed in the future.
-        let builder = builder.rp_name("Axum Webauthn-rs");
+        // Configure WebAuthn with settings from config
+        let builder = builder.rp_name(&config.webauthn.rp_name);
+
+        // Note: User verification and timeout settings may need to be configured
+        // differently based on the webauthn-rs version and available methods
+        // For now, using the basic builder configuration
 
         // Consume the builder and create our webauthn instance.
-        let webauthn = Arc::new(builder.build().expect("Invalid configuration"));
+        let webauthn = Arc::new(builder.build()?);
 
-        // Connect to the database
-        let pool = PgPool::connect(database_url).await?;
+        // Connect to the database using config
+        let database_url = config.database_url();
+
+        // Configure connection pool
+        let pool = sqlx::postgres::PgPoolOptions::new()
+            .max_connections(config.database.pool.max_connections)
+            .min_connections(config.database.pool.min_connections)
+            .acquire_timeout(std::time::Duration::from_secs(
+                config.database.pool.connect_timeout_seconds,
+            ))
+            .idle_timeout(std::time::Duration::from_secs(
+                config.database.pool.idle_timeout_seconds,
+            ))
+            .connect(&database_url)
+            .await?;
+
         let database = Database::new(pool.clone());
 
         // Create analytics service with the same pool
         let analytics = AnalyticsService::new(pool);
 
-        // Run migrations
-        database.migrate().await?;
+        // Run migrations if enabled
+        if config.database.migrations.auto_run {
+            database.migrate().await?;
+        }
 
         Ok(AppState {
             webauthn,
             database,
             analytics,
+            config,
         })
+    }
+
+    pub async fn from_config_file(config_path: &str) -> Result<Self, Box<dyn std::error::Error>> {
+        let config = AppConfig::from_file(config_path)?;
+        Self::new(config).await
+    }
+
+    pub async fn with_defaults() -> Result<Self, Box<dyn std::error::Error>> {
+        let config = AppConfig::default();
+        Self::new(config).await
     }
 }

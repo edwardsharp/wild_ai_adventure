@@ -1,9 +1,12 @@
 use crate::analytics::AnalyticsService;
+use crate::config::{AppConfig, ConfigError};
 use crate::database::Database;
 use clap::{Parser, Subcommand};
 use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
 use sqlx::PgPool;
+
+use std::path::PathBuf;
 use uuid::Uuid;
 
 #[derive(Parser)]
@@ -13,20 +16,30 @@ pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
 
+    /// Path to configuration file
+    #[arg(long, short, default_value = "config.jsonc")]
+    pub config: PathBuf,
+
+    /// Database URL (overrides config file)
     #[arg(long, env = "DATABASE_URL")]
-    pub database_url: String,
+    pub database_url: Option<String>,
 }
 
 #[derive(Subcommand)]
 pub enum Commands {
+    /// Configuration management
+    Config {
+        #[command(subcommand)]
+        command: ConfigCommands,
+    },
     /// Generate a new invite code
     GenerateInvite {
         /// Number of invite codes to generate
-        #[arg(short, long, default_value = "1")]
-        count: u32,
+        #[arg(short, long)]
+        count: Option<u32>,
         /// Length of the invite code
-        #[arg(short, long, default_value = "8")]
-        length: usize,
+        #[arg(short, long)]
+        length: Option<usize>,
     },
     /// List all invite codes
     ListInvites {
@@ -65,9 +78,60 @@ pub enum Commands {
     },
 }
 
+#[derive(Subcommand, Clone)]
+pub enum ConfigCommands {
+    /// Generate a default configuration file
+    Init {
+        /// Force overwrite existing config file
+        #[arg(short, long)]
+        force: bool,
+    },
+    /// Validate the configuration file
+    Validate,
+    /// Generate JSON Schema for editor support
+    Schema {
+        /// Output path for schema file
+        #[arg(short, long, default_value = "config.schema.json")]
+        output: PathBuf,
+    },
+    /// Generate .env file from configuration
+    GenerateEnv {
+        /// Output path for .env file
+        #[arg(short, long, default_value = ".env")]
+        output: PathBuf,
+        /// Include example values with comments
+        #[arg(long)]
+        with_examples: bool,
+    },
+    /// Show current configuration
+    Show {
+        /// Show configuration as JSON
+        #[arg(long)]
+        json: bool,
+        /// Show only specific section
+        #[arg(long)]
+        section: Option<String>,
+    },
+}
+
 impl Cli {
     pub async fn run(self) -> Result<(), Box<dyn std::error::Error>> {
-        let pool = PgPool::connect(&self.database_url).await?;
+        match &self.command {
+            Commands::Config { command } => {
+                self.handle_config_command(command.clone()).await?;
+                return Ok(());
+            }
+            _ => {}
+        }
+
+        // For non-config commands, we need database access
+        let config = self.load_config().await?;
+        let database_url = self
+            .database_url
+            .clone()
+            .unwrap_or_else(|| config.database_url());
+
+        let pool = PgPool::connect(&database_url).await?;
         let db = Database::new(pool.clone());
 
         // Run migrations
@@ -77,7 +141,10 @@ impl Cli {
         let analytics = AnalyticsService::new(pool);
 
         match self.command {
+            Commands::Config { .. } => unreachable!(), // Already handled above
             Commands::GenerateInvite { count, length } => {
+                let count = count.unwrap_or(config.invite_codes.default_count);
+                let length = length.unwrap_or(config.invite_codes.default_length);
                 self.generate_invites(&db, count, length).await?;
             }
             Commands::ListInvites { active_only } => {
@@ -95,6 +162,329 @@ impl Cli {
             Commands::CleanupAnalytics { days, execute } => {
                 self.cleanup_analytics(&analytics, days, execute).await?;
             }
+        }
+
+        Ok(())
+    }
+
+    async fn load_config(&self) -> Result<AppConfig, Box<dyn std::error::Error>> {
+        if !self.config.exists() {
+            eprintln!(
+                "⚠️  Configuration file '{}' not found.",
+                self.config.display()
+            );
+            eprintln!("💡 Run 'cargo run --bin webauthn-admin config init' to create one.");
+            eprintln!("🔄 Falling back to default configuration...");
+            println!();
+            return Ok(AppConfig::default());
+        }
+
+        match AppConfig::from_file(&self.config) {
+            Ok(config) => Ok(config),
+            Err(e) => {
+                eprintln!("❌ Failed to load configuration: {}", e);
+                eprintln!("💡 Run 'cargo run --bin webauthn-admin config validate' for details.");
+                std::process::exit(1);
+            }
+        }
+    }
+
+    async fn handle_config_command(
+        &self,
+        command: ConfigCommands,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        match command {
+            ConfigCommands::Init { force } => {
+                self.init_config(force).await?;
+            }
+            ConfigCommands::Validate => {
+                self.validate_config().await?;
+            }
+            ConfigCommands::Schema { output } => {
+                self.generate_schema(output).await?;
+            }
+            ConfigCommands::GenerateEnv {
+                output,
+                with_examples,
+            } => {
+                self.generate_env_file(output, with_examples).await?;
+            }
+            ConfigCommands::Show { json, section } => {
+                self.show_config(json, section).await?;
+            }
+        }
+        Ok(())
+    }
+
+    async fn init_config(&self, force: bool) -> Result<(), Box<dyn std::error::Error>> {
+        if self.config.exists() && !force {
+            eprintln!(
+                "❌ Configuration file '{}' already exists.",
+                self.config.display()
+            );
+            eprintln!("💡 Use --force to overwrite, or choose a different path with --config");
+            return Ok(());
+        }
+
+        println!("🚀 Generating default configuration...");
+
+        let config = AppConfig::default();
+        config.write_to_file(&self.config)?;
+
+        println!("✅ Created configuration file: {}", self.config.display());
+        println!();
+        println!("📋 Next steps:");
+        println!("  1. Edit the configuration file to match your setup");
+        println!("  2. Generate JSON Schema for editor support:");
+        println!("     cargo run --bin webauthn-admin config schema");
+        println!("  3. Generate .env file for Docker/SQLx:");
+        println!("     cargo run --bin webauthn-admin config generate-env");
+        println!("  4. Validate your configuration:");
+        println!("     cargo run --bin webauthn-admin config validate");
+
+        Ok(())
+    }
+
+    async fn validate_config(&self) -> Result<(), Box<dyn std::error::Error>> {
+        println!("🔍 Validating configuration...");
+
+        if !self.config.exists() {
+            eprintln!(
+                "❌ Configuration file '{}' not found.",
+                self.config.display()
+            );
+            eprintln!("💡 Run 'config init' to create a default configuration.");
+            return Ok(());
+        }
+
+        match AppConfig::from_file(&self.config) {
+            Ok(config) => {
+                println!("✅ Configuration is valid!");
+                println!();
+                println!("📊 Configuration summary:");
+                println!("  • App: {} v{}", config.app.name, config.app.version);
+                println!("  • Environment: {}", config.app.environment);
+                println!(
+                    "  • Database: {}:{}/{}",
+                    config.database.host, config.database.port, config.database.database
+                );
+                println!("  • Server: {}:{}", config.server.host, config.server.port);
+                println!(
+                    "  • WebAuthn: {} ({})",
+                    config.webauthn.rp_id, config.webauthn.rp_name
+                );
+                println!("  • Frontend: {}", config.static_files.frontend_type);
+
+                // Check for common issues
+                let mut warnings = Vec::new();
+
+                if config.app.environment == "production" {
+                    if !config.production.require_https {
+                        warnings.push("Production environment should require HTTPS");
+                    }
+                    if !config.sessions.secure {
+                        warnings.push("Production environment should use secure cookies");
+                    }
+                }
+
+                if config.webauthn.rp_origin.starts_with("http://")
+                    && config.app.environment == "production"
+                {
+                    warnings.push("Production WebAuthn should use HTTPS");
+                }
+
+                if !warnings.is_empty() {
+                    println!();
+                    println!("⚠️  Warnings:");
+                    for warning in warnings {
+                        println!("  • {}", warning);
+                    }
+                }
+            }
+            Err(ConfigError::ParseError(msg)) => {
+                eprintln!("❌ Configuration parsing failed:");
+                eprintln!("   {}", msg);
+                eprintln!();
+                eprintln!("💡 Common issues:");
+                eprintln!("  • Check for missing commas in JSON");
+                eprintln!("  • Ensure all strings are quoted");
+                eprintln!("  • Verify bracket/brace matching");
+                eprintln!("  • Remove trailing commas");
+            }
+            Err(ConfigError::ValidationError(msg)) => {
+                eprintln!("❌ Configuration validation failed:");
+                eprintln!("   {}", msg);
+                eprintln!();
+                eprintln!("💡 Fix the issues above and run validation again.");
+            }
+            Err(e) => {
+                eprintln!("❌ Failed to load configuration: {}", e);
+            }
+        }
+
+        Ok(())
+    }
+
+    async fn generate_schema(&self, output: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
+        println!("📝 Generating JSON Schema for editor support...");
+
+        let schema = AppConfig::generate_schema()?;
+        std::fs::write(&output, schema)?;
+
+        println!("✅ Generated schema file: {}", output.display());
+        println!();
+        println!("🎯 Editor setup tips:");
+        println!("  • VS Code: Install 'JSON' extension, configure in settings.json:");
+        println!(
+            r#"    "json.schemas": [{{"fileMatch": ["config.jsonc"], "url": "./{}"}}]"#,
+            output.display()
+        );
+        println!("  • IntelliJ/WebStorm: Preferences → JSON Schema Mappings");
+        println!("  • Vim/Neovim: Use ALE or coc-json with schema configuration");
+
+        Ok(())
+    }
+
+    async fn generate_env_file(
+        &self,
+        output: PathBuf,
+        with_examples: bool,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        println!("🔧 Generating .env file...");
+
+        let config = if self.config.exists() {
+            AppConfig::from_file(&self.config)?
+        } else {
+            println!("⚠️  Config file not found, using defaults");
+            AppConfig::default()
+        };
+
+        let env_vars = config.to_env_vars();
+        let mut content = String::new();
+
+        content.push_str("# Generated from configuration file\n");
+        content.push_str("# This file contains environment variables needed for Docker and SQLx\n");
+        content.push_str("# \n");
+        content.push_str("# DO NOT commit this file to version control!\n");
+        content.push_str("# Add .env to your .gitignore\n\n");
+
+        // Core variables
+        content.push_str("# Database Configuration\n");
+        for (key, value) in &env_vars {
+            if key.starts_with("DATABASE") || key.starts_with("POSTGRES") {
+                if key == "DATABASE_URL" || key.contains("PASSWORD") {
+                    content.push_str(&format!("{}={}\n", key, value));
+                } else {
+                    content.push_str(&format!("{}={}\n", key, value));
+                }
+            }
+        }
+
+        content.push_str("\n# Application Configuration\n");
+        for (key, value) in &env_vars {
+            if key.starts_with("APP_") || key == "RUST_LOG" {
+                content.push_str(&format!("{}={}\n", key, value));
+            }
+        }
+
+        if with_examples {
+            content.push_str("\n# Example additional environment variables:\n");
+            content.push_str("# DATABASE_PASSWORD=your_secure_password_here\n");
+            content.push_str("# POSTGRES_PASSWORD=your_secure_password_here\n");
+            content.push_str("# \n");
+            content.push_str("# For Docker Compose:\n");
+            content.push_str("# PGADMIN_DEFAULT_EMAIL=admin@example.com\n");
+            content.push_str("# PGADMIN_DEFAULT_PASSWORD=admin_password\n");
+        }
+
+        std::fs::write(&output, content)?;
+
+        println!("✅ Generated .env file: {}", output.display());
+        println!();
+        println!("🔒 Security reminders:");
+        println!("  • Add .env to your .gitignore file");
+        println!("  • Set DATABASE_PASSWORD or POSTGRES_PASSWORD");
+        println!("  • Never commit environment files to version control");
+        println!("  • Use strong, unique passwords in production");
+
+        Ok(())
+    }
+
+    async fn show_config(
+        &self,
+        json: bool,
+        section: Option<String>,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let config = if self.config.exists() {
+            AppConfig::from_file(&self.config)?
+        } else {
+            println!("⚠️  Config file not found, showing defaults");
+            AppConfig::default()
+        };
+
+        if json {
+            if let Some(section) = section {
+                // Show specific section
+                let value = match section.as_str() {
+                    "app" => serde_json::to_value(&config.app)?,
+                    "database" => serde_json::to_value(&config.database)?,
+                    "webauthn" => serde_json::to_value(&config.webauthn)?,
+                    "server" => serde_json::to_value(&config.server)?,
+                    "sessions" => serde_json::to_value(&config.sessions)?,
+                    "logging" => serde_json::to_value(&config.logging)?,
+                    "features" => serde_json::to_value(&config.features)?,
+                    _ => {
+                        eprintln!("❌ Unknown section: {}", section);
+                        eprintln!("Available sections: app, database, webauthn, server, sessions, logging, features");
+                        return Ok(());
+                    }
+                };
+                println!("{}", serde_json::to_string_pretty(&value)?);
+            } else {
+                println!("{}", serde_json::to_string_pretty(&config)?);
+            }
+        } else {
+            // Human-readable format
+            println!("📋 Current Configuration");
+            println!("========================");
+            println!();
+            println!("🏷️  Application:");
+            println!("   Name: {}", config.app.name);
+            println!("   Version: {}", config.app.version);
+            println!("   Environment: {}", config.app.environment);
+            println!();
+            println!("🗄️  Database:");
+            println!("   Host: {}", config.database.host);
+            println!("   Port: {}", config.database.port);
+            println!("   Database: {}", config.database.database);
+            println!("   Username: {}", config.database.username);
+            println!(
+                "   Max Connections: {}",
+                config.database.pool.max_connections
+            );
+            println!();
+            println!("🔐 WebAuthn:");
+            println!("   RP ID: {}", config.webauthn.rp_id);
+            println!("   RP Name: {}", config.webauthn.rp_name);
+            println!("   Origin: {}", config.webauthn.rp_origin);
+            println!("   Timeout: {}ms", config.webauthn.timeout_ms);
+            println!();
+            println!("🌐 Server:");
+            println!("   Host: {}", config.server.host);
+            println!("   Port: {}", config.server.port);
+            println!(
+                "   TLS: {}",
+                if config.server.tls.enabled {
+                    "enabled"
+                } else {
+                    "disabled"
+                }
+            );
+            println!();
+            println!("🎫 Invite Codes:");
+            println!("   Default Length: {}", config.invite_codes.default_length);
+            println!("   Single Use: {}", config.invite_codes.single_use);
+            println!("   Max Batch: {}", config.invite_codes.max_batch_size);
         }
 
         Ok(())

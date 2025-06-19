@@ -8,53 +8,68 @@ set -e
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 echo -e "${GREEN}WebAuthn Axum Development Setup${NC}"
 echo "=================================="
 
-# Check if .env file exists and source it
-if [ -f ".env" ]; then
-    echo -e "${GREEN}Found .env file, sourcing it...${NC}"
-    export $(cat .env | grep -v '^#' | xargs)
-fi
-
-# Check if DATABASE_URL is set
-if [ -z "$DATABASE_URL" ]; then
-    echo -e "${YELLOW}DATABASE_URL not set. Please set it or create a .env file.${NC}"
-    echo "Example: export DATABASE_URL='postgresql://username:password@localhost:5432/webauthn_db'"
+# Check for configuration file
+if [ ! -f "config.jsonc" ]; then
+    echo -e "${YELLOW}Configuration file not found. Creating default config...${NC}"
+    cargo run --bin webauthn-admin config init
     echo ""
-
-    if [ ! -f ".env" ]; then
-        echo -e "${YELLOW}Creating .env file from example...${NC}"
-        cp .env.example .env
-        echo -e "${RED}Please edit .env file with your database credentials and run this script again.${NC}"
-        exit 1
-    else
-        echo -e "${RED}DATABASE_URL not found in .env file. Please check your .env configuration.${NC}"
-        exit 1
-    fi
+    echo -e "${BLUE}📝 Please review and edit config.jsonc for your setup${NC}"
+    echo -e "${BLUE}💡 Key settings to check:${NC}"
+    echo -e "${BLUE}  • Database connection (host, port, username, database)${NC}"
+    echo -e "${BLUE}  • WebAuthn settings (rp_id, rp_origin)${NC}"
+    echo -e "${BLUE}  • Server port and host${NC}"
+    echo ""
 fi
 
-# Verify DATABASE_URL is now set
-if [ -z "$DATABASE_URL" ]; then
-    echo -e "${RED}DATABASE_URL still not set. Please check your .env file.${NC}"
+# Validate configuration
+echo -e "${YELLOW}Validating configuration...${NC}"
+if ! cargo run --bin webauthn-admin config validate; then
+    echo -e "${RED}Configuration validation failed. Please fix the issues above.${NC}"
     exit 1
 fi
 
-echo -e "${GREEN}Using DATABASE_URL: ${DATABASE_URL}${NC}"
+# Generate or update .env file for Docker/SQLx compatibility
+echo -e "${YELLOW}Generating .env file for Docker/SQLx...${NC}"
+cargo run --bin webauthn-admin config generate-env --with-examples
+
+# Source the generated .env file
+if [ -f ".env" ]; then
+    export $(cat .env | grep -v '^#' | grep -v '^$' | xargs)
+fi
+
+# Check if DATABASE_PASSWORD is set
+if [ -z "$DATABASE_PASSWORD" ] && [ -z "$POSTGRES_PASSWORD" ]; then
+    echo -e "${YELLOW}Database password not set in environment.${NC}"
+    echo -e "${YELLOW}Please set DATABASE_PASSWORD or POSTGRES_PASSWORD:${NC}"
+    echo "  export DATABASE_PASSWORD='your_password_here'"
+    echo "  # or add it to your .env file"
+    echo ""
+fi
+
+echo -e "${GREEN}Configuration loaded successfully!${NC}"
 echo ""
 
 # Check if PostgreSQL is running
 echo -e "${YELLOW}Testing database connection...${NC}"
-if ! cargo run --bin webauthn-admin -- stats > /dev/null 2>&1; then
+if ! cargo run --bin webauthn-admin stats > /dev/null 2>&1; then
     echo -e "${RED}Cannot connect to database. Please ensure:${NC}"
     echo "1. PostgreSQL is running"
-    echo "2. Database exists"
-    echo "3. User has proper permissions"
-    echo "4. DATABASE_URL is correct"
+    echo "2. Database exists and is accessible"
+    echo "3. Database user has proper permissions"
+    echo "4. Database password is set in environment"
+    echo "5. Configuration file has correct database settings"
     echo ""
-    echo "Current DATABASE_URL: $DATABASE_URL"
+    echo -e "${BLUE}💡 Tips:${NC}"
+    echo "  • Check config.jsonc database section"
+    echo "  • Set DATABASE_PASSWORD environment variable"
+    echo "  • Verify PostgreSQL is running: brew services start postgresql@15"
+    echo "  • Test connection: psql -h localhost -U postgres -d webauthn_db"
     exit 1
 fi
 
@@ -63,13 +78,13 @@ echo ""
 
 # Generate some invite codes if none exist
 echo -e "${YELLOW}Checking for existing invite codes...${NC}"
-invite_count=$(cargo run --bin webauthn-admin -- stats 2>/dev/null | grep "Active codes:" | awk '{print $3}' || echo "0")
+invite_count=$(cargo run --bin webauthn-admin stats 2>/dev/null | grep "Active codes:" | awk '{print $3}' || echo "0")
 
 if [ "$invite_count" = "0" ]; then
-    echo -e "${YELLOW}No active invite codes found. Generating 3 invite codes...${NC}"
-    cargo run --bin webauthn-admin -- generate-invite --count 3
+    echo -e "${YELLOW}No active invite codes found. Generating invite codes...${NC}"
+    cargo run --bin webauthn-admin generate-invite
     echo ""
-    echo -e "${GREEN}Generated invite codes. Use 'cargo run --bin webauthn-admin -- list-invites' to see them.${NC}"
+    echo -e "${GREEN}Generated invite codes. Use 'cargo run --bin webauthn-admin list-invites' to see them.${NC}"
     echo ""
 else
     echo -e "${GREEN}Found $invite_count active invite codes.${NC}"
@@ -78,17 +93,29 @@ fi
 
 # Show available invite codes
 echo -e "${YELLOW}Available invite codes:${NC}"
-cargo run --bin webauthn-admin -- list-invites --active-only
+cargo run --bin webauthn-admin list-invites --active-only
 echo ""
 
-# Set RUST_LOG if not set
-if [ -z "$RUST_LOG" ]; then
-    export RUST_LOG=info
-fi
+# Show configuration summary
+echo -e "${BLUE}📋 Configuration Summary:${NC}"
+cargo run --bin webauthn-admin config show
+echo ""
 
-echo -e "${GREEN}Starting WebAuthn server...${NC}"
-echo -e "${YELLOW}Server will be available at: http://localhost:8080${NC}"
-echo -e "${YELLOW}Press Ctrl+C to stop the server${NC}"
+# Generate JSON Schema for editor support
+echo -e "${YELLOW}Generating JSON Schema for editor support...${NC}"
+cargo run --bin webauthn-admin config schema
+echo ""
+
+echo -e "${GREEN}🚀 Starting WebAuthn server...${NC}"
+echo -e "${YELLOW}📡 Server will be available based on your config.jsonc settings${NC}"
+echo -e "${YELLOW}🔗 Default: http://localhost:8080${NC}"
+echo -e "${YELLOW}⏹️  Press Ctrl+C to stop the server${NC}"
+echo ""
+echo -e "${BLUE}💡 Useful commands while developing:${NC}"
+echo -e "${BLUE}  • View config: cargo run --bin webauthn-admin config show${NC}"
+echo -e "${BLUE}  • List invite codes: cargo run --bin webauthn-admin list-invites${NC}"
+echo -e "${BLUE}  • Generate codes: cargo run --bin webauthn-admin generate-invite${NC}"
+echo -e "${BLUE}  • View analytics: cargo run --bin webauthn-admin analytics${NC}"
 echo ""
 
 # Start the server

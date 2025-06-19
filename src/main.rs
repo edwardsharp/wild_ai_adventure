@@ -8,7 +8,6 @@ use axum::{
 };
 
 use std::net::SocketAddr;
-#[cfg(feature = "wasm")]
 use std::path::PathBuf;
 use tower_sessions::{
     cookie::{time::Duration, SameSite},
@@ -27,6 +26,7 @@ use crate::api::{
 use crate::auth::{
     finish_authentication, finish_register, logout, start_authentication, start_register,
 };
+use crate::config::AppConfig;
 use crate::middleware::{analytics_middleware, require_authentication, security_logging};
 use crate::startup::AppState;
 
@@ -37,6 +37,7 @@ mod analytics;
 mod api;
 mod auth;
 mod cli;
+mod config;
 mod database;
 mod error;
 mod middleware;
@@ -53,22 +54,66 @@ compile_error!("Feature \"javascript\" and feature \"wasm\" cannot be enabled at
 
 #[tokio::main]
 async fn main() {
+    // Load configuration
+    let config_path = std::env::var("CONFIG_PATH").unwrap_or_else(|_| "config.jsonc".to_string());
+    let config = if std::path::Path::new(&config_path).exists() {
+        match AppConfig::from_file(&config_path) {
+            Ok(config) => {
+                println!("✅ Loaded configuration from {}", config_path);
+                config
+            }
+            Err(e) => {
+                eprintln!(
+                    "❌ Failed to load configuration from {}: {}",
+                    config_path, e
+                );
+                eprintln!(
+                    "💡 Run 'cargo run --bin webauthn-admin config init' to create a config file"
+                );
+                eprintln!("🔄 Using default configuration...");
+                AppConfig::default()
+            }
+        }
+    } else {
+        eprintln!("⚠️  Configuration file '{}' not found", config_path);
+        eprintln!("💡 Run 'cargo run --bin webauthn-admin config init' to create one");
+        eprintln!("🔄 Using default configuration...");
+        AppConfig::default()
+    };
+
+    // Set up logging based on config
     if std::env::var("RUST_LOG").is_err() {
-        std::env::set_var("RUST_LOG", "INFO");
+        std::env::set_var("RUST_LOG", &config.logging.level);
     }
-    // initialize tracing
     tracing_subscriber::fmt::init();
 
-    // Get database URL from environment
-    let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    // Validate configuration
+    if let Err(e) = config.validate() {
+        eprintln!("❌ Configuration validation failed: {}", e);
+        eprintln!("💡 Run 'cargo run --bin webauthn-admin config validate' for details");
+        std::process::exit(1);
+    }
 
-    // Create the app state with database connection
-    let app_state = AppState::new(&database_url)
+    info!("🚀 Starting {} v{}", config.app.name, config.app.version);
+    info!("🌍 Environment: {}", config.app.environment);
+
+    // Create the app state with configuration
+    let app_state = AppState::new(config.clone())
         .await
         .expect("Failed to initialize app state");
 
-    // Create memory session store (for simplicity - use PostgresStore in production)
-    let session_store = MemoryStore::default();
+    // Create session store based on config
+    let session_store = match config.sessions.store_type.as_str() {
+        "memory" => MemoryStore::default(),
+        // TODO: Add PostgreSQL session store support
+        _ => {
+            warn!(
+                "Unknown session store type '{}', falling back to memory",
+                config.sessions.store_type
+            );
+            MemoryStore::default()
+        }
+    };
 
     // Get analytics service for middleware
     let analytics_service = app_state.analytics.clone();
@@ -77,63 +122,141 @@ async fn main() {
     let protected_routes = Router::new()
         .nest_service(
             "/private",
-            tower_http::services::ServeDir::new("assets/private"),
+            tower_http::services::ServeDir::new(&config.static_files.private_directory),
         )
         .route("/api/analytics", get(get_analytics))
         .route("/api/user/activity", get(get_user_activity))
         .layer(axum_middleware::from_fn(require_authentication));
 
     // Create public routes
-    let public_routes = Router::new()
-        .nest_service(
-            "/public",
-            tower_http::services::ServeDir::new("assets/public"),
-        )
-        .route("/health", get(health_check))
-        .route("/metrics", get(get_metrics))
-        .route("/metrics/prometheus", get(get_prometheus_metrics));
+    let mut public_routes = Router::new().nest_service(
+        "/public",
+        tower_http::services::ServeDir::new(&config.static_files.public_directory),
+    );
 
-    // build our application with routes
-    let app = Router::new()
-        .route("/register_start/:username", post(start_register))
-        .route("/register_finish", post(finish_register))
+    // Add metrics endpoints if enabled
+    if config.analytics.metrics.enabled {
+        public_routes = public_routes
+            .route(&config.analytics.metrics.health_endpoint, get(health_check))
+            .route(
+                &config.analytics.metrics.prometheus_endpoint,
+                get(get_prometheus_metrics),
+            )
+            .route("/api/metrics", get(get_metrics));
+    }
+
+    // Build session manager with config
+    let same_site = match config.sessions.same_site.as_str() {
+        "strict" => SameSite::Strict,
+        "lax" => SameSite::Lax,
+        "none" => SameSite::None,
+        _ => SameSite::Strict,
+    };
+
+    let session_layer = SessionManagerLayer::new(session_store)
+        .with_name("webauthnrs")
+        .with_same_site(same_site)
+        .with_secure(config.sessions.secure)
+        .with_http_only(config.sessions.http_only)
+        .with_expiry(Expiry::OnInactivity(Duration::seconds(
+            config.sessions.max_age_seconds,
+        )));
+
+    // Build main router
+    let mut app = Router::new();
+
+    // Add authentication routes if registration is enabled
+    if config.features.registration_enabled {
+        app = app
+            .route("/register_start/:username", post(start_register))
+            .route("/register_finish", post(finish_register));
+    }
+
+    app = app
         .route("/login_start/:username", post(start_authentication))
         .route("/login_finish", post(finish_authentication))
         .route("/logout", post(logout))
         .merge(protected_routes)
         .merge(public_routes)
         .layer(Extension(app_state))
-        .layer(axum_middleware::from_fn(security_logging))
-        .layer(axum_middleware::from_fn(analytics_middleware))
-        .layer(Extension(analytics_service))
-        .layer(
-            SessionManagerLayer::new(session_store)
-                .with_name("webauthnrs")
-                .with_same_site(SameSite::Strict)
-                .with_secure(false) // TODO: change this to true when running on an HTTPS/production server instead of locally
-                .with_expiry(Expiry::OnInactivity(Duration::seconds(360))),
-        )
-        .fallback(handler_404);
+        .layer(axum_middleware::from_fn(security_logging));
 
-    #[cfg(feature = "wasm")]
-    if !PathBuf::from("./assets/wasm").exists() {
-        panic!("Can't find WASM files to serve!")
+    // Add analytics middleware if enabled
+    if config.features.analytics_enabled {
+        app = app
+            .layer(axum_middleware::from_fn(analytics_middleware))
+            .layer(Extension(analytics_service));
     }
 
-    #[cfg(feature = "wasm")]
-    let app = Router::new()
-        .merge(app)
-        .nest_service("/", tower_http::services::ServeDir::new("assets/wasm"));
+    app = app.layer(session_layer).fallback(handler_404);
 
-    #[cfg(feature = "javascript")]
-    let app = Router::new()
-        .merge(app)
-        .nest_service("/", tower_http::services::ServeDir::new("assets/js"));
+    // Serve frontend files based on config
+    let frontend_type = config.static_files.frontend_type.clone();
+    let javascript_dir = config.static_files.javascript_directory.clone();
+    let _wasm_dir = config.static_files.wasm_directory.clone();
 
-    // run our app with hyper
-    // `axum::Server` is a re-export of `hyper::Server`
-    let addr = SocketAddr::from(([0, 0, 0, 0], 8080));
-    info!("listening on {addr}");
+    match frontend_type.as_str() {
+        "wasm" => {
+            #[cfg(feature = "wasm")]
+            {
+                if !PathBuf::from(&_wasm_dir).exists() {
+                    panic!("Can't find WASM files at: {}", _wasm_dir);
+                }
+                app = Router::new()
+                    .merge(app)
+                    .nest_service("/", tower_http::services::ServeDir::new(&_wasm_dir));
+            }
+            #[cfg(not(feature = "wasm"))]
+            {
+                eprintln!("❌ WASM frontend requested but wasm feature not enabled");
+                eprintln!("💡 Build with: cargo run --features wasm");
+                std::process::exit(1);
+            }
+        }
+        "javascript" => {
+            #[cfg(feature = "javascript")]
+            {
+                if !PathBuf::from(&javascript_dir).exists() {
+                    panic!("Can't find JavaScript files at: {}", javascript_dir);
+                }
+                app = Router::new()
+                    .merge(app)
+                    .nest_service("/", tower_http::services::ServeDir::new(&javascript_dir));
+            }
+            #[cfg(not(feature = "javascript"))]
+            {
+                eprintln!("❌ JavaScript frontend requested but javascript feature not enabled");
+                eprintln!("💡 Build with: cargo run --features javascript");
+                std::process::exit(1);
+            }
+        }
+        _ => {
+            eprintln!("❌ Unknown frontend type: {}", frontend_type);
+            eprintln!("💡 Supported types: javascript, wasm");
+            std::process::exit(1);
+        }
+    }
+
+    // Parse server address from config
+    let host = config
+        .server
+        .host
+        .parse::<std::net::IpAddr>()
+        .unwrap_or_else(|_| {
+            eprintln!("❌ Invalid server host: {}", config.server.host);
+            std::process::exit(1);
+        });
+    let addr = SocketAddr::from((host, config.server.port));
+
+    info!("🌐 Server listening on {}", addr);
+    info!("🔗 WebAuthn RP ID: {}", config.webauthn.rp_id);
+    info!("🔗 WebAuthn Origin: {}", config.webauthn.rp_origin);
+    info!("📁 Frontend type: {}", config.static_files.frontend_type);
+
+    if config.development.auto_generate_invites && config.app.environment == "development" {
+        info!("🎫 Auto-generating invite codes for development...");
+        // This would be handled by the startup logic
+    }
 
     let listener = tokio::net::TcpListener::bind(addr)
         .await
