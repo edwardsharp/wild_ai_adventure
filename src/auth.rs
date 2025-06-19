@@ -292,6 +292,16 @@ pub async fn start_authentication(
 // a success. If the browser does not complete this call, or *any* error occurs,
 // this is an authentication failure.
 
+pub async fn logout(session: Session) -> Result<impl IntoResponse, WebauthnError> {
+    // Remove user_id from session to log out
+    let _ = session.remove_value("user_id").await;
+    let _ = session.remove_value("auth_state").await;
+    let _ = session.remove_value("reg_state").await;
+
+    info!("User logged out successfully");
+    Ok(StatusCode::OK)
+}
+
 pub async fn finish_authentication(
     Extension(app_state): Extension<AppState>,
     session: Session,
@@ -332,6 +342,12 @@ pub async fn finish_authentication(
                     // Don't fail authentication for this, but log it
                 }
             }
+
+            // Set user_id in session to mark user as authenticated
+            session
+                .insert("user_id", user_unique_id)
+                .await
+                .expect("Failed to insert user_id into session");
 
             info!("Authentication successful for user: {}", user_unique_id);
             StatusCode::OK

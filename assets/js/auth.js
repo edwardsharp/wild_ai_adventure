@@ -133,3 +133,22 @@ function login() {
       });
     });
 }
+
+function logout() {
+  fetch("http://localhost:8080/logout", {
+    method: "POST",
+  })
+    .then((response) => {
+      const flash_message = document.getElementById("flash_message");
+      if (response.ok) {
+        flash_message.innerHTML = "Successfully logged out!";
+      } else {
+        flash_message.innerHTML = "Error whilst logging out!";
+      }
+    })
+    .catch((error) => {
+      const flash_message = document.getElementById("flash_message");
+      flash_message.innerHTML = "Network error during logout!";
+      console.error("Logout error:", error);
+    });
+}

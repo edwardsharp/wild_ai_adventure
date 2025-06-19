@@ -27,10 +27,45 @@
             />
             <button onclick="register()">Register</button>
             <button onclick="login()">Login</button>
+            <button onclick="logout()">Logout</button>
         </div>
 
         <div>
             <p id="flash_message"></p>
+        </div>
+
+        <div
+            style="
+                margin-top: 30px;
+                padding: 20px;
+                background-color: #f8f9fa;
+                border-radius: 8px;
+            "
+        >
+            <h3>📂 Explore the System:</h3>
+            <ul>
+                <li>
+                    <a href="/public/welcome.html">🌐 Public Area</a> -
+                    Accessible to everyone
+                </li>
+                <li>
+                    <a href="/private/dashboard.html">🔒 Private Area</a> -
+                    Requires authentication
+                </li>
+                <li>
+                    <a href="/public/readme.txt">📄 Public Documentation</a>
+                </li>
+                <li>
+                    <a href="/private/secret-document.txt"
+                        >🔐 Confidential Document</a
+                    >
+                    - Private only
+                </li>
+            </ul>
+            <p>
+                <strong>Note:</strong> Private content requires WebAuthn
+                authentication!
+            </p>
         </div>
     </body>
 </html>

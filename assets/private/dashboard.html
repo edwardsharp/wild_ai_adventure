@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Private Area</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 3px solid #e74c3c;
+            padding-bottom: 10px;
+            margin-bottom: 30px;
+        }
+        .badge {
+            display: inline-block;
+            background: #e74c3c;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+        .welcome-box {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+        .stat-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            border-left: 4px solid #3498db;
+        }
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .stat-label {
+            color: #7f8c8d;
+            margin-top: 5px;
+        }
+        .feature-list {
+            background: #ecf0f1;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .feature-item {
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+        }
+        .feature-icon {
+            background: #27ae60;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 15px;
+            font-size: 12px;
+        }
+        .nav-links {
+            background: #34495e;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .nav-links a {
+            color: #ecf0f1;
+            text-decoration: none;
+            margin-right: 20px;
+            padding: 8px 15px;
+            border-radius: 4px;
+            transition: background 0.3s;
+        }
+        .nav-links a:hover {
+            background: #2c3e50;
+        }
+        .security-info {
+            background: #d5f4e6;
+            border: 1px solid #27ae60;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .warning-box {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .timestamp {
+            color: #7f8c8d;
+            font-size: 0.9em;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="badge">🔒 PRIVATE AREA</div>
+        <h1>🛡️ Authenticated User Dashboard</h1>
+
+        <div class="welcome-box">
+            <h2>🎉 Welcome to the Private Area!</h2>
+            <p>You have successfully authenticated using WebAuthn. This content is only accessible to verified users.</p>
+            <p class="timestamp">Access granted on: <span id="currentTime"></span></p>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-number">100%</div>
+                <div class="stat-label">Passwordless</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">FIDO2</div>
+                <div class="stat-label">WebAuthn Standard</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">🔐</div>
+                <div class="stat-label">Secure Access</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">✅</div>
+                <div class="stat-label">Authenticated</div>
+            </div>
+        </div>
+
+        <div class="feature-list">
+            <h3>🚀 Features Available in Private Area:</h3>
+            <div class="feature-item">
+                <div class="feature-icon">✓</div>
+                <div>Access to confidential documents and files</div>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">✓</div>
+                <div>User account management and settings</div>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">✓</div>
+                <div>Advanced WebAuthn credential management</div>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">✓</div>
+                <div>Secure API access and data export</div>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">✓</div>
+                <div>Administrative tools and user insights</div>
+            </div>
+        </div>
+
+        <div class="nav-links">
+            <strong>📂 Private Files:</strong>
+            <a href="/private/secret-document.pdf">📄 Secret Document</a>
+            <a href="/private/user-data.json">📊 User Data</a>
+            <a href="/private/config.txt">⚙️ Configuration</a>
+        </div>
+
+        <div class="security-info">
+            <h4>🔒 Security Information</h4>
+            <p><strong>Authentication Method:</strong> WebAuthn (FIDO2)</p>
+            <p><strong>Session Security:</strong> Server-side session management</p>
+            <p><strong>Access Control:</strong> Middleware-enforced authentication</p>
+            <p><strong>Credential Storage:</strong> Encrypted in PostgreSQL database</p>
+        </div>
+
+        <div class="warning-box">
+            <h4>⚠️ Important Notes</h4>
+            <ul>
+                <li>This area is only accessible to authenticated users</li>
+                <li>Your session will expire after a period of inactivity</li>
+                <li>All access to private content is logged for security</li>
+                <li>Do not share links to private content with unauthorized users</li>
+            </ul>
+        </div>
+
+        <h3>🛠️ Developer Information</h3>
+        <p>This private area demonstrates:</p>
+        <ul>
+            <li><strong>Authentication Middleware:</strong> Axum middleware that verifies user sessions</li>
+            <li><strong>Static File Protection:</strong> Serving files only to authenticated users</li>
+            <li><strong>Session Management:</strong> Secure server-side session handling</li>
+            <li><strong>WebAuthn Integration:</strong> Modern passwordless authentication</li>
+        </ul>
+
+        <div class="nav-links">
+            <strong>🔗 Navigation:</strong>
+            <a href="/">🏠 Home</a>
+            <a href="/public/">🌐 Public Area</a>
+            <a href="/private/technical-docs.html">📚 Technical Docs</a>
+        </div>
+
+        <p class="timestamp">
+            <em>This page was served securely to an authenticated user via Axum middleware protection.</em>
+        </p>
+    </div>
+
+    <script>
+        // Display current timestamp
+        document.getElementById('currentTime').textContent = new Date().toLocaleString();
+
+        // Add some interactive elements
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🔒 Private dashboard loaded for authenticated user');
+            console.log('🛡️ WebAuthn session active');
+        });
+    </script>
+</body>
+</html>

@@ -1,4 +1,7 @@
-use axum::{extract::Extension, http::StatusCode, response::IntoResponse, routing::post, Router};
+use axum::{
+    extract::Extension, http::StatusCode, middleware as axum_middleware, response::IntoResponse,
+    routing::post, Router,
+};
 
 use std::net::SocketAddr;
 #[cfg(feature = "wasm")]
@@ -14,8 +17,10 @@ use tower_sessions::{
 
 // The handlers that process the data can be found in the auth.rs file
 // This file contains the wasm client loading code and the axum routing
-use crate::auth::{finish_authentication, finish_register, start_authentication, start_register};
-
+use crate::auth::{
+    finish_authentication, finish_register, logout, start_authentication, start_register,
+};
+use crate::middleware::{require_authentication, security_logging};
 use crate::startup::AppState;
 
 #[macro_use]
@@ -25,6 +30,7 @@ mod auth;
 mod cli;
 mod database;
 mod error;
+mod middleware;
 mod startup;
 
 #[cfg(all(feature = "javascript", feature = "wasm", not(doc)))]
@@ -55,12 +61,29 @@ async fn main() {
     // Create memory session store (for simplicity - use PostgresStore in production)
     let session_store = MemoryStore::default();
 
-    // build our application with a route
+    // Create protected routes that require authentication
+    let protected_routes = Router::new()
+        .nest_service(
+            "/private",
+            tower_http::services::ServeDir::new("assets/private"),
+        )
+        .layer(axum_middleware::from_fn(require_authentication));
+
+    // Create public routes
+    let public_routes = Router::new().nest_service(
+        "/public",
+        tower_http::services::ServeDir::new("assets/public"),
+    );
+
+    // build our application with routes
     let app = Router::new()
         .route("/register_start/:username", post(start_register))
         .route("/register_finish", post(finish_register))
         .route("/login_start/:username", post(start_authentication))
         .route("/login_finish", post(finish_authentication))
+        .route("/logout", post(logout))
+        .merge(protected_routes)
+        .merge(public_routes)
         .layer(Extension(app_state))
         .layer(
             SessionManagerLayer::new(session_store)
@@ -69,6 +92,7 @@ async fn main() {
                 .with_secure(false) // TODO: change this to true when running on an HTTPS/production server instead of locally
                 .with_expiry(Expiry::OnInactivity(Duration::seconds(360))),
         )
+        .layer(axum_middleware::from_fn(security_logging))
         .fallback(handler_404);
 
     #[cfg(feature = "wasm")]

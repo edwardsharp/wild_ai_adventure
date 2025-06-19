@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome - Public Content</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+        }
+        .badge {
+            display: inline-block;
+            background: #27ae60;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            margin-bottom: 20px;
+        }
+        .info-box {
+            background: #ecf0f1;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        a {
+            color: #3498db;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="badge">PUBLIC CONTENT</div>
+        <h1>Welcome to the WebAuthn Demo</h1>
+
+        <p>This is a <strong>public</strong> static file that anyone can access without authentication.</p>
+
+        <div class="info-box">
+            <h3>🌐 Public Area</h3>
+            <p>You're currently viewing content from the public static file server. This content is available to all visitors.</p>
+        </div>
+
+        <h2>Available Actions:</h2>
+        <ul>
+            <li><a href="/">Go to Main Login/Register Page</a></li>
+            <li><a href="/public/readme.txt">View Public Text File</a></li>
+            <li><a href="/private/">Try to Access Private Area</a> (requires authentication)</li>
+        </ul>
+
+        <h2>About This Demo:</h2>
+        <p>This WebAuthn demonstration includes:</p>
+        <ul>
+            <li><strong>Invite Code System:</strong> Registration requires valid invite codes</li>
+            <li><strong>WebAuthn Authentication:</strong> Passwordless login using FIDO2</li>
+            <li><strong>Public Static Files:</strong> Content accessible to everyone</li>
+            <li><strong>Private Static Files:</strong> Content only for authenticated users</li>
+        </ul>
+
+        <div class="info-box">
+            <p><strong>Note:</strong> To access private content, you'll need to register with an invite code and authenticate using WebAuthn.</p>
+        </div>
+    </div>
+</body>
+</html>
