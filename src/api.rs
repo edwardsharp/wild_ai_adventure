@@ -168,39 +168,6 @@ pub async fn get_metrics(
     Ok(Json(metrics))
 }
 
-/// Admin-only endpoint to get detailed analytics (requires authentication)
-pub async fn get_admin_analytics(
-    session: Session,
-    Query(params): Query<AnalyticsQuery>,
-    Extension(analytics): Extension<AnalyticsService>,
-) -> Result<impl IntoResponse, WebauthnError> {
-    // Check if user is authenticated
-    let _user_id = session
-        .get::<Uuid>("user_id")
-        .await?
-        .ok_or(WebauthnError::CorruptSession)?;
-
-    // In a real app, you'd check if the user has admin privileges here
-    // For this demo, any authenticated user can access this
-
-    let stats = analytics.get_stats(params.hours).await?;
-    let top_paths = analytics.get_top_paths(params.hours, 50).await?; // More paths for admin
-
-    // Additional detailed analytics
-    let detailed_response = serde_json::json!({
-        "overview": stats,
-        "top_paths": top_paths,
-        "time_period_hours": params.hours,
-        "system_info": {
-            "database_analytics_available": true,
-            "tracing_enabled": true,
-            "retention_policy": "30 days default"
-        }
-    });
-
-    Ok(Json(detailed_response))
-}
-
 /// Prometheus-style metrics endpoint
 pub async fn get_prometheus_metrics(
     Extension(analytics): Extension<AnalyticsService>,

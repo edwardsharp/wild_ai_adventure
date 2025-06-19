@@ -102,25 +102,6 @@ pub async fn analytics_middleware(
     Ok(response)
 }
 
-/// Optional authentication middleware that adds user info to request extensions
-/// but doesn't block access for unauthenticated users
-pub async fn optional_authentication(
-    session: Session,
-    mut request: Request,
-    next: Next,
-) -> Result<Response, WebauthnError> {
-    // Try to get user_id from session
-    if let Some(user_id) = session.get::<uuid::Uuid>("user_id").await? {
-        // User is authenticated, add user_id to request extensions
-        request.extensions_mut().insert(user_id);
-        tracing::debug!("Authenticated user {} accessing content", user_id);
-    } else {
-        tracing::debug!("Anonymous user accessing content");
-    }
-
-    Ok(next.run(request).await)
-}
-
 /// Legacy security logging middleware (kept for compatibility)
 pub async fn security_logging(request: Request, next: Next) -> Response {
     let method = request.method().clone();

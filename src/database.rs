@@ -43,6 +43,7 @@ impl Database {
     }
 
     // Invite code operations
+    #[allow(dead_code)]
     pub async fn create_invite_code(&self, code: &str) -> Result<InviteCode, sqlx::Error> {
         let row = sqlx::query(
             r#"
@@ -103,6 +104,7 @@ impl Database {
         Ok(result.rows_affected() > 0)
     }
 
+    #[allow(dead_code)]
     pub async fn list_invite_codes(&self) -> Result<Vec<InviteCode>, sqlx::Error> {
         let rows = sqlx::query(
             r#"
@@ -173,6 +175,7 @@ impl Database {
         }))
     }
 
+    #[allow(dead_code)]
     pub async fn get_user_by_id(&self, user_id: Uuid) -> Result<Option<User>, sqlx::Error> {
         let row = sqlx::query(
             r#"

@@ -1,7 +1,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -15,8 +15,10 @@ pub enum ConfigError {
     #[error("Config validation failed: {0}")]
     ValidationError(String),
     #[error("JSON Schema generation failed: {0}")]
+    #[allow(dead_code)]
     SchemaError(String),
     #[error("Secrets file not found: {0}")]
+    #[allow(dead_code)]
     SecretsNotFound(String),
 }
 
@@ -679,6 +681,7 @@ impl AppConfig {
     }
 
     /// Load configuration with secrets from separate files
+    #[allow(dead_code)]
     pub fn from_files<P: AsRef<Path>>(
         config_path: P,
         secrets_path: Option<P>,
@@ -709,6 +712,7 @@ impl AppConfig {
     }
 
     /// Apply secrets to configuration
+    #[allow(dead_code)]
     fn apply_secrets(&mut self, secrets: &SecretsConfig) {
         // Apply database password
         self.database.password = Some(secrets.database.password.clone());
@@ -973,6 +977,7 @@ impl AppConfig {
     }
 
     /// Generate environment variables needed for Docker/SQLx
+    #[allow(dead_code)]
     pub fn to_env_vars(&self) -> HashMap<String, String> {
         let mut env_vars = HashMap::new();
 
@@ -997,6 +1002,7 @@ impl AppConfig {
     }
 
     /// Generate JSON Schema for IDE support
+    #[allow(dead_code)]
     pub fn generate_schema() -> Result<String, ConfigError> {
         let schema = schemars::schema_for!(AppConfig);
         serde_json::to_string_pretty(&schema)
@@ -1004,6 +1010,7 @@ impl AppConfig {
     }
 
     /// Write a pretty-printed JSONC configuration to a file
+    #[allow(dead_code)]
     pub fn write_to_file<P: AsRef<Path>>(&self, path: P) -> Result<(), ConfigError> {
         let content = self.to_jsonc_string()?;
         std::fs::write(path, content)?;
@@ -1060,6 +1067,7 @@ impl SecretsConfig {
     }
 
     /// Write a pretty-printed JSONC secrets file
+    #[allow(dead_code)]
     pub fn write_to_file<P: AsRef<Path>>(&self, path: P) -> Result<(), ConfigError> {
         let content = self.to_jsonc_string()?;
         std::fs::write(path, content)?;
@@ -1067,6 +1075,7 @@ impl SecretsConfig {
     }
 
     /// Convert to a JSONC string with helpful comments
+    #[allow(dead_code)]
     pub fn to_jsonc_string(&self) -> Result<String, ConfigError> {
         let json = serde_json::to_string_pretty(self)
             .map_err(|e| ConfigError::ParseError(format!("JSON serialization error: {}", e)))?;
@@ -1092,6 +1101,7 @@ impl SecretsConfig {
     }
 
     /// Load secrets from a JSONC file
+    #[allow(dead_code)]
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, ConfigError> {
         let path = path.as_ref();
 
@@ -1107,6 +1117,7 @@ impl SecretsConfig {
     }
 
     /// Get environment variables map (for backward compatibility)
+    #[allow(dead_code)]
     pub fn to_env_vars(&self) -> HashMap<String, String> {
         let mut env_vars = HashMap::new();
 

@@ -26,6 +26,7 @@ pub struct AppState {
     // Analytics service for request tracking
     pub analytics: AnalyticsService,
     // Application configuration
+    #[allow(dead_code)]
     pub config: AppConfig,
 }
 
@@ -77,15 +78,5 @@ impl AppState {
             analytics,
             config,
         })
-    }
-
-    pub async fn from_config_file(config_path: &str) -> Result<Self, Box<dyn std::error::Error>> {
-        let config = AppConfig::from_file(config_path)?;
-        Self::new(config).await
-    }
-
-    pub async fn with_defaults() -> Result<Self, Box<dyn std::error::Error>> {
-        let config = AppConfig::default();
-        Self::new(config).await
     }
 }

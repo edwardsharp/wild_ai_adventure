@@ -158,31 +158,191 @@ impl Cli {
             Commands::GenerateInvite { count, length } => {
                 let count = count.unwrap_or(config.invite_codes.default_count);
                 let length = length.unwrap_or(config.invite_codes.default_length);
-                self.generate_invites(&db, count, length).await?;
+
+                println!(
+                    "Generating {} invite code(s) of length {}...",
+                    count, length
+                );
+                println!();
+
+                for i in 1..=count {
+                    let code: String = thread_rng()
+                        .sample_iter(&Alphanumeric)
+                        .take(length)
+                        .map(char::from)
+                        .collect::<String>()
+                        .to_uppercase();
+
+                    match db.create_invite_code(&code).await {
+                        Ok(invite_code) => {
+                            println!(
+                                "Generated invite code {}/{}: {}",
+                                i, count, invite_code.code
+                            );
+                        }
+                        Err(e) => {
+                            eprintln!("Failed to generate invite code {}/{}: {}", i, count, e);
+                        }
+                    }
+                }
+
+                println!();
+                println!("Done! Generated {} invite code(s).", count);
             }
             Commands::ListInvites { active_only } => {
-                self.list_invites(&db, active_only).await?;
+                let invite_codes = db.list_invite_codes().await?;
+
+                let filtered_codes: Vec<_> = if active_only {
+                    invite_codes
+                        .into_iter()
+                        .filter(|code| code.is_active)
+                        .collect()
+                } else {
+                    invite_codes
+                };
+
+                if filtered_codes.is_empty() {
+                    println!("No invite codes found.");
+                } else {
+                    println!("Invite Codes:");
+                    println!(
+                        "{:<10} {:<8} {:<20} {:<20} {:<10}",
+                        "Code", "Active", "Created", "Used", "User ID"
+                    );
+                    println!("{}", "-".repeat(80));
+
+                    for code in filtered_codes {
+                        let used_at = code
+                            .used_at
+                            .map(|dt| dt.format("%Y-%m-%d %H:%M").to_string())
+                            .unwrap_or_else(|| "Never".to_string());
+
+                        let user_id = code
+                            .used_by_user_id
+                            .map(|id| id.to_string()[..8].to_string())
+                            .unwrap_or_else(|| "-".to_string());
+
+                        println!(
+                            "{:<10} {:<8} {:<20} {:<20} {:<10}",
+                            code.code,
+                            if code.is_active { "Yes" } else { "No" },
+                            code.created_at.format("%Y-%m-%d %H:%M"),
+                            used_at,
+                            user_id
+                        );
+                    }
+                }
             }
             Commands::Stats => {
-                self.show_stats(&db).await?;
+                let invite_codes = db.list_invite_codes().await?;
+
+                let total_codes = invite_codes.len();
+                let active_codes = invite_codes.iter().filter(|code| code.is_active).count();
+                let used_codes = invite_codes
+                    .iter()
+                    .filter(|code| code.used_at.is_some())
+                    .count();
+
+                println!("Invite Code Statistics:");
+                println!("  Total codes: {}", total_codes);
+                println!("  Active codes: {}", active_codes);
+                println!("  Used codes: {}", used_codes);
+                println!("  Unused codes: {}", total_codes - used_codes);
             }
             Commands::Analytics { hours, limit } => {
-                self.show_analytics(&analytics, hours, limit).await?;
+                println!("Request Analytics (Last {} hours):", hours);
+                println!("{}", "=".repeat(50));
+
+                // Get overall stats
+                let stats = analytics.get_stats(hours).await?;
+                println!("📊 Overall Statistics:");
+                println!("  Total Requests: {}", stats.total_requests);
+                println!("  Unique Users: {}", stats.unique_users);
+                println!(
+                    "  Success Rate: {:.1}%",
+                    if stats.total_requests > 0 {
+                        (stats.success_count as f64 / stats.total_requests as f64) * 100.0
+                    } else {
+                        0.0
+                    }
+                );
+                println!(
+                    "  Average Duration: {:.1}ms",
+                    stats.avg_duration_ms.unwrap_or(0.0)
+                );
+                println!("  Error Count: {}", stats.error_count);
+                println!();
+
+                // Get top paths
+                let top_paths = analytics.get_top_paths(hours, limit).await?;
+                if !top_paths.is_empty() {
+                    println!("🔥 Top Paths:");
+                    println!("{:<40} {:<10} {:<15}", "Path", "Requests", "Avg Duration");
+                    println!("{}", "-".repeat(70));
+                    for path_stat in top_paths {
+                        println!(
+                            "{:<40} {:<10} {:<15.1}ms",
+                            path_stat.path,
+                            path_stat.request_count,
+                            path_stat.avg_duration_ms.unwrap_or(0.0)
+                        );
+                    }
+                } else {
+                    println!("No requests found in the specified time period.");
+                }
             }
             Commands::UserActivity { ref user_id, limit } => {
-                self.show_user_activity(&analytics, user_id, limit).await?;
+                let user_id = Uuid::parse_str(user_id)?;
+
+                println!("User Activity for {}:", user_id);
+                println!("{}", "=".repeat(60));
+
+                let requests = analytics.get_user_requests(user_id, limit).await?;
+
+                if requests.is_empty() {
+                    println!("No requests found for this user.");
+                } else {
+                    println!(
+                        "{:<20} {:<8} {:<30} {:<6} {:<10}",
+                        "Timestamp", "Method", "Path", "Status", "Duration"
+                    );
+                    println!("{}", "-".repeat(80));
+
+                    for req in requests {
+                        println!(
+                            "{:<20} {:<8} {:<30} {:<6} {:<10}ms",
+                            req.timestamp.format("%Y-%m-%d %H:%M:%S"),
+                            req.method,
+                            if req.path.len() > 28 {
+                                format!("{}...", &req.path[..25])
+                            } else {
+                                req.path.clone()
+                            },
+                            req.status_code,
+                            req.duration_ms.unwrap_or(0)
+                        );
+                    }
+                }
             }
             Commands::CleanupAnalytics { days, execute } => {
-                self.cleanup_analytics(&analytics, days, execute).await?;
+                if execute {
+                    println!("🗑️  Cleaning up analytics data older than {} days...", days);
+                    let deleted_count = analytics.cleanup_old_data(days).await?;
+                    println!(
+                        "✅ Successfully deleted {} old analytics records.",
+                        deleted_count
+                    );
+                } else {
+                    println!(
+                        "🔍 Dry run: Would clean up analytics data older than {} days",
+                        days
+                    );
+                    println!("   Use --execute to actually perform the cleanup.");
+                }
             }
         }
 
         Ok(())
-    }
-
-    async fn load_config(&self) -> Result<AppConfig, Box<dyn std::error::Error>> {
-        let (config, _) = self.load_config_with_secrets().await?;
-        Ok(config)
     }
 
     async fn load_config_with_secrets(
@@ -660,254 +820,5 @@ impl Cli {
         }
 
         Ok(())
-    }
-
-    async fn generate_invites(
-        &self,
-        db: &Database,
-        count: u32,
-        length: usize,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        println!(
-            "Generating {} invite code(s) of length {}...",
-            count, length
-        );
-        println!();
-
-        for i in 1..=count {
-            let code = generate_invite_code(length);
-            match db.create_invite_code(&code).await {
-                Ok(invite_code) => {
-                    println!(
-                        "Generated invite code {}/{}: {}",
-                        i, count, invite_code.code
-                    );
-                }
-                Err(e) => {
-                    eprintln!("Failed to generate invite code {}/{}: {}", i, count, e);
-                }
-            }
-        }
-
-        println!();
-        println!("Done! Generated {} invite code(s).", count);
-        Ok(())
-    }
-
-    async fn list_invites(
-        &self,
-        db: &Database,
-        active_only: bool,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        let invite_codes = db.list_invite_codes().await?;
-
-        let filtered_codes: Vec<_> = if active_only {
-            invite_codes
-                .into_iter()
-                .filter(|code| code.is_active)
-                .collect()
-        } else {
-            invite_codes
-        };
-
-        if filtered_codes.is_empty() {
-            println!("No invite codes found.");
-            return Ok(());
-        }
-
-        println!("Invite Codes:");
-        println!(
-            "{:<10} {:<8} {:<20} {:<20} {:<10}",
-            "Code", "Active", "Created", "Used", "User ID"
-        );
-        println!("{}", "-".repeat(80));
-
-        for code in filtered_codes {
-            let used_at = code
-                .used_at
-                .map(|dt| dt.format("%Y-%m-%d %H:%M").to_string())
-                .unwrap_or_else(|| "Never".to_string());
-
-            let user_id = code
-                .used_by_user_id
-                .map(|id| id.to_string()[..8].to_string())
-                .unwrap_or_else(|| "-".to_string());
-
-            println!(
-                "{:<10} {:<8} {:<20} {:<20} {:<10}",
-                code.code,
-                if code.is_active { "Yes" } else { "No" },
-                code.created_at.format("%Y-%m-%d %H:%M"),
-                used_at,
-                user_id
-            );
-        }
-
-        Ok(())
-    }
-
-    async fn show_stats(&self, db: &Database) -> Result<(), Box<dyn std::error::Error>> {
-        let invite_codes = db.list_invite_codes().await?;
-
-        let total_codes = invite_codes.len();
-        let active_codes = invite_codes.iter().filter(|code| code.is_active).count();
-        let used_codes = invite_codes
-            .iter()
-            .filter(|code| code.used_at.is_some())
-            .count();
-
-        println!("Invite Code Statistics:");
-        println!("  Total codes: {}", total_codes);
-        println!("  Active codes: {}", active_codes);
-        println!("  Used codes: {}", used_codes);
-        println!("  Unused codes: {}", total_codes - used_codes);
-
-        Ok(())
-    }
-
-    async fn show_analytics(
-        &self,
-        analytics: &AnalyticsService,
-        hours: i32,
-        limit: i64,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        println!("Request Analytics (Last {} hours):", hours);
-        println!("{}", "=".repeat(50));
-
-        // Get overall stats
-        let stats = analytics.get_stats(hours).await?;
-        println!("📊 Overall Statistics:");
-        println!("  Total Requests: {}", stats.total_requests);
-        println!("  Unique Users: {}", stats.unique_users);
-        println!(
-            "  Success Rate: {:.1}%",
-            if stats.total_requests > 0 {
-                (stats.success_count as f64 / stats.total_requests as f64) * 100.0
-            } else {
-                0.0
-            }
-        );
-        println!(
-            "  Average Duration: {:.1}ms",
-            stats.avg_duration_ms.unwrap_or(0.0)
-        );
-        println!("  Error Count: {}", stats.error_count);
-        println!();
-
-        // Get top paths
-        let top_paths = analytics.get_top_paths(hours, limit).await?;
-        if !top_paths.is_empty() {
-            println!("🔥 Top Paths:");
-            println!("{:<40} {:<10} {:<15}", "Path", "Requests", "Avg Duration");
-            println!("{}", "-".repeat(70));
-            for path_stat in top_paths {
-                println!(
-                    "{:<40} {:<10} {:<15.1}ms",
-                    path_stat.path,
-                    path_stat.request_count,
-                    path_stat.avg_duration_ms.unwrap_or(0.0)
-                );
-            }
-        } else {
-            println!("No requests found in the specified time period.");
-        }
-
-        Ok(())
-    }
-
-    async fn show_user_activity(
-        &self,
-        analytics: &AnalyticsService,
-        user_id_str: &str,
-        limit: i64,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        let user_id = Uuid::parse_str(user_id_str)?;
-
-        println!("User Activity for {}:", user_id);
-        println!("{}", "=".repeat(60));
-
-        let requests = analytics.get_user_requests(user_id, limit).await?;
-
-        if requests.is_empty() {
-            println!("No requests found for this user.");
-            return Ok(());
-        }
-
-        println!(
-            "{:<20} {:<8} {:<30} {:<6} {:<10}",
-            "Timestamp", "Method", "Path", "Status", "Duration"
-        );
-        println!("{}", "-".repeat(80));
-
-        for req in requests {
-            println!(
-                "{:<20} {:<8} {:<30} {:<6} {:<10}ms",
-                req.timestamp.format("%Y-%m-%d %H:%M:%S"),
-                req.method,
-                if req.path.len() > 28 {
-                    format!("{}...", &req.path[..25])
-                } else {
-                    req.path.clone()
-                },
-                req.status_code,
-                req.duration_ms.unwrap_or(0)
-            );
-        }
-
-        Ok(())
-    }
-
-    async fn cleanup_analytics(
-        &self,
-        analytics: &AnalyticsService,
-        days: i32,
-        execute: bool,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        if execute {
-            println!("🗑️  Cleaning up analytics data older than {} days...", days);
-            let deleted_count = analytics.cleanup_old_data(days).await?;
-            println!(
-                "✅ Successfully deleted {} old analytics records.",
-                deleted_count
-            );
-        } else {
-            println!(
-                "🔍 Dry run: Would clean up analytics data older than {} days",
-                days
-            );
-            println!("   Use --execute to actually perform the cleanup.");
-        }
-
-        Ok(())
-    }
-}
-
-fn generate_invite_code(length: usize) -> String {
-    thread_rng()
-        .sample_iter(&Alphanumeric)
-        .take(length)
-        .map(char::from)
-        .collect::<String>()
-        .to_uppercase()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_generate_invite_code() {
-        let code = generate_invite_code(8);
-        assert_eq!(code.len(), 8);
-        assert!(code.chars().all(|c| c.is_alphanumeric()));
-        assert!(code.chars().all(|c| c.is_uppercase() || c.is_numeric()));
-    }
-
-    #[test]
-    fn test_generate_invite_code_different_lengths() {
-        for length in [4, 6, 8, 12] {
-            let code = generate_invite_code(length);
-            assert_eq!(code.len(), length);
-        }
     }
 }
