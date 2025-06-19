@@ -148,6 +148,25 @@
     },
   },
 
+  // Storage backend configuration
+  "storage": {
+    // Analytics storage: where to store request analytics data
+    "analytics": "memory", // "memory" for in-memory storage, "postgres" for PostgreSQL database
+
+    // Session storage: where to store user session data
+    "sessions": "memory", // "memory" for in-memory storage, "postgres" for PostgreSQL database
+
+    // Cache storage: for future caching features
+    "cache": "memory", // "memory" for in-memory storage, "postgres" for PostgreSQL database
+
+    // Notes on storage backends:
+    // - "memory": Fast, good for development/testing, data lost on restart
+    // - "postgres": Persistent, good for production, requires database setup
+    // - Memory storage is recommended for development and quick demos
+    // - PostgreSQL storage is recommended for production deployments
+    // - You can mix backends (e.g., memory sessions + postgres analytics)
+  },
+
   // Development-specific settings (only active when environment = "development")
   "development": {
     "hot_reload": false, // Enable hot reloading of assets (future feature)

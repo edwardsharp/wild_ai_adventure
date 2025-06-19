@@ -1,4 +1,4 @@
-use axum_tutorial::cli::Cli;
+use crate::cli::Cli;
 use clap::Parser;
 
 #[tokio::main]

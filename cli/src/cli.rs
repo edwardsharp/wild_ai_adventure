@@ -1,10 +1,10 @@
-use crate::analytics::AnalyticsService;
-use crate::config::{AppConfig, ConfigError, SecretsConfig};
-use crate::database::Database;
 use clap::{Parser, Subcommand};
 use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
 use sqlx::PgPool;
+use webauthn_server::config::{AppConfig, ConfigError, SecretsConfig, StorageBackend};
+use webauthn_server::database::Database;
+use webauthn_server::storage::AnalyticsService;
 
 use std::path::PathBuf;
 use uuid::Uuid;
@@ -150,8 +150,11 @@ impl Cli {
         // Run migrations
         db.migrate().await?;
 
-        // Create analytics service
-        let analytics = AnalyticsService::new(pool);
+        // Create analytics service based on storage configuration
+        let analytics = match config.storage.analytics {
+            StorageBackend::Memory => AnalyticsService::new_memory(),
+            StorageBackend::Postgres => AnalyticsService::new_postgres(pool),
+        };
 
         match self.command {
             Commands::Config { .. } => unreachable!(), // Already handled above
@@ -266,10 +269,7 @@ impl Cli {
                         0.0
                     }
                 );
-                println!(
-                    "  Average Duration: {:.1}ms",
-                    stats.avg_duration_ms.unwrap_or(0.0)
-                );
+                println!("  Average Duration: {:.1}ms", stats.avg_duration_ms);
                 println!("  Error Count: {}", stats.error_count);
                 println!();
 
@@ -282,9 +282,7 @@ impl Cli {
                     for path_stat in top_paths {
                         println!(
                             "{:<40} {:<10} {:<15.1}ms",
-                            path_stat.path,
-                            path_stat.request_count,
-                            path_stat.avg_duration_ms.unwrap_or(0.0)
+                            path_stat.path, path_stat.request_count, path_stat.avg_duration_ms
                         );
                     }
                 } else {
@@ -319,7 +317,7 @@ impl Cli {
                                 req.path.clone()
                             },
                             req.status_code,
-                            req.duration_ms.unwrap_or(0)
+                            req.duration_ms
                         );
                     }
                 }
@@ -327,7 +325,10 @@ impl Cli {
             Commands::CleanupAnalytics { days, execute } => {
                 if execute {
                     println!("🗑️  Cleaning up analytics data older than {} days...", days);
-                    let deleted_count = analytics.cleanup_old_data(days).await?;
+                    let deleted_count = analytics
+                        .cleanup_old_data(days)
+                        .await
+                        .map_err(|e| format!("Failed to cleanup analytics: {}", e))?;
                     println!(
                         "✅ Successfully deleted {} old analytics records.",
                         deleted_count

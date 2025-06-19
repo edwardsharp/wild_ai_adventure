@@ -1,11 +1,12 @@
-use crate::analytics::{AnalyticsBuilder, AnalyticsService};
 use crate::error::WebauthnError;
+use crate::storage::{AnalyticsBuilder, AnalyticsService};
 use axum::{
     extract::{Extension, Request},
     http::{HeaderMap, StatusCode},
     middleware::Next,
     response::{IntoResponse, Response},
 };
+
 use tower_sessions::Session;
 
 /// Authentication middleware that checks if a user is logged in
@@ -62,8 +63,8 @@ pub async fn analytics_middleware(
     let response = next.run(request).await;
 
     // Extract response information
-    let status_code = response.status().as_u16() as i32;
-    let duration_ms = start_time.elapsed().as_millis();
+    let status_code = response.status().as_u16();
+    let duration_ms = start_time.elapsed().as_millis() as i64;
 
     // Build basic analytics record
     let analytics = AnalyticsBuilder::new(
@@ -71,14 +72,14 @@ pub async fn analytics_middleware(
         method.clone(),
         path.clone(),
         status_code,
+        "127.0.0.1".to_string(), // Simplified for now
     )
     .user_id(user_id)
     .duration_ms(duration_ms)
     .user_agent(user_agent.clone())
-    .ip_address(Some("127.0.0.1".to_string())) // Simplified for now
     .build();
 
-    // Log analytics to database (spawn task to not block response)
+    // Log analytics to storage backend (spawn task to not block response)
     let service = analytics_service.clone();
     let analytics_clone = analytics.clone();
     tokio::spawn(async move {

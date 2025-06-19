@@ -11,7 +11,7 @@ use std::net::SocketAddr;
 use std::path::PathBuf;
 use tower_sessions::{
     cookie::{time::Duration, SameSite},
-    Expiry, MemoryStore, SessionManagerLayer,
+    Expiry, SessionManagerLayer,
 };
 
 /*
@@ -29,6 +29,7 @@ use crate::auth::{
 use crate::config::AppConfig;
 use crate::middleware::{analytics_middleware, require_authentication, security_logging};
 use crate::startup::AppState;
+use crate::storage::SessionStore;
 
 #[macro_use]
 extern crate tracing;
@@ -101,17 +102,10 @@ async fn main() {
         .await
         .expect("Failed to initialize app state");
 
-    // Create session store based on config
-    let session_store = match config.sessions.store_type.as_str() {
-        "memory" => MemoryStore::default(),
-        // TODO: Add PostgreSQL session store support
-        _ => {
-            warn!(
-                "Unknown session store type '{}', falling back to memory",
-                config.sessions.store_type
-            );
-            MemoryStore::default()
-        }
+    // Get session store and analytics service from app state
+    let session_store = match &app_state.session_store {
+        SessionStore::Memory(store) => SessionManagerLayer::new(store.clone()),
+        SessionStore::Postgres(store) => SessionManagerLayer::new(store.clone()),
     };
 
     // Get analytics service for middleware
@@ -152,7 +146,7 @@ async fn main() {
         _ => SameSite::Strict,
     };
 
-    let session_layer = SessionManagerLayer::new(session_store)
+    let session_layer = session_store
         .with_name("webauthnrs")
         .with_same_site(same_site)
         .with_secure(config.sessions.secure)
@@ -218,6 +212,8 @@ async fn main() {
         "📁 Assets directory: {}",
         config.static_files.assets_directory
     );
+    info!("💾 Analytics storage: {:?}", config.storage.analytics);
+    info!("🗄️  Session storage: {:?}", config.storage.sessions);
 
     if config.development.auto_generate_invites && config.app.environment == "development" {
         info!("🎫 Auto-generating invite codes for development...");

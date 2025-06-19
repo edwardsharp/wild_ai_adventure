@@ -4,6 +4,20 @@ use std::collections::HashMap;
 use std::path::Path;
 use thiserror::Error;
 
+/// Storage backend configuration
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum StorageBackend {
+    Memory,
+    Postgres,
+}
+
+impl Default for StorageBackend {
+    fn default() -> Self {
+        Self::Memory
+    }
+}
+
 #[derive(Error, Debug)]
 pub enum ConfigError {
     #[error("Config file not found: {0}")]
@@ -44,6 +58,8 @@ pub struct AppConfig {
     pub analytics: AnalyticsConfig,
     /// Static file serving configuration
     pub static_files: StaticFilesConfig,
+    /// Storage backend configuration
+    pub storage: StorageConfig,
     /// Development-specific settings
     pub development: DevelopmentConfig,
     /// Production deployment settings
@@ -197,6 +213,7 @@ pub struct TlsConfig {
 }
 
 /// Session configuration
+/// Session management settings
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct SessionConfig {
     /// Session cookie name
@@ -214,9 +231,6 @@ pub struct SessionConfig {
     /// HttpOnly cookie flag
     #[serde(default = "default_session_http_only")]
     pub http_only: bool,
-    /// Session store type
-    #[serde(default = "default_session_store")]
-    pub store_type: String,
 }
 
 /// Invite code configuration
@@ -424,6 +438,30 @@ pub struct ProductionSecurityConfig {
     pub content_type_options: String,
 }
 
+/// Storage backend configuration
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct StorageConfig {
+    /// Analytics storage backend
+    #[serde(default)]
+    pub analytics: StorageBackend,
+    /// Session storage backend
+    #[serde(default)]
+    pub sessions: StorageBackend,
+    /// Cache storage backend (future use)
+    #[serde(default)]
+    pub cache: StorageBackend,
+}
+
+impl Default for StorageConfig {
+    fn default() -> Self {
+        Self {
+            analytics: StorageBackend::Memory,
+            sessions: StorageBackend::Memory,
+            cache: StorageBackend::Memory,
+        }
+    }
+}
+
 /// Feature flags
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct FeatureFlags {
@@ -577,9 +615,6 @@ fn default_session_same_site() -> String {
 }
 fn default_session_http_only() -> bool {
     true
-}
-fn default_session_store() -> String {
-    "memory".to_string()
 }
 
 fn default_invite_code_length() -> usize {
@@ -781,7 +816,6 @@ impl AppConfig {
                 secure: false,
                 same_site: default_session_same_site(),
                 http_only: default_session_http_only(),
-                store_type: default_session_store(),
             },
             invite_codes: InviteCodeConfig {
                 default_length: default_invite_code_length(),
@@ -824,6 +858,7 @@ impl AppConfig {
                     etags: true,
                 },
             },
+            storage: StorageConfig::default(),
             development: DevelopmentConfig {
                 hot_reload: false,
                 debug_middleware: true,
@@ -917,6 +952,23 @@ impl AppConfig {
         // Validate session same_site
         if !["strict", "lax", "none"].contains(&self.sessions.same_site.as_str()) {
             errors.push("Session same_site must be 'strict', 'lax', or 'none'".to_string());
+        }
+
+        // Validate storage backends
+        if matches!(self.storage.sessions, StorageBackend::Postgres)
+            && self.database.host.is_empty()
+        {
+            errors.push(
+                "PostgreSQL session storage requires valid database configuration".to_string(),
+            );
+        }
+
+        if matches!(self.storage.analytics, StorageBackend::Postgres)
+            && self.database.host.is_empty()
+        {
+            errors.push(
+                "PostgreSQL analytics storage requires valid database configuration".to_string(),
+            );
         }
 
         // Validate invite code configuration

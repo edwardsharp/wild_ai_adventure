@@ -1,6 +1,6 @@
-use crate::analytics::AnalyticsService;
-use crate::config::AppConfig;
+use crate::config::{AppConfig, StorageBackend};
 use crate::database::Database;
+use crate::storage::{AnalyticsService, SessionStore};
 
 use std::sync::Arc;
 use webauthn_rs::prelude::*;
@@ -25,6 +25,8 @@ pub struct AppState {
     pub database: Database,
     // Analytics service for request tracking
     pub analytics: AnalyticsService,
+    // Session store for tower-sessions
+    pub session_store: SessionStore,
     // Application configuration
     #[allow(dead_code)]
     pub config: AppConfig,
@@ -64,8 +66,17 @@ impl AppState {
 
         let database = Database::new(pool.clone());
 
-        // Create analytics service with the same pool
-        let analytics = AnalyticsService::new(pool);
+        // Create analytics service based on storage configuration
+        let analytics = match config.storage.analytics {
+            StorageBackend::Memory => AnalyticsService::new_memory(),
+            StorageBackend::Postgres => AnalyticsService::new_postgres(pool.clone()),
+        };
+
+        // Create session store based on storage configuration
+        let session_store = match config.storage.sessions {
+            StorageBackend::Memory => SessionStore::new_memory(),
+            StorageBackend::Postgres => SessionStore::new_postgres(pool.clone()).await?,
+        };
 
         // Run migrations if enabled
         if config.database.migrations.auto_run {
@@ -76,6 +87,7 @@ impl AppState {
             webauthn,
             database,
             analytics,
+            session_store,
             config,
         })
     }

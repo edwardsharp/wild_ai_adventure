@@ -1,0 +1,20 @@
+[package]
+name = "webauthn-cli"
+version = "0.1.0"
+edition = "2021"
+authors = [
+    "William Brown <william@blackhats.net.au>, Ben Wishovich <ben@benw.is>",
+]
+license = "MPL-2.0"
+
+[dependencies]
+webauthn-server = { path = "../server" }
+tracing.workspace = true
+tracing-subscriber.workspace = true
+tokio.workspace = true
+clap.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+
+[features]
+default = []

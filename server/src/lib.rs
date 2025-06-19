@@ -1,12 +1,11 @@
-pub mod analytics;
 pub mod api;
 pub mod auth;
-pub mod cli;
 pub mod config;
 pub mod database;
 pub mod error;
 pub mod middleware;
 pub mod startup;
+pub mod storage;
 
 #[macro_use]
 extern crate tracing;
