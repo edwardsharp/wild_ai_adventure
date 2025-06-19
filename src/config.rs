@@ -333,15 +333,9 @@ pub struct StaticFilesConfig {
     /// Private directory path
     #[serde(default = "default_private_dir")]
     pub private_directory: String,
-    /// Frontend type (javascript, wasm)
-    #[serde(default = "default_frontend_type")]
-    pub frontend_type: String,
-    /// JavaScript frontend directory
-    #[serde(default = "default_js_dir")]
-    pub javascript_directory: String,
-    /// WASM frontend directory
-    #[serde(default = "default_wasm_dir")]
-    pub wasm_directory: String,
+    /// Main assets directory (contains js, css, images, etc.)
+    #[serde(default = "default_assets_dir")]
+    pub assets_directory: String,
     /// Cache control settings
     pub cache: CacheConfig,
 }
@@ -634,14 +628,8 @@ fn default_public_dir() -> String {
 fn default_private_dir() -> String {
     "assets/private".to_string()
 }
-fn default_frontend_type() -> String {
-    "javascript".to_string()
-}
-fn default_js_dir() -> String {
-    "assets/js".to_string()
-}
-fn default_wasm_dir() -> String {
-    "assets/wasm".to_string()
+fn default_assets_dir() -> String {
+    "assets".to_string()
 }
 
 fn default_cache_max_age() -> u32 {
@@ -825,9 +813,7 @@ impl AppConfig {
             static_files: StaticFilesConfig {
                 public_directory: default_public_dir(),
                 private_directory: default_private_dir(),
-                frontend_type: default_frontend_type(),
-                javascript_directory: default_js_dir(),
-                wasm_directory: default_wasm_dir(),
+                assets_directory: default_assets_dir(),
                 cache: CacheConfig {
                     enabled: true,
                     max_age_seconds: default_cache_max_age(),
@@ -941,11 +927,6 @@ impl AppConfig {
         // Validate analytics
         if self.analytics.sample_rate < 0.0 || self.analytics.sample_rate > 1.0 {
             errors.push("Analytics sample_rate must be between 0.0 and 1.0".to_string());
-        }
-
-        // Validate frontend type
-        if !["javascript", "wasm"].contains(&self.static_files.frontend_type.as_str()) {
-            errors.push("Frontend type must be 'javascript' or 'wasm'".to_string());
         }
 
         // Production-specific validations

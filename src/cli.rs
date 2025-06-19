@@ -380,7 +380,7 @@ impl Cli {
                     "  • WebAuthn: {} ({})",
                     config.webauthn.rp_id, config.webauthn.rp_name
                 );
-                println!("  • Frontend: {}", config.static_files.frontend_type);
+                println!("  • Assets: {}", config.static_files.assets_directory);
 
                 // Check for common issues
                 let mut warnings = Vec::new();

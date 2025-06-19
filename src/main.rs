@@ -43,8 +43,7 @@ mod error;
 mod middleware;
 mod startup;
 
-#[cfg(all(feature = "javascript", feature = "wasm", not(doc)))]
-compile_error!("Feature \"javascript\" and feature \"wasm\" cannot be enabled at the same time");
+// Both JavaScript and WASM frontends are always available
 
 // 7. That's it! The user has now authenticated!
 
@@ -190,52 +189,16 @@ async fn main() {
 
     app = app.layer(session_layer).fallback(handler_404);
 
-    // Serve frontend files based on config
-    let frontend_type = config.static_files.frontend_type.clone();
-    let javascript_dir = config.static_files.javascript_directory.clone();
-    let _wasm_dir = config.static_files.wasm_directory.clone();
+    // Serve main assets directory (contains both JS and WASM frontends)
+    let assets_dir = config.static_files.assets_directory.clone();
 
-    match frontend_type.as_str() {
-        "wasm" => {
-            #[cfg(feature = "wasm")]
-            {
-                if !PathBuf::from(&_wasm_dir).exists() {
-                    panic!("Can't find WASM files at: {}", _wasm_dir);
-                }
-                app = Router::new()
-                    .merge(app)
-                    .nest_service("/", tower_http::services::ServeDir::new(&_wasm_dir));
-            }
-            #[cfg(not(feature = "wasm"))]
-            {
-                eprintln!("❌ WASM frontend requested but wasm feature not enabled");
-                eprintln!("💡 Build with: cargo run --features wasm");
-                std::process::exit(1);
-            }
-        }
-        "javascript" => {
-            #[cfg(feature = "javascript")]
-            {
-                if !PathBuf::from(&javascript_dir).exists() {
-                    panic!("Can't find JavaScript files at: {}", javascript_dir);
-                }
-                app = Router::new()
-                    .merge(app)
-                    .nest_service("/", tower_http::services::ServeDir::new(&javascript_dir));
-            }
-            #[cfg(not(feature = "javascript"))]
-            {
-                eprintln!("❌ JavaScript frontend requested but javascript feature not enabled");
-                eprintln!("💡 Build with: cargo run --features javascript");
-                std::process::exit(1);
-            }
-        }
-        _ => {
-            eprintln!("❌ Unknown frontend type: {}", frontend_type);
-            eprintln!("💡 Supported types: javascript, wasm");
-            std::process::exit(1);
-        }
+    if !PathBuf::from(&assets_dir).exists() {
+        panic!("Can't find assets directory at: {}", assets_dir);
     }
+
+    app = Router::new()
+        .merge(app)
+        .nest_service("/", tower_http::services::ServeDir::new(&assets_dir));
 
     // Parse server address from config
     let host = config
@@ -251,7 +214,10 @@ async fn main() {
     info!("🌐 Server listening on {}", addr);
     info!("🔗 WebAuthn RP ID: {}", config.webauthn.rp_id);
     info!("🔗 WebAuthn Origin: {}", config.webauthn.rp_origin);
-    info!("📁 Frontend type: {}", config.static_files.frontend_type);
+    info!(
+        "📁 Assets directory: {}",
+        config.static_files.assets_directory
+    );
 
     if config.development.auto_generate_invites && config.app.environment == "development" {
         info!("🎫 Auto-generating invite codes for development...");

@@ -42,9 +42,7 @@ schemars = { version = "0.8", features = ["chrono", "uuid1"] }
 config = "0.14"
 
 [features]
-default = ["javascript"]
-wasm = []
-javascript = []
+default = []
 
 [[bin]]
 name = "webauthn-admin"

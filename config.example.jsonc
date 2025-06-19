@@ -138,9 +138,7 @@
   "static_files": {
     "public_directory": "assets/public", // Directory for public files (accessible to all)
     "private_directory": "assets/private", // Directory for private files (authentication required)
-    "frontend_type": "javascript", // Frontend to serve: "javascript" or "wasm"
-    "javascript_directory": "assets/js", // JavaScript frontend files location
-    "wasm_directory": "assets/wasm", // WASM frontend files location
+    "assets_directory": "assets", // Main assets directory (contains both JS and WASM frontends)
 
     // Cache control for static files
     "cache": {
