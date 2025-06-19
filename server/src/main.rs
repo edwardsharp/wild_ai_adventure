@@ -165,12 +165,12 @@ async fn main() {
     // Add authentication routes if registration is enabled
     if config.features.registration_enabled {
         app = app
-            .route("/register_start/:username", post(start_register))
+            .route("/register_start/{username}", post(start_register))
             .route("/register_finish", post(finish_register));
     }
 
     app = app
-        .route("/login_start/:username", post(start_authentication))
+        .route("/login_start/{username}", post(start_authentication))
         .route("/login_finish", post(finish_authentication))
         .route("/logout", post(logout))
         .merge(protected_routes)
@@ -185,8 +185,6 @@ async fn main() {
             .layer(Extension(analytics_service));
     }
 
-    app = app.layer(session_layer).fallback(handler_404);
-
     // Serve main assets directory (contains both JS and WASM frontends)
     let assets_dir = config.static_files.assets_directory.clone();
 
@@ -194,9 +192,15 @@ async fn main() {
         panic!("Can't find assets directory at: {}", assets_dir);
     }
 
-    app = Router::new()
-        .merge(app)
-        .nest_service("/", tower_http::services::ServeDir::new(&assets_dir));
+    app = app.layer(session_layer).fallback_service(
+        tower_http::services::ServeDir::new(&assets_dir).not_found_service(tower::service_fn(
+            |_| async {
+                Ok::<_, std::convert::Infallible>(
+                    (StatusCode::NOT_FOUND, "nothing to see here").into_response(),
+                )
+            },
+        )),
+    );
 
     // Parse server address from config
     let host = config
