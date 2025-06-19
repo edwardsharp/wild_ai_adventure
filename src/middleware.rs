@@ -1,10 +1,13 @@
+use crate::analytics::{otel_utils, AnalyticsBuilder, AnalyticsService, RequestContext};
 use crate::error::WebauthnError;
 use axum::{
-    extract::Request,
-    http::StatusCode,
+    extract::{ConnectInfo, Extension, Request},
+    http::{HeaderMap, StatusCode},
     middleware::Next,
     response::{IntoResponse, Response},
 };
+use std::collections::HashMap;
+use std::net::SocketAddr;
 use tower_sessions::Session;
 
 /// Authentication middleware that checks if a user is logged in
@@ -15,10 +18,12 @@ pub async fn require_authentication(
     next: Next,
 ) -> Result<Response, WebauthnError> {
     // Check if user_id exists in session (set during successful authentication)
+    println!("ZOMG HELLO FROM require_authentication");
     match session.get::<uuid::Uuid>("user_id").await? {
         Some(user_id) => {
             // User is authenticated, log the access and continue
             tracing::info!("Authenticated user {} accessing private content", user_id);
+            println!("ZOMG goodbye FROM require_authentication");
             Ok(next.run(request).await)
         }
         None => {
@@ -29,6 +34,7 @@ pub async fn require_authentication(
             );
 
             // Return 401 with a helpful message
+            println!("ZOMG goodbye FROM require_authentication");
             Ok((
                 StatusCode::UNAUTHORIZED,
                 "Authentication required. Please log in to access this content.",
@@ -36,6 +42,72 @@ pub async fn require_authentication(
                 .into_response())
         }
     }
+}
+
+/// Analytics middleware that logs all requests to the database
+pub async fn analytics_middleware(
+    session: Session,
+    Extension(analytics_service): Extension<AnalyticsService>,
+    request: Request,
+    next: Next,
+) -> Result<Response, WebauthnError> {
+    println!("ZOMG HI FROM analytics_middleware");
+    // Extract basic request information
+    let method = request.method().to_string();
+    let uri = request.uri().clone();
+    let path = uri.path().to_string();
+    let user_agent = extract_user_agent(request.headers());
+
+    // Get start time
+    let start_time = std::time::Instant::now();
+
+    // Try to get user_id from session
+    let user_id = session.get::<uuid::Uuid>("user_id").await.ok().flatten();
+
+    // Run the request
+    let response = next.run(request).await;
+
+    // Extract response information
+    let status_code = response.status().as_u16() as i32;
+    let duration_ms = start_time.elapsed().as_millis();
+
+    // Build basic analytics record
+    let analytics = AnalyticsBuilder::new(
+        uuid::Uuid::new_v4().to_string(),
+        method.clone(),
+        path.clone(),
+        status_code,
+    )
+    .user_id(user_id)
+    .duration_ms(duration_ms)
+    .user_agent(user_agent.clone())
+    .ip_address(Some("127.0.0.1".to_string())) // Simplified for now
+    .build();
+
+    // Log analytics to database (spawn task to not block response)
+    let service = analytics_service.clone();
+    let analytics_clone = analytics.clone();
+    tokio::spawn(async move {
+        if let Err(e) = service.log_request(analytics_clone).await {
+            tracing::error!("Failed to log analytics: {}", e);
+        }
+    });
+
+    // Traditional security logging (keep for now)
+    tracing::info!(
+        "Analytics: {} {} - Status: {} - Duration: {}ms - User: {}",
+        method,
+        path,
+        status_code,
+        duration_ms,
+        user_id
+            .map(|u| u.to_string())
+            .unwrap_or_else(|| "anonymous".to_string())
+    );
+
+    println!("ZOMG HI FROM END OF anal midddd");
+
+    Ok(response)
 }
 
 /// Optional authentication middleware that adds user info to request extensions
@@ -57,29 +129,43 @@ pub async fn optional_authentication(
     Ok(next.run(request).await)
 }
 
-/// Middleware to log all requests for security monitoring
+/// Legacy security logging middleware (kept for compatibility)
 pub async fn security_logging(request: Request, next: Next) -> Response {
+    println!("ZOMG HELLO FROM security_logging");
     let method = request.method().clone();
     let uri = request.uri().clone();
-    let user_agent = request
-        .headers()
-        .get("user-agent")
-        .and_then(|h| h.to_str().ok())
-        .unwrap_or("unknown")
-        .to_string();
+    let user_agent = extract_user_agent(request.headers());
 
     let response = next.run(request).await;
 
     // Log the request with response status
     tracing::info!(
-        "Request: {} {} - Status: {} - User-Agent: {}",
+        "Legacy Log: {} {} - Status: {} - User-Agent: {}",
         method,
         uri,
         response.status(),
-        user_agent
+        user_agent.unwrap_or_else(|| "unknown".to_string())
     );
 
+    println!("ZOMG GOODBYE FROM security_logging");
     response
+}
+
+/// Extract user agent from headers
+fn extract_user_agent(headers: &HeaderMap) -> Option<String> {
+    headers
+        .get("user-agent")
+        .and_then(|h| h.to_str().ok())
+        .map(|s| s.to_string())
+}
+
+/// Extract response size (content-length or estimate)
+fn extract_response_size(response: &Response) -> Option<i64> {
+    response
+        .headers()
+        .get("content-length")
+        .and_then(|h| h.to_str().ok())
+        .and_then(|s| s.parse::<i64>().ok())
 }
 
 #[cfg(test)]
@@ -89,27 +175,26 @@ mod tests {
     use tower::{ServiceBuilder, ServiceExt};
     use tower_sessions::{MemoryStore, SessionManagerLayer};
 
-    // Helper function to create a test service with session middleware
-    fn create_test_service(
-    ) -> impl tower::Service<Request<Body>, Response = Response, Error = std::convert::Infallible> + Clone
-    {
-        ServiceBuilder::new()
-            .layer(SessionManagerLayer::new(MemoryStore::default()))
-            .service_fn(|_req: Request<Body>| async {
-                Ok::<_, std::convert::Infallible>((StatusCode::OK, "test response").into_response())
-            })
+    #[test]
+    fn test_extract_user_agent() {
+        let mut headers = HeaderMap::new();
+        headers.insert("user-agent", "test-agent".parse().unwrap());
+
+        let user_agent = extract_user_agent(&headers);
+        assert_eq!(user_agent, Some("test-agent".to_string()));
+    }
+
+    #[test]
+    fn test_extract_user_agent_missing() {
+        let headers = HeaderMap::new();
+        let user_agent = extract_user_agent(&headers);
+        assert_eq!(user_agent, None);
     }
 
     #[tokio::test]
-    async fn test_require_authentication_without_session() {
-        // This would require more complex setup with actual session management
-        // For now, this serves as a placeholder for future testing
-        assert!(true);
-    }
-
-    #[tokio::test]
-    async fn test_security_logging() {
-        // Test that security logging doesn't interfere with normal request flow
-        assert!(true);
+    async fn test_request_context_creation() {
+        let context = RequestContext::new();
+        assert!(!context.request_id.is_empty());
+        assert!(context.elapsed_ms() < 100); // Should be very fast
     }
 }

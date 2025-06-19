@@ -275,68 +275,108 @@ impl Database {
     pub async fn migrate(&self) -> Result<(), sqlx::Error> {
         // This is a simple migration runner. In production, you might want to use sqlx-cli
 
-        // Check if tables already exist to avoid duplicate creation
-        let table_exists = sqlx::query_scalar::<_, bool>(
+        // Check if analytics table exists (it was added later)
+        let analytics_table_exists = sqlx::query_scalar::<_, bool>(
+            "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'request_analytics')"
+        )
+        .fetch_one(&self.pool)
+        .await?;
+
+        // Check if base tables exist
+        let base_tables_exist = sqlx::query_scalar::<_, bool>(
             "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'invite_codes')"
         )
         .fetch_one(&self.pool)
         .await?;
 
-        if table_exists {
-            return Ok(());
+        // Run base migration if needed
+        if !base_tables_exist {
+            // Execute base migration statements
+            let base_statements = vec![
+                // Invite codes table
+                r#"CREATE TABLE invite_codes (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    code VARCHAR(8) NOT NULL UNIQUE,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    used_at TIMESTAMPTZ,
+                    used_by_user_id UUID,
+                    is_active BOOLEAN NOT NULL DEFAULT TRUE
+                )"#,
+
+                "CREATE INDEX idx_invite_codes_code ON invite_codes(code)",
+                "CREATE INDEX idx_invite_codes_active ON invite_codes(is_active) WHERE is_active = TRUE",
+
+                // Users table
+                r#"CREATE TABLE users (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    username VARCHAR(255) NOT NULL UNIQUE,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    invite_code_used VARCHAR(8),
+                    FOREIGN KEY (invite_code_used) REFERENCES invite_codes(code)
+                )"#,
+
+                "CREATE INDEX idx_users_username ON users(username)",
+
+                // WebAuthn credentials table
+                r#"CREATE TABLE webauthn_credentials (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    credential_id BYTEA NOT NULL UNIQUE,
+                    credential_data TEXT NOT NULL,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    last_used_at TIMESTAMPTZ
+                )"#,
+
+                "CREATE INDEX idx_webauthn_credentials_user_id ON webauthn_credentials(user_id)",
+                "CREATE INDEX idx_webauthn_credentials_credential_id ON webauthn_credentials(credential_id)",
+
+                // Sessions table
+                r#"CREATE TABLE tower_sessions (
+                    id TEXT PRIMARY KEY,
+                    data BYTEA NOT NULL,
+                    expiry_date TIMESTAMPTZ NOT NULL
+                )"#,
+
+                "CREATE INDEX idx_tower_sessions_expiry ON tower_sessions(expiry_date)",
+            ];
+
+            for statement in base_statements {
+                sqlx::query(statement).execute(&self.pool).await?;
+            }
         }
 
-        // Execute each migration statement individually
-        let statements = vec![
-            // Invite codes table
-            r#"CREATE TABLE invite_codes (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                code VARCHAR(8) NOT NULL UNIQUE,
-                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                used_at TIMESTAMPTZ,
-                used_by_user_id UUID,
-                is_active BOOLEAN NOT NULL DEFAULT TRUE
-            )"#,
+        // Run analytics migration if needed
+        if !analytics_table_exists {
+            let analytics_statements = vec![
+                // Analytics table for request tracking
+                r#"CREATE TABLE request_analytics (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    request_id VARCHAR(36) NOT NULL,
+                    timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    user_id UUID,
+                    method VARCHAR(10) NOT NULL,
+                    path TEXT NOT NULL,
+                    status_code INTEGER NOT NULL,
+                    duration_ms INTEGER,
+                    user_agent TEXT,
+                    ip_address TEXT,
+                    request_data JSONB,
+                    response_size BIGINT,
+                    error_message TEXT,
+                    trace_id VARCHAR(32),
+                    span_id VARCHAR(16)
+                )"#,
 
-            "CREATE INDEX idx_invite_codes_code ON invite_codes(code)",
-            "CREATE INDEX idx_invite_codes_active ON invite_codes(is_active) WHERE is_active = TRUE",
+                "CREATE INDEX idx_analytics_timestamp ON request_analytics(timestamp DESC)",
+                "CREATE INDEX idx_analytics_user_id ON request_analytics(user_id) WHERE user_id IS NOT NULL",
+                "CREATE INDEX idx_analytics_path ON request_analytics(path)",
+                "CREATE INDEX idx_analytics_status ON request_analytics(status_code)",
+                "CREATE INDEX idx_analytics_trace_id ON request_analytics(trace_id) WHERE trace_id IS NOT NULL",
+            ];
 
-            // Users table
-            r#"CREATE TABLE users (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                username VARCHAR(255) NOT NULL UNIQUE,
-                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                invite_code_used VARCHAR(8),
-                FOREIGN KEY (invite_code_used) REFERENCES invite_codes(code)
-            )"#,
-
-            "CREATE INDEX idx_users_username ON users(username)",
-
-            // WebAuthn credentials table
-            r#"CREATE TABLE webauthn_credentials (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                credential_id BYTEA NOT NULL UNIQUE,
-                credential_data TEXT NOT NULL,
-                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                last_used_at TIMESTAMPTZ
-            )"#,
-
-            "CREATE INDEX idx_webauthn_credentials_user_id ON webauthn_credentials(user_id)",
-            "CREATE INDEX idx_webauthn_credentials_credential_id ON webauthn_credentials(credential_id)",
-
-            // Sessions table
-            r#"CREATE TABLE tower_sessions (
-                id TEXT PRIMARY KEY,
-                data BYTEA NOT NULL,
-                expiry_date TIMESTAMPTZ NOT NULL
-            )"#,
-
-            "CREATE INDEX idx_tower_sessions_expiry ON tower_sessions(expiry_date)",
-        ];
-
-        for statement in statements {
-            sqlx::query(statement).execute(&self.pool).await?;
+            for statement in analytics_statements {
+                sqlx::query(statement).execute(&self.pool).await?;
+            }
         }
 
         Ok(())

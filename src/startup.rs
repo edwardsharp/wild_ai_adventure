@@ -1,3 +1,4 @@
+use crate::analytics::AnalyticsService;
 use crate::database::Database;
 use sqlx::PgPool;
 use std::sync::Arc;
@@ -21,6 +22,8 @@ pub struct AppState {
     pub webauthn: Arc<Webauthn>,
     // Database connection for persistent storage
     pub database: Database,
+    // Analytics service for request tracking
+    pub analytics: AnalyticsService,
 }
 
 impl AppState {
@@ -42,11 +45,18 @@ impl AppState {
 
         // Connect to the database
         let pool = PgPool::connect(database_url).await?;
-        let database = Database::new(pool);
+        let database = Database::new(pool.clone());
+
+        // Create analytics service with the same pool
+        let analytics = AnalyticsService::new(pool);
 
         // Run migrations
-        // database.migrate().await?;
+        database.migrate().await?;
 
-        Ok(AppState { webauthn, database })
+        Ok(AppState {
+            webauthn,
+            database,
+            analytics,
+        })
     }
 }

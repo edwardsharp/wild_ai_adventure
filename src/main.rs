@@ -1,6 +1,10 @@
 use axum::{
-    extract::Extension, http::StatusCode, middleware as axum_middleware, response::IntoResponse,
-    routing::post, Router,
+    extract::Extension,
+    http::StatusCode,
+    middleware::{self as axum_middleware, Next},
+    response::IntoResponse,
+    routing::{get, post},
+    Router,
 };
 
 use std::net::SocketAddr;
@@ -17,15 +21,20 @@ use tower_sessions::{
 
 // The handlers that process the data can be found in the auth.rs file
 // This file contains the wasm client loading code and the axum routing
+use crate::api::{
+    get_analytics, get_metrics, get_prometheus_metrics, get_user_activity, health_check,
+};
 use crate::auth::{
     finish_authentication, finish_register, logout, start_authentication, start_register,
 };
-use crate::middleware::{require_authentication, security_logging};
+use crate::middleware::{analytics_middleware, require_authentication, security_logging};
 use crate::startup::AppState;
 
 #[macro_use]
 extern crate tracing;
 
+mod analytics;
+mod api;
 mod auth;
 mod cli;
 mod database;
@@ -61,19 +70,28 @@ async fn main() {
     // Create memory session store (for simplicity - use PostgresStore in production)
     let session_store = MemoryStore::default();
 
+    // Get analytics service for middleware
+    let analytics_service = app_state.analytics.clone();
+
     // Create protected routes that require authentication
     let protected_routes = Router::new()
         .nest_service(
             "/private",
             tower_http::services::ServeDir::new("assets/private"),
         )
+        .route("/api/analytics", get(get_analytics))
+        .route("/api/user/activity", get(get_user_activity))
         .layer(axum_middleware::from_fn(require_authentication));
 
     // Create public routes
-    let public_routes = Router::new().nest_service(
-        "/public",
-        tower_http::services::ServeDir::new("assets/public"),
-    );
+    let public_routes = Router::new()
+        .nest_service(
+            "/public",
+            tower_http::services::ServeDir::new("assets/public"),
+        )
+        .route("/health", get(health_check))
+        .route("/metrics", get(get_metrics))
+        .route("/metrics/prometheus", get(get_prometheus_metrics));
 
     // build our application with routes
     let app = Router::new()
@@ -85,6 +103,9 @@ async fn main() {
         .merge(protected_routes)
         .merge(public_routes)
         .layer(Extension(app_state))
+        .layer(axum_middleware::from_fn(security_logging))
+        .layer(axum_middleware::from_fn(analytics_middleware))
+        .layer(Extension(analytics_service))
         .layer(
             SessionManagerLayer::new(session_store)
                 .with_name("webauthnrs")
@@ -92,7 +113,6 @@ async fn main() {
                 .with_secure(false) // TODO: change this to true when running on an HTTPS/production server instead of locally
                 .with_expiry(Expiry::OnInactivity(Duration::seconds(360))),
         )
-        .layer(axum_middleware::from_fn(security_logging))
         .fallback(handler_404);
 
     #[cfg(feature = "wasm")]
