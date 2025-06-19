@@ -520,49 +520,39 @@ impl Cli {
         }
         let mut content = String::new();
 
-        content.push_str("# Generated from configuration and secrets files\n");
-        content.push_str("# This file contains environment variables needed for Docker and SQLx\n");
-        content.push_str("# \n");
-        content.push_str("# DO NOT commit this file to version control!\n");
-        content.push_str("# Add .env to your .gitignore\n");
-        if secrets.is_some() {
-            content.push_str("# \n");
-            content.push_str("# ⚠️  Contains sensitive data from secrets file\n");
-        }
-        content.push_str("\n");
-
-        // Core variables
-        content.push_str("# Database Configuration\n");
+        // Core variables - Database Configuration
         for (key, value) in &env_vars {
             if key.starts_with("DATABASE") || key.starts_with("POSTGRES") {
-                if key == "DATABASE_URL" || key.contains("PASSWORD") {
-                    content.push_str(&format!("{}={}\n", key, value));
-                } else {
-                    content.push_str(&format!("{}={}\n", key, value));
-                }
+                content.push_str(&format!("{}={}\n", key, value));
             }
         }
 
-        content.push_str("\n# Application Configuration\n");
+        // Application Configuration
         for (key, value) in &env_vars {
             if key.starts_with("APP_") || key == "RUST_LOG" {
                 content.push_str(&format!("{}={}\n", key, value));
             }
         }
 
-        if with_examples {
-            content.push_str("\n# Example additional environment variables:\n");
-            if secrets.is_none() {
-                content.push_str("# DATABASE_PASSWORD=your_secure_password_here\n");
-                content.push_str("# POSTGRES_PASSWORD=your_secure_password_here\n");
-                content.push_str("# \n");
+        // Other environment variables
+        for (key, value) in &env_vars {
+            if !key.starts_with("DATABASE")
+                && !key.starts_with("POSTGRES")
+                && !key.starts_with("APP_")
+                && key != "RUST_LOG"
+            {
+                content.push_str(&format!("{}={}\n", key, value));
             }
-            content.push_str("# For Docker Compose:\n");
-            content.push_str("# PGADMIN_DEFAULT_EMAIL=admin@example.com\n");
-            content.push_str("# PGADMIN_DEFAULT_PASSWORD=admin_password\n");
-            content.push_str("# \n");
-            content.push_str("# To use secrets file instead of environment variables:\n");
-            content.push_str("# cargo run --bin webauthn-admin config init-secrets\n");
+        }
+
+        if with_examples {
+            content.push_str("\n");
+            if secrets.is_none() {
+                content.push_str("DATABASE_PASSWORD=your_secure_password_here\n");
+                content.push_str("POSTGRES_PASSWORD=your_secure_password_here\n");
+            }
+            content.push_str("PGADMIN_DEFAULT_EMAIL=admin@example.com\n");
+            content.push_str("PGADMIN_DEFAULT_PASSWORD=admin_password\n");
         }
 
         std::fs::write(&output, content)?;

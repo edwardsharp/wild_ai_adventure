@@ -137,24 +137,30 @@ To use the WASM frontend instead:
 
 ## Configuration Management
 
-### Configuration File
+### Configuration Files
 
-The server uses a JSONC configuration file (`config.jsonc`) with full JSON Schema support for editor assistance:
+The server uses a JSONC configuration file (`config.jsonc`) with full JSON Schema support for editor assistance, plus an optional secrets file for sensitive data:
 
 ```bash
 # Initialize default configuration
 cargo run --bin webauthn-admin config init
 
+# Initialize configuration WITH secrets file
+cargo run --bin webauthn-admin config init --with-secrets
+
+# Create just the secrets file
+cargo run --bin webauthn-admin config init-secrets
+
 # Generate JSON Schema for editor support
 cargo run --bin webauthn-admin config schema
 
-# Validate configuration
+# Validate configuration (includes secrets validation)
 cargo run --bin webauthn-admin config validate
 
 # View current configuration
 cargo run --bin webauthn-admin config show
 
-# Generate .env file for Docker/SQLx
+# Generate clean .env file for Docker/SQLx
 cargo run --bin webauthn-admin config generate-env
 ```
 
@@ -178,8 +184,9 @@ For the best experience, configure your editor to use the JSON Schema:
 
 ### Key Configuration Sections
 
+**Main Configuration (`config.jsonc`):**
 - **`app`**: Application metadata and environment
-- **`database`**: Database connection and pool settings
+- **`database`**: Database connection and pool settings (password comes from secrets)
 - **`webauthn`**: WebAuthn/FIDO2 configuration
 - **`server`**: HTTP server settings
 - **`sessions`**: Session management
@@ -191,6 +198,11 @@ For the best experience, configure your editor to use the JSON Schema:
 - **`production`**: Production deployment settings
 - **`features`**: Feature flags
 
+**Secrets Configuration (`config.secrets.jsonc`):**
+- **`database`**: Database password and optional URL override
+- **`app`**: Session secrets and API keys
+- **`external`**: Third-party service credentials
+
 ## CLI Administration
 
 The `webauthn-admin` CLI tool provides comprehensive management:
@@ -198,20 +210,29 @@ The `webauthn-admin` CLI tool provides comprehensive management:
 ### Configuration Commands
 
 ```bash
-# Initialize configuration
+# Initialize configuration (basic)
 cargo run --bin webauthn-admin config init
 
-# Validate configuration
+# Initialize configuration with secrets file
+cargo run --bin webauthn-admin config init --with-secrets
+
+# Create/update secrets file only
+cargo run --bin webauthn-admin config init-secrets
+
+# Validate configuration and secrets
 cargo run --bin webauthn-admin config validate
 
-# Show configuration
+# Show merged configuration
 cargo run --bin webauthn-admin config show
 
 # Generate schema for editor support
 cargo run --bin webauthn-admin config schema
 
-# Generate .env file
+# Generate clean .env file (no comments)
 cargo run --bin webauthn-admin config generate-env
+
+# Generate .env with example values
+cargo run --bin webauthn-admin config generate-env --with-examples
 ```
 
 ### Invite Code Management
@@ -289,11 +310,16 @@ Migrations are automatically run when the server starts (configurable via `datab
 
 ### Configuration vs Environment Variables
 
-The server primarily uses `config.jsonc` for configuration, but also supports these environment variables:
+The server primarily uses `config.jsonc` + `config.secrets.jsonc` for configuration, but also supports these environment variables:
 
 - `CONFIG_PATH`: Path to configuration file (default: `config.jsonc`)
-- `DATABASE_PASSWORD` or `POSTGRES_PASSWORD`: Database password
+- `DATABASE_PASSWORD` or `POSTGRES_PASSWORD`: Database password (fallback if no secrets file)
 - `RUST_LOG`: Logging level (overrides config)
+
+**Secrets Priority Order:**
+1. `config.secrets.jsonc` file (preferred)
+2. Environment variables (fallback)
+3. Generated `.env` file (Docker/tooling compatibility)
 
 ### Build Features
 
@@ -308,10 +334,31 @@ Migrations are automatically run when the server starts (configurable via `datab
 
 ### Development Workflow
 
-1. Edit `config.jsonc` (with schema validation)
-2. Run `cargo run --bin webauthn-admin config validate`
-3. Use `./start_dev.sh` for development server
-4. Monitor logs and analytics via CLI commands
+1. **Initial Setup:**
+   ```bash
+   # Create config and secrets together
+   cargo run --bin webauthn-admin config init --with-secrets
+   
+   # Edit your actual secrets (use strong passwords!)
+   edit config.secrets.jsonc
+   
+   # Set proper file permissions
+   chmod 600 config.secrets.jsonc
+   ```
+
+2. **Daily Development:**
+   ```bash
+   # Edit main configuration (with schema validation)
+   edit config.jsonc
+   
+   # Validate everything
+   cargo run --bin webauthn-admin config validate
+   
+   # Start development server (secrets-aware)
+   ./start_dev.sh
+   ```
+
+3. **Monitoring:** Monitor logs and analytics via CLI commands
 
 ## Troubleshooting
 
@@ -388,13 +435,16 @@ cargo run --bin webauthn-admin analytics --hours 1
 
 ### Configuration for Production
 
-1. **Create production config**:
+1. **Create production configurations**:
    ```bash
+   # Copy main config and secrets
    cp config.jsonc config.production.jsonc
+   cp config.secrets.jsonc config.secrets.production.jsonc
    ```
 
 2. **Edit production settings**:
    ```jsonc
+   // config.production.jsonc
    {
      "app": {
        "environment": "production"
@@ -420,10 +470,17 @@ cargo run --bin webauthn-admin analytics --hours 1
    }
    ```
 
-3. **Environment variables**:
+3. **Update production secrets**:
+   ```bash
+   # Edit with production credentials
+   edit config.secrets.production.jsonc
+   chmod 600 config.secrets.production.jsonc
+   ```
+
+4. **Deploy with production config**:
    ```bash
    export CONFIG_PATH="config.production.jsonc"
-   export DATABASE_PASSWORD="secure_production_password"
+   # Secrets are automatically loaded from config.secrets.production.jsonc
    ```
 
 ### Production Checklist
@@ -456,9 +513,12 @@ Enable metrics collection:
 
 Monitor via CLI:
 ```bash
-# Regular health checks
+# Regular health checks (automatically finds secrets file)
 cargo run --bin webauthn-admin --config config.production.jsonc analytics
 
 # User activity monitoring
 cargo run --bin webauthn-admin --config config.production.jsonc user-activity --user-id UUID
+
+# Validate production setup
+cargo run --bin webauthn-admin --config config.production.jsonc --secrets config.secrets.production.jsonc config validate
 ```
