@@ -5,7 +5,7 @@ use axum::{
     http::StatusCode,
     response::IntoResponse,
 };
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use tower_sessions::Session;
 
 /*
@@ -19,18 +19,6 @@ use webauthn_rs::prelude::*;
 #[derive(Deserialize)]
 pub struct RegisterStartQuery {
     invite_code: String,
-}
-
-#[derive(Deserialize)]
-pub struct AnalyticsQuery {
-    hours: Option<i32>,
-    limit: Option<i64>,
-}
-
-#[derive(Serialize)]
-pub struct AnalyticsResponse {
-    stats: crate::analytics::AnalyticsStats,
-    top_paths: Vec<crate::analytics::PathStats>,
 }
 
 // 2. The first step a client (user) will carry out is requesting a credential to be

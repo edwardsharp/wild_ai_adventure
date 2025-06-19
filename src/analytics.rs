@@ -2,9 +2,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use sqlx::{PgPool, Row};
-use std::collections::HashMap;
 
-use std::time::Instant;
 use uuid::Uuid;
 
 /// Request analytics data structure
@@ -73,34 +71,6 @@ impl AnalyticsBuilder {
 
     pub fn ip_address(mut self, ip_address: Option<String>) -> Self {
         self.ip_address = ip_address;
-        self
-    }
-
-    pub fn request_data(mut self, data: HashMap<String, serde_json::Value>) -> Self {
-        self.request_data = Some(serde_json::Value::Object(
-            data.into_iter()
-                .collect::<serde_json::Map<String, serde_json::Value>>(),
-        ));
-        self
-    }
-
-    pub fn response_size(mut self, size: Option<i64>) -> Self {
-        self.response_size = size;
-        self
-    }
-
-    pub fn error_message(mut self, error: Option<String>) -> Self {
-        self.error_message = error;
-        self
-    }
-
-    pub fn trace_id(mut self, trace_id: Option<String>) -> Self {
-        self.trace_id = trace_id;
-        self
-    }
-
-    pub fn span_id(mut self, span_id: Option<String>) -> Self {
-        self.span_id = span_id;
         self
     }
 
@@ -309,75 +279,6 @@ pub struct PathStats {
     pub avg_duration_ms: Option<f64>,
 }
 
-/// Request context for tracking
-#[derive(Debug, Clone)]
-pub struct RequestContext {
-    pub request_id: String,
-    pub start_time: Instant,
-    pub trace_id: Option<String>,
-    pub span_id: Option<String>,
-}
-
-impl RequestContext {
-    pub fn new() -> Self {
-        Self {
-            request_id: Uuid::new_v4().to_string(),
-            start_time: Instant::now(),
-            trace_id: None,
-            span_id: None,
-        }
-    }
-
-    pub fn with_trace(trace_id: String, span_id: String) -> Self {
-        Self {
-            request_id: Uuid::new_v4().to_string(),
-            start_time: Instant::now(),
-            trace_id: Some(trace_id),
-            span_id: Some(span_id),
-        }
-    }
-
-    pub fn elapsed_ms(&self) -> u128 {
-        self.start_time.elapsed().as_millis()
-    }
-}
-
-/// Utility functions for OpenTelemetry-style trace/span generation
-pub mod otel_utils {
-    use rand::{thread_rng, Rng};
-
-    /// Generate a trace ID (128-bit hex string)
-    pub fn generate_trace_id() -> String {
-        let mut rng = thread_rng();
-        format!("{:032x}", rng.gen::<u128>())
-    }
-
-    /// Generate a span ID (64-bit hex string)
-    pub fn generate_span_id() -> String {
-        let mut rng = thread_rng();
-        format!("{:016x}", rng.gen::<u64>())
-    }
-
-    /// Extract trace context from headers (W3C Trace Context format)
-    pub fn extract_trace_context(headers: &axum::http::HeaderMap) -> Option<(String, String)> {
-        if let Some(traceparent) = headers.get("traceparent") {
-            if let Ok(traceparent_str) = traceparent.to_str() {
-                // Parse W3C traceparent header: 00-{trace_id}-{span_id}-{flags}
-                let parts: Vec<&str> = traceparent_str.split('-').collect();
-                if parts.len() == 4 && parts[0] == "00" {
-                    return Some((parts[1].to_string(), parts[2].to_string()));
-                }
-            }
-        }
-        None
-    }
-
-    /// Create a W3C traceparent header
-    pub fn create_traceparent_header(trace_id: &str, span_id: &str) -> String {
-        format!("00-{}-{}-01", trace_id, span_id)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -399,30 +300,5 @@ mod tests {
         assert_eq!(analytics.path, "/test");
         assert_eq!(analytics.status_code, 200);
         assert_eq!(analytics.duration_ms, Some(150));
-    }
-
-    #[test]
-    fn test_trace_id_generation() {
-        let trace_id = otel_utils::generate_trace_id();
-        assert_eq!(trace_id.len(), 32);
-        assert!(trace_id.chars().all(|c| c.is_ascii_hexdigit()));
-    }
-
-    #[test]
-    fn test_span_id_generation() {
-        let span_id = otel_utils::generate_span_id();
-        assert_eq!(span_id.len(), 16);
-        assert!(span_id.chars().all(|c| c.is_ascii_hexdigit()));
-    }
-
-    #[test]
-    fn test_traceparent_creation() {
-        let trace_id = "12345678901234567890123456789012";
-        let span_id = "1234567890123456";
-        let header = otel_utils::create_traceparent_header(trace_id, span_id);
-        assert_eq!(
-            header,
-            "00-12345678901234567890123456789012-1234567890123456-01"
-        );
     }
 }

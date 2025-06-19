@@ -1,13 +1,11 @@
-use crate::analytics::{otel_utils, AnalyticsBuilder, AnalyticsService, RequestContext};
+use crate::analytics::{AnalyticsBuilder, AnalyticsService};
 use crate::error::WebauthnError;
 use axum::{
-    extract::{ConnectInfo, Extension, Request},
+    extract::{Extension, Request},
     http::{HeaderMap, StatusCode},
     middleware::Next,
     response::{IntoResponse, Response},
 };
-use std::collections::HashMap;
-use std::net::SocketAddr;
 use tower_sessions::Session;
 
 /// Authentication middleware that checks if a user is logged in
@@ -18,12 +16,10 @@ pub async fn require_authentication(
     next: Next,
 ) -> Result<Response, WebauthnError> {
     // Check if user_id exists in session (set during successful authentication)
-    println!("ZOMG HELLO FROM require_authentication");
     match session.get::<uuid::Uuid>("user_id").await? {
         Some(user_id) => {
             // User is authenticated, log the access and continue
             tracing::info!("Authenticated user {} accessing private content", user_id);
-            println!("ZOMG goodbye FROM require_authentication");
             Ok(next.run(request).await)
         }
         None => {
@@ -34,7 +30,6 @@ pub async fn require_authentication(
             );
 
             // Return 401 with a helpful message
-            println!("ZOMG goodbye FROM require_authentication");
             Ok((
                 StatusCode::UNAUTHORIZED,
                 "Authentication required. Please log in to access this content.",
@@ -51,7 +46,6 @@ pub async fn analytics_middleware(
     request: Request,
     next: Next,
 ) -> Result<Response, WebauthnError> {
-    println!("ZOMG HI FROM analytics_middleware");
     // Extract basic request information
     let method = request.method().to_string();
     let uri = request.uri().clone();
@@ -105,8 +99,6 @@ pub async fn analytics_middleware(
             .unwrap_or_else(|| "anonymous".to_string())
     );
 
-    println!("ZOMG HI FROM END OF anal midddd");
-
     Ok(response)
 }
 
@@ -131,7 +123,6 @@ pub async fn optional_authentication(
 
 /// Legacy security logging middleware (kept for compatibility)
 pub async fn security_logging(request: Request, next: Next) -> Response {
-    println!("ZOMG HELLO FROM security_logging");
     let method = request.method().clone();
     let uri = request.uri().clone();
     let user_agent = extract_user_agent(request.headers());
@@ -147,7 +138,6 @@ pub async fn security_logging(request: Request, next: Next) -> Response {
         user_agent.unwrap_or_else(|| "unknown".to_string())
     );
 
-    println!("ZOMG GOODBYE FROM security_logging");
     response
 }
 
@@ -159,21 +149,9 @@ fn extract_user_agent(headers: &HeaderMap) -> Option<String> {
         .map(|s| s.to_string())
 }
 
-/// Extract response size (content-length or estimate)
-fn extract_response_size(response: &Response) -> Option<i64> {
-    response
-        .headers()
-        .get("content-length")
-        .and_then(|h| h.to_str().ok())
-        .and_then(|s| s.parse::<i64>().ok())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use axum::{body::Body, http::Request};
-    use tower::{ServiceBuilder, ServiceExt};
-    use tower_sessions::{MemoryStore, SessionManagerLayer};
 
     #[test]
     fn test_extract_user_agent() {
@@ -189,12 +167,5 @@ mod tests {
         let headers = HeaderMap::new();
         let user_agent = extract_user_agent(&headers);
         assert_eq!(user_agent, None);
-    }
-
-    #[tokio::test]
-    async fn test_request_context_creation() {
-        let context = RequestContext::new();
-        assert!(!context.request_id.is_empty());
-        assert!(context.elapsed_ms() < 100); // Should be very fast
     }
 }

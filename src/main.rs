@@ -1,7 +1,7 @@
 use axum::{
     extract::Extension,
     http::StatusCode,
-    middleware::{self as axum_middleware, Next},
+    middleware as axum_middleware,
     response::IntoResponse,
     routing::{get, post},
     Router,
