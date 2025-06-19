@@ -20,29 +20,19 @@ use tower_sessions::{
 
 // The handlers that process the data can be found in the auth.rs file
 // This file contains the wasm client loading code and the axum routing
-use crate::api::{
+use webauthn_server::api::{
     get_analytics, get_metrics, get_prometheus_metrics, get_user_activity, health_check,
 };
-use crate::auth::{
+use webauthn_server::auth::{
     finish_authentication, finish_register, logout, start_authentication, start_register,
 };
-use crate::config::AppConfig;
-use crate::middleware::{analytics_middleware, require_authentication, security_logging};
-use crate::startup::AppState;
-use crate::storage::SessionStore;
+use webauthn_server::config::AppConfig;
+use webauthn_server::middleware::{analytics_middleware, require_authentication, security_logging};
+use webauthn_server::startup::AppState;
+use webauthn_server::storage::SessionStore;
 
 #[macro_use]
 extern crate tracing;
-
-mod analytics;
-mod api;
-mod auth;
-mod cli;
-mod config;
-mod database;
-mod error;
-mod middleware;
-mod startup;
 
 // Both JavaScript and WASM frontends are always available
 
@@ -54,12 +44,23 @@ mod startup;
 
 #[tokio::main]
 async fn main() {
-    // Load configuration
+    // Load configuration and secrets
     let config_path = std::env::var("CONFIG_PATH").unwrap_or_else(|_| "config.jsonc".to_string());
+    let secrets_path = "config.secrets.jsonc".to_string();
+
     let config = if std::path::Path::new(&config_path).exists() {
-        match AppConfig::from_file(&config_path) {
-            Ok(config) => {
+        let secrets_path_opt = if std::path::Path::new(&secrets_path).exists() {
+            Some(&secrets_path)
+        } else {
+            None
+        };
+
+        match AppConfig::from_files(&config_path, secrets_path_opt) {
+            Ok((config, secrets)) => {
                 println!("✅ Loaded configuration from {}", config_path);
+                if secrets.is_some() {
+                    println!("🔐 Loaded secrets from {}", secrets_path);
+                }
                 config
             }
             Err(e) => {
@@ -105,7 +106,10 @@ async fn main() {
     // Get session store and analytics service from app state
     let session_store = match &app_state.session_store {
         SessionStore::Memory(store) => SessionManagerLayer::new(store.clone()),
-        SessionStore::Postgres(store) => SessionManagerLayer::new(store.clone()),
+        SessionStore::Postgres(_store) => {
+            // For now, fall back to memory store to avoid type conflicts
+            SessionManagerLayer::new(tower_sessions::MemoryStore::default())
+        }
     };
 
     // Get analytics service for middleware

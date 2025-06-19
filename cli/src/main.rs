@@ -1,4 +1,4 @@
-use crate::cli::Cli;
+use webauthn_cli::Cli;
 use clap::Parser;
 
 #[tokio::main]

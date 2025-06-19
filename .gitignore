@@ -18,3 +18,4 @@ config.schema.json
 # Logs
 logs/
 *.log
+target/
