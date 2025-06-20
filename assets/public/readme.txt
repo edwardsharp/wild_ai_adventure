@@ -56,7 +56,7 @@ For developers:
 --------------
 - Generate invite codes: cargo run --bin cli users generate-invite
 - List codes: cargo run --bin cli users list-invites
-- Start server: ./start_dev.sh or cargo run
+- Start server: ./scripts/start_dev.sh or cargo run
 - View logs with: RUST_LOG=debug cargo run
 
 Security Notes:

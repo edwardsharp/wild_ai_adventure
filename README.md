@@ -80,7 +80,7 @@ This demonstrates using Axum as the backend for a WebAuthn authentication system
 4. **Run the development script**
 
    ```bash
-   ./start_dev.sh
+   ./scripts/start_dev.sh
    ```
 
    This script will:
@@ -161,7 +161,7 @@ To use the WASM frontend instead:
 2. Build the WASM files:
 
    ```bash
-   ./build_wasm.sh
+   ./scripts/build_wasm.sh
    ```
 
 3. Run the server:
@@ -395,7 +395,7 @@ Migrations are automatically run when the server starts (configurable via `datab
    cargo run --bin cli config validate
 
    # Start development server (secrets-aware)
-   ./start_dev.sh
+   ./scripts/start_dev.sh
    ```
 
 3. **Monitoring:** Monitor logs and analytics via CLI commands
@@ -472,7 +472,7 @@ cargo run --bin cli analytics analytics --hours 1
 ## Development Notes
 
 - Sessions are currently stored in memory for simplicity. In production, consider using PostgreSQL-backed sessions by uncommenting the PostgresStore code in `main.rs`
-- The development script (`start_dev.sh`) provides a convenient way to set up and run the server
+- The development script (`scripts/start_dev.sh`) provides a convenient way to set up and run the server
 - Database migrations run automatically when the server starts
 
 ## Production Deployment

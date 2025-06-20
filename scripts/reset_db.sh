@@ -5,6 +5,9 @@
 
 set -e  # Exit on any error
 
+# Change to project root directory
+cd "$(dirname "$0")/.."
+
 echo "🗑️  Stopping containers and removing volumes..."
 docker-compose down --volumes
 
@@ -18,6 +21,6 @@ echo "⏳ Waiting for PostgreSQL to be ready..."
 sleep 5
 
 echo "📋 Running migrations..."
-./run_migrations.sh
+./scripts/run_migrations.sh
 
 echo "✅ Database reset complete!"

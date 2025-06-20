@@ -94,7 +94,7 @@ cargo run --bin cli users list-invites --active-only
 
 ```bash
 # Using the development script (recommended)
-./start_dev.sh
+./scripts/start_dev.sh
 
 # Or manually
 cargo run
@@ -132,7 +132,7 @@ cargo run
 3. Start the server:
 
    ```bash
-   ./start_dev.sh
+   ./scripts/start_dev.sh
    ```
 
 4. Open http://localhost:8080 in your browser

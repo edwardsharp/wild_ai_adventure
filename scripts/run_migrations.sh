@@ -5,6 +5,9 @@
 
 set -e  # Exit on any error
 
+# Change to project root directory
+cd "$(dirname "$0")/.."
+
 # Load environment variables from .env file if it exists
 if [[ -f .env ]]; then
     echo "[INFO] Loading environment variables from .env file..."
