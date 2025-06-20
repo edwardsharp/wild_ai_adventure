@@ -4,7 +4,7 @@
 // see the documentation: https://zed.dev/docs/configuring-zed#settings-files
 {
   "json.schemas": [
-    { "fileMatch": ["config.jsonc"], "url": "./config.schema.json" }
+    { "fileMatch": ["assets/config/config.jsonc"], "url": "./config.schema.json" }
   ],
 
   "format_on_save": "on",

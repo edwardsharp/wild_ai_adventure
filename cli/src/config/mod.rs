@@ -32,7 +32,7 @@ pub enum ConfigCommands {
     /// Generate JSON Schema for editor support
     Schema {
         /// Output path for schema file
-        #[arg(short, long, default_value = "config.schema.json")]
+        #[arg(short, long, default_value = ".zed/config.schema.json")]
         output: PathBuf,
     },
     /// Generate .env file from configuration

@@ -209,7 +209,7 @@ For the best experience, configure your editor to use the JSON Schema:
   "json.schemas": [
     {
       "fileMatch": ["assets/config/config.jsonc"],
-      "url": "./config.schema.json"
+      "url": "./.zed/config.schema.json"
     }
   ]
 }

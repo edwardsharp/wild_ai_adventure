@@ -15,5 +15,6 @@ assets/config/*.secrets.jsonc
 logs/
 *.log
 target/
+*.rlib
 node_modules/
 /generated/
