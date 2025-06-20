@@ -1,23 +1,15 @@
+//! Simplified CLI that delegates to domain-specific modules
+
 use clap::{Parser, Subcommand};
-use rand::distributions::Alphanumeric;
-use rand::{thread_rng, Rng};
 use sqlx::PgPool;
-use webauthn_server::auth::{AuthRepository, UserRole};
-use webauthn_server::config::{AppConfig, ConfigError, SecretsConfig, StorageBackend};
+
+use webauthn_server::config::{AppConfig, StorageBackend};
 use webauthn_server::database::DatabaseConnection;
-use webauthn_server::storage::AnalyticsService;
+use webauthn_server::storage::AnalyticsService as StorageAnalyticsService;
 
-use std::path::PathBuf;
-use uuid::Uuid;
-
-/// Parse a role string into UserRole
-fn parse_role(s: &str) -> Result<UserRole, String> {
-    match s.to_lowercase().as_str() {
-        "admin" => Ok(UserRole::Admin),
-        "member" => Ok(UserRole::Member),
-        _ => Err(format!("Invalid role: {}. Must be 'admin' or 'member'", s)),
-    }
-}
+use crate::analytics::AnalyticsCommands;
+use crate::config::ConfigCommands;
+use crate::users::UserCommands;
 
 #[derive(Parser)]
 #[command(name = "webauthn-admin")]
@@ -28,11 +20,11 @@ pub struct Cli {
 
     /// Path to configuration file
     #[arg(long, short, default_value = "config.jsonc")]
-    pub config: PathBuf,
+    pub config: Option<String>,
 
     /// Path to secrets configuration file
     #[arg(long, default_value = "config.secrets.jsonc")]
-    pub secrets: PathBuf,
+    pub secrets: Option<String>,
 
     /// Database URL (overrides config file)
     #[arg(long, env = "DATABASE_URL")]
@@ -46,936 +38,88 @@ pub enum Commands {
         #[command(subcommand)]
         command: ConfigCommands,
     },
-    /// Generate a new invite code
-    GenerateInvite {
-        /// Number of invite codes to generate
-        #[arg(short, long)]
-        count: Option<u32>,
-        /// Length of the invite code
-        #[arg(short, long)]
-        length: Option<usize>,
-    },
-    /// List all invite codes
-    ListInvites {
-        /// Show only active invite codes
-        #[arg(short, long)]
-        active_only: bool,
-    },
-    /// Show invite code statistics
-    Stats,
-    /// Create an admin user
-    CreateAdmin {
-        /// Username for the admin
-        username: String,
-        /// Invite code to use (optional)
-        #[arg(short, long)]
-        invite_code: Option<String>,
-    },
-    /// List all users
-    ListUsers,
-    /// Update a user's role
-    UpdateUserRole {
-        /// Username to update
-        username: String,
-        /// New role (admin or member)
-        #[arg(value_parser = parse_role)]
-        role: UserRole,
-    },
-    /// Show request analytics
-    Analytics {
-        /// Time period in hours
-        #[arg(long, default_value = "24")]
-        hours: i32,
-        /// Number of top paths to show
-        #[arg(long, default_value = "10")]
-        limit: i64,
-    },
-    /// Show user request history
-    UserActivity {
-        /// User ID to look up
-        #[arg(long)]
-        user_id: String,
-        /// Number of recent requests to show
-        #[arg(long, default_value = "20")]
-        limit: i64,
-    },
-    /// Clean up old analytics data
-    CleanupAnalytics {
-        /// Days of data to keep
-        #[arg(long, default_value = "30")]
-        days: i32,
-        /// Actually perform the cleanup (dry run by default)
-        #[arg(long)]
-        execute: bool,
-    },
-}
-
-#[derive(Subcommand, Clone)]
-pub enum ConfigCommands {
-    /// Generate a default configuration file
-    Init {
-        /// Force overwrite existing config file
-        #[arg(short, long)]
-        force: bool,
-        /// Also generate secrets file
-        #[arg(long)]
-        with_secrets: bool,
-    },
-    /// Validate the configuration file
-    Validate,
-    /// Generate default secrets configuration
-    InitSecrets {
-        /// Force overwrite existing secrets file
-        #[arg(short, long)]
-        force: bool,
-    },
-    /// Generate JSON Schema for editor support
-    Schema {
-        /// Output path for schema file
-        #[arg(short, long, default_value = "config.schema.json")]
-        output: PathBuf,
-    },
-    /// Generate .env file from configuration
-    GenerateEnv {
-        /// Output path for .env file
-        #[arg(short, long, default_value = ".env")]
-        output: PathBuf,
-        /// Include example values with comments
-        #[arg(long)]
-        with_examples: bool,
-    },
-    /// Show current configuration
-    Show {
-        /// Show configuration as JSON
-        #[arg(long)]
-        json: bool,
-        /// Show only specific section
-        #[arg(long)]
-        section: Option<String>,
-    },
+    /// User and invite code management
+    #[command(subcommand)]
+    Users(UserCommands),
+    /// Analytics and data management
+    #[command(subcommand)]
+    Analytics(AnalyticsCommands),
 }
 
 impl Cli {
     pub async fn run(self) -> Result<(), Box<dyn std::error::Error>> {
-        match &self.command {
-            Commands::Config { command } => {
-                self.handle_config_command(command.clone()).await?;
-                return Ok(());
+        match self.command {
+            Commands::Config { command } => command.handle(self.config, self.secrets).await,
+            Commands::Users(ref user_command) => {
+                let (config, db) = self.setup_database().await?;
+                user_command
+                    .handle(
+                        &db,
+                        config.invite_codes.default_count,
+                        config.invite_codes.default_length,
+                    )
+                    .await
             }
-            _ => {}
-        }
+            Commands::Analytics(ref analytics_command) => {
+                let (config, db) = self.setup_database().await?;
 
-        // For non-config commands, we need database access
+                // Create analytics service based on storage configuration
+                let analytics = match config.storage.analytics {
+                    StorageBackend::Memory => StorageAnalyticsService::new_memory(),
+                    StorageBackend::Postgres => {
+                        StorageAnalyticsService::new_postgres(db.pool().clone())
+                    }
+                };
+
+                analytics_command.handle(&analytics, &db).await
+            }
+        }
+    }
+
+    async fn setup_database(
+        &self,
+    ) -> Result<(AppConfig, DatabaseConnection), Box<dyn std::error::Error>> {
+        // Load configuration
         let (config, _secrets) = self.load_config_with_secrets().await?;
+
+        // Get database URL
         let database_url = self
             .database_url
             .clone()
             .unwrap_or_else(|| config.database_url());
 
+        // Connect to database
         let pool = PgPool::connect(&database_url).await?;
-        let db = DatabaseConnection::new(pool.clone());
+        let db = DatabaseConnection::new(pool);
 
         // Run migrations
         db.migrate().await?;
 
-        // Create analytics service based on storage configuration
-        let analytics = match config.storage.analytics {
-            StorageBackend::Memory => AnalyticsService::new_memory(),
-            StorageBackend::Postgres => AnalyticsService::new_postgres(pool),
-        };
-
-        match self.command {
-            Commands::Config { .. } => unreachable!(), // Already handled above
-            Commands::GenerateInvite { count, length } => {
-                let count = count.unwrap_or(config.invite_codes.default_count);
-                let length = length.unwrap_or(config.invite_codes.default_length);
-
-                println!(
-                    "Generating {} invite code(s) of length {}...",
-                    count, length
-                );
-                println!();
-
-                for i in 1..=count {
-                    let code: String = thread_rng()
-                        .sample_iter(&Alphanumeric)
-                        .take(length)
-                        .map(char::from)
-                        .collect::<String>()
-                        .to_uppercase();
-
-                    let auth_repo = AuthRepository::new(&db);
-                    match auth_repo.create_invite_code(&code).await {
-                        Ok(invite_code) => {
-                            println!(
-                                "Generated invite code {}/{}: {}",
-                                i, count, invite_code.code
-                            );
-                        }
-                        Err(e) => {
-                            eprintln!("Failed to generate invite code {}/{}: {}", i, count, e);
-                        }
-                    }
-                }
-
-                println!();
-                println!("Done! Generated {} invite code(s).", count);
-            }
-            Commands::CreateAdmin {
-                username,
-                invite_code,
-            } => {
-                let auth_repo = AuthRepository::new(&db);
-
-                // Check if user already exists
-                if let Ok(Some(_)) = auth_repo.get_user_by_username(&username).await {
-                    return Err(format!("User '{}' already exists", username).into());
-                }
-
-                match auth_repo
-                    .create_user_with_role(&username, invite_code.as_deref(), UserRole::Admin)
-                    .await
-                {
-                    Ok(user) => {
-                        println!("✓ Created admin user: {}", user.username);
-                        println!("  User ID: {}", user.id);
-                        println!("  Role: {:?}", user.role);
-                        if let Some(code) = &user.invite_code_used {
-                            println!("  Used invite code: {}", code);
-                        }
-                    }
-                    Err(e) => {
-                        eprintln!("Failed to create admin user: {}", e);
-                        return Err(e.into());
-                    }
-                }
-            }
-            Commands::ListUsers => {
-                let auth_repo = AuthRepository::new(&db);
-                let users = auth_repo
-                    .list_users()
-                    .await
-                    .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)?;
-
-                if users.is_empty() {
-                    println!("No users found.");
-                } else {
-                    println!("Users:");
-                    println!(
-                        "{:<25} {:<8} {:<20} {:<15}",
-                        "Username", "Role", "Created", "Invite Used"
-                    );
-                    println!("{}", "-".repeat(75));
-
-                    for user in users {
-                        let invite_used =
-                            user.invite_code_used.unwrap_or_else(|| "None".to_string());
-
-                        println!(
-                            "{:<25} {:<8} {:<20} {:<15}",
-                            user.username,
-                            match user.role {
-                                UserRole::Admin => "Admin",
-                                UserRole::Member => "Member",
-                            },
-                            user.created_at
-                                .format(
-                                    &time::format_description::parse(
-                                        "[year]-[month]-[day] [hour]:[minute]"
-                                    )
-                                    .unwrap()
-                                )
-                                .unwrap(),
-                            invite_used
-                        );
-                    }
-                }
-            }
-            Commands::UpdateUserRole { username, role } => {
-                let auth_repo = AuthRepository::new(&db);
-
-                // Find the user
-                let user = match auth_repo.get_user_by_username(&username).await {
-                    Ok(Some(user)) => user,
-                    Ok(None) => {
-                        eprintln!("User '{}' not found", username);
-                        return Err("User not found".into());
-                    }
-                    Err(e) => {
-                        eprintln!("Error finding user: {}", e);
-                        return Err(e.into());
-                    }
-                };
-
-                // Update the role
-                match auth_repo.update_user_role(user.id, role).await {
-                    Ok(_) => {
-                        println!("✓ Updated user '{}' role to {:?}", username, role);
-                    }
-                    Err(e) => {
-                        eprintln!("Failed to update user role: {}", e);
-                        return Err(e.into());
-                    }
-                }
-            }
-            Commands::ListInvites { active_only } => {
-                let auth_repo = AuthRepository::new(&db);
-                let invite_codes = auth_repo
-                    .list_invite_codes()
-                    .await
-                    .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)?;
-
-                let filtered_codes: Vec<_> = if active_only {
-                    invite_codes
-                        .into_iter()
-                        .filter(|code| code.is_active)
-                        .collect()
-                } else {
-                    invite_codes
-                };
-
-                if filtered_codes.is_empty() {
-                    println!("No invite codes found.");
-                } else {
-                    println!("Invite Codes:");
-                    println!(
-                        "{:<10} {:<8} {:<20} {:<20} {:<10}",
-                        "Code", "Active", "Created", "Used", "User ID"
-                    );
-                    println!("{}", "-".repeat(80));
-
-                    for code in filtered_codes {
-                        let used_at = code
-                            .used_at
-                            .map(|dt| {
-                                dt.format(
-                                    &time::format_description::parse(
-                                        "[year]-[month]-[day] [hour]:[minute]",
-                                    )
-                                    .unwrap(),
-                                )
-                                .unwrap()
-                            })
-                            .unwrap_or_else(|| "Never".to_string());
-
-                        let user_id = code
-                            .used_by_user_id
-                            .map(|id| id.to_string()[..8].to_string())
-                            .unwrap_or_else(|| "-".to_string());
-
-                        println!(
-                            "{:<10} {:<8} {:<20} {:<20} {:<10}",
-                            code.code,
-                            if code.is_active { "Yes" } else { "No" },
-                            code.created_at
-                                .format(
-                                    &time::format_description::parse(
-                                        "[year]-[month]-[day] [hour]:[minute]"
-                                    )
-                                    .unwrap()
-                                )
-                                .unwrap(),
-                            used_at,
-                            user_id
-                        );
-                    }
-                }
-            }
-            Commands::Stats => {
-                let auth_repo = AuthRepository::new(&db);
-                let invite_codes = auth_repo
-                    .list_invite_codes()
-                    .await
-                    .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)?;
-
-                let total_codes = invite_codes.len();
-                let active_codes = invite_codes.iter().filter(|code| code.is_active).count();
-                let used_codes = invite_codes
-                    .iter()
-                    .filter(|code| code.used_at.is_some())
-                    .count();
-
-                println!("Invite Code Statistics:");
-                println!("  Total codes: {}", total_codes);
-                println!("  Active codes: {}", active_codes);
-                println!("  Used codes: {}", used_codes);
-                println!("  Unused codes: {}", total_codes - used_codes);
-            }
-            Commands::Analytics { hours, limit } => {
-                println!("Request Analytics (Last {} hours):", hours);
-                println!("{}", "=".repeat(50));
-
-                // Get overall stats
-                let stats = analytics.get_stats(hours).await?;
-                println!("📊 Overall Statistics:");
-                println!("  Total Requests: {}", stats.total_requests);
-                println!("  Unique Users: {}", stats.unique_users);
-                println!(
-                    "  Success Rate: {:.1}%",
-                    if stats.total_requests > 0 {
-                        (stats.success_count as f64 / stats.total_requests as f64) * 100.0
-                    } else {
-                        0.0
-                    }
-                );
-                println!("  Average Duration: {:.1}ms", stats.avg_duration_ms);
-                println!("  Error Count: {}", stats.error_count);
-                println!();
-
-                // Get top paths
-                let top_paths = analytics.get_top_paths(hours, limit).await?;
-                if !top_paths.is_empty() {
-                    println!("🔥 Top Paths:");
-                    println!("{:<40} {:<10} {:<15}", "Path", "Requests", "Avg Duration");
-                    println!("{}", "-".repeat(70));
-                    for path_stat in top_paths {
-                        println!(
-                            "{:<40} {:<10} {:<15.1}ms",
-                            path_stat.path, path_stat.request_count, path_stat.avg_duration_ms
-                        );
-                    }
-                } else {
-                    println!("No requests found in the specified time period.");
-                }
-            }
-            Commands::UserActivity { ref user_id, limit } => {
-                let user_id = Uuid::parse_str(user_id)?;
-
-                println!("User Activity for {}:", user_id);
-                println!("{}", "=".repeat(60));
-
-                let requests = analytics.get_user_requests(user_id, limit).await?;
-
-                if requests.is_empty() {
-                    println!("No requests found for this user.");
-                } else {
-                    println!(
-                        "{:<20} {:<8} {:<30} {:<6} {:<10}",
-                        "Timestamp", "Method", "Path", "Status", "Duration"
-                    );
-                    println!("{}", "-".repeat(80));
-
-                    for req in requests {
-                        println!(
-                            "{:<20} {:<8} {:<30} {:<6} {:<10}ms",
-                            req.timestamp
-                                .format(
-                                    &time::format_description::parse(
-                                        "[year]-[month]-[day] [hour]:[minute]:[second]"
-                                    )
-                                    .unwrap()
-                                )
-                                .unwrap(),
-                            req.method,
-                            if req.path.len() > 28 {
-                                format!("{}...", &req.path[..25])
-                            } else {
-                                req.path.clone()
-                            },
-                            req.status_code,
-                            req.duration_ms
-                        );
-                    }
-                }
-            }
-            Commands::CleanupAnalytics { days, execute } => {
-                if execute {
-                    println!("🗑️  Cleaning up analytics data older than {} days...", days);
-                    let deleted_count = analytics
-                        .cleanup_old_data(days)
-                        .await
-                        .map_err(|e| format!("Failed to cleanup analytics: {}", e))?;
-                    println!(
-                        "✅ Successfully deleted {} old analytics records.",
-                        deleted_count
-                    );
-                } else {
-                    println!(
-                        "🔍 Dry run: Would clean up analytics data older than {} days",
-                        days
-                    );
-                    println!("   Use --execute to actually perform the cleanup.");
-                }
-            }
-        }
-
-        Ok(())
+        Ok((config, db))
     }
 
     async fn load_config_with_secrets(
         &self,
-    ) -> Result<(AppConfig, Option<SecretsConfig>), Box<dyn std::error::Error>> {
-        if !self.config.exists() {
-            eprintln!(
-                "⚠️  Configuration file '{}' not found.",
-                self.config.display()
-            );
-            eprintln!("💡 Run 'cargo run --bin webauthn-admin config init' to create one.");
-            eprintln!("🔄 Falling back to default configuration...");
-            println!();
-            return Ok((AppConfig::default(), None));
-        }
+    ) -> Result<(AppConfig, Option<()>), Box<dyn std::error::Error>> {
+        let config_path = self.config.as_deref().unwrap_or("config.jsonc");
+        let secrets_path = self.secrets.as_deref().unwrap_or("config.secrets.jsonc");
 
-        let secrets_path = if self.secrets.exists() {
-            Some(&self.secrets)
+        let secrets_path_opt = if std::path::Path::new(secrets_path).exists() {
+            Some(secrets_path)
         } else {
             None
         };
 
-        match AppConfig::from_files(&self.config, secrets_path) {
+        match AppConfig::from_files(config_path, secrets_path_opt) {
             Ok((config, secrets)) => {
-                if secrets.is_some() {
-                    println!("🔐 Loaded secrets from {}", self.secrets.display());
-                }
-                Ok((config, secrets))
+                let secrets_loaded = if secrets.is_some() { Some(()) } else { None };
+                Ok((config, secrets_loaded))
             }
             Err(e) => {
-                eprintln!("❌ Failed to load configuration: {}", e);
-                eprintln!("💡 Run 'cargo run --bin webauthn-admin config validate' for details.");
-                std::process::exit(1);
+                eprintln!("Failed to load configuration: {}", e);
+                eprintln!("Using default configuration...");
+                Ok((AppConfig::default(), None))
             }
         }
-    }
-
-    async fn handle_config_command(
-        &self,
-        command: ConfigCommands,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        match command {
-            ConfigCommands::Init {
-                force,
-                with_secrets,
-            } => {
-                self.init_config(force, with_secrets).await?;
-            }
-            ConfigCommands::InitSecrets { force } => {
-                self.init_secrets(force).await?;
-            }
-            ConfigCommands::Validate => {
-                self.validate_config().await?;
-            }
-            ConfigCommands::Schema { output } => {
-                self.generate_schema(output).await?;
-            }
-            ConfigCommands::GenerateEnv {
-                output,
-                with_examples,
-            } => {
-                self.generate_env_file(output, with_examples).await?;
-            }
-            ConfigCommands::Show { json, section } => {
-                self.show_config(json, section).await?;
-            }
-        }
-        Ok(())
-    }
-
-    async fn init_config(
-        &self,
-        force: bool,
-        with_secrets: bool,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        if self.config.exists() && !force {
-            eprintln!(
-                "❌ Configuration file '{}' already exists.",
-                self.config.display()
-            );
-            eprintln!("💡 Use --force to overwrite, or choose a different path with --config");
-            return Ok(());
-        }
-
-        println!("🚀 Generating default configuration...");
-
-        let config = AppConfig::default();
-        config.write_to_file(&self.config)?;
-
-        println!("✅ Created configuration file: {}", self.config.display());
-        println!();
-        if with_secrets {
-            println!("🔐 Also generating secrets file...");
-            self.init_secrets(force).await?;
-        }
-
-        println!("📋 Next steps:");
-        println!("  1. Edit the configuration file to match your setup");
-        if !with_secrets {
-            println!("  2. Generate secrets file:");
-            println!("     cargo run --bin webauthn-admin config init-secrets");
-        }
-        println!(
-            "  {}. Generate JSON Schema for editor support:",
-            if with_secrets { "2" } else { "3" }
-        );
-        println!("     cargo run --bin webauthn-admin config schema");
-        println!(
-            "  {}. Generate .env file for Docker/SQLx:",
-            if with_secrets { "3" } else { "4" }
-        );
-        println!("     cargo run --bin webauthn-admin config generate-env");
-        println!(
-            "  {}. Validate your configuration:",
-            if with_secrets { "4" } else { "5" }
-        );
-        println!("     cargo run --bin webauthn-admin config validate");
-
-        Ok(())
-    }
-
-    async fn init_secrets(&self, force: bool) -> Result<(), Box<dyn std::error::Error>> {
-        if self.secrets.exists() && !force {
-            eprintln!(
-                "❌ Secrets file '{}' already exists.",
-                self.secrets.display()
-            );
-            eprintln!("💡 Use --force to overwrite, or choose a different path with --secrets");
-            return Ok(());
-        }
-
-        println!("🔐 Generating default secrets file...");
-
-        let secrets = SecretsConfig::default();
-        secrets.write_to_file(&self.secrets)?;
-
-        println!("✅ Created secrets file: {}", self.secrets.display());
-        println!();
-        println!("⚠️  SECURITY WARNING ⚠️");
-        println!("📝 Please edit the secrets file and:");
-        println!("  • Change all default passwords");
-        println!("  • Use strong, unique credentials");
-        println!("  • Ensure file permissions are restrictive (chmod 600)");
-        println!("  • Never commit this file to version control");
-        println!();
-        println!("🔧 Set file permissions:");
-        #[cfg(unix)]
-        println!("  chmod 600 {}", self.secrets.display());
-        #[cfg(windows)]
-        println!("  Use Windows file permissions to restrict access");
-
-        Ok(())
-    }
-
-    async fn validate_config(&self) -> Result<(), Box<dyn std::error::Error>> {
-        println!("🔍 Validating configuration...");
-
-        if !self.config.exists() {
-            eprintln!(
-                "❌ Configuration file '{}' not found.",
-                self.config.display()
-            );
-            eprintln!("💡 Run 'config init' to create a default configuration.");
-            return Ok(());
-        }
-
-        // Check for secrets file
-        let has_secrets = self.secrets.exists();
-        if has_secrets {
-            println!("🔐 Found secrets file: {}", self.secrets.display());
-        } else {
-            println!("⚠️  No secrets file found at: {}", self.secrets.display());
-            println!("💡 Run 'config init-secrets' to create one");
-        }
-
-        let secrets_path = if has_secrets {
-            Some(&self.secrets)
-        } else {
-            None
-        };
-
-        match AppConfig::from_files(&self.config, secrets_path) {
-            Ok((config, secrets)) => {
-                println!("✅ Configuration is valid!");
-                println!();
-                println!("📊 Configuration summary:");
-                println!("  • App: {} v{}", config.app.name, config.app.version);
-                println!("  • Environment: {}", config.app.environment);
-                println!(
-                    "  • Database: {}:{}/{}",
-                    config.database.host, config.database.port, config.database.database
-                );
-                println!("  • Server: {}:{}", config.server.host, config.server.port);
-                println!(
-                    "  • WebAuthn: {} ({})",
-                    config.webauthn.rp_id, config.webauthn.rp_name
-                );
-                println!("  • Assets: {}", config.static_files.assets_directory);
-
-                // Check for common issues
-                let mut warnings = Vec::new();
-
-                if config.app.environment == "production" {
-                    if !config.production.require_https {
-                        warnings.push("Production environment should require HTTPS");
-                    }
-                    if !config.sessions.secure {
-                        warnings.push("Production environment should use secure cookies");
-                    }
-                }
-
-                if config.webauthn.rp_origin.starts_with("http://")
-                    && config.app.environment == "production"
-                {
-                    warnings.push("Production WebAuthn should use HTTPS");
-                }
-
-                // Validate secrets if present
-                if let Some(ref secrets) = secrets {
-                    println!();
-                    println!("🔐 Secrets validation:");
-
-                    if secrets.database.password == "change_me_secure_password" {
-                        warnings.push("Database password is still using default value");
-                    }
-
-                    if let Some(ref session_secret) = secrets.app.session_secret {
-                        if session_secret == "change_me_session_secret_32_chars_min" {
-                            warnings.push("Session secret is still using default value");
-                        } else if session_secret.len() < 32 {
-                            warnings.push("Session secret should be at least 32 characters");
-                        }
-                    }
-
-                    println!(
-                        "  • Database password: {}",
-                        if secrets.database.password == "change_me_secure_password" {
-                            "❌ Default"
-                        } else {
-                            "✅ Custom"
-                        }
-                    );
-                    println!(
-                        "  • Session secret: {}",
-                        match &secrets.app.session_secret {
-                            Some(s) if s == "change_me_session_secret_32_chars_min" => "❌ Default",
-                            Some(s) if s.len() < 32 => "⚠️  Too short",
-                            Some(_) => "✅ Good",
-                            None => "⚠️  Not set",
-                        }
-                    );
-                } else {
-                    warnings.push(
-                        "No secrets file found - database password will come from environment",
-                    );
-                }
-
-                if !warnings.is_empty() {
-                    println!();
-                    println!("⚠️  Warnings:");
-                    for warning in warnings {
-                        println!("  • {}", warning);
-                    }
-                }
-            }
-            Err(ConfigError::ParseError(msg)) => {
-                eprintln!("❌ Configuration parsing failed:");
-                eprintln!("   {}", msg);
-                eprintln!();
-                eprintln!("💡 Common issues:");
-                eprintln!("  • Check for missing commas in JSON");
-                eprintln!("  • Ensure all strings are quoted");
-                eprintln!("  • Verify bracket/brace matching");
-                eprintln!("  • Remove trailing commas");
-            }
-            Err(ConfigError::ValidationError(msg)) => {
-                eprintln!("❌ Configuration validation failed:");
-                eprintln!("   {}", msg);
-                eprintln!();
-                eprintln!("💡 Fix the issues above and run validation again.");
-            }
-            Err(e) => {
-                eprintln!("❌ Failed to load configuration: {}", e);
-            }
-        }
-
-        Ok(())
-    }
-
-    async fn generate_schema(&self, output: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
-        println!("📝 Generating JSON Schema for editor support...");
-
-        let schema = AppConfig::generate_schema()?;
-        std::fs::write(&output, schema)?;
-
-        println!("✅ Generated schema file: {}", output.display());
-        println!();
-        println!("🎯 Editor setup tips:");
-        println!("  • VS Code: Install 'JSON' extension, configure in settings.json:");
-        println!(
-            r#"    "json.schemas": [{{"fileMatch": ["config.jsonc"], "url": "./{}"}}]"#,
-            output.display()
-        );
-        println!("  • IntelliJ/WebStorm: Preferences → JSON Schema Mappings");
-        println!("  • Vim/Neovim: Use ALE or coc-json with schema configuration");
-
-        Ok(())
-    }
-
-    async fn generate_env_file(
-        &self,
-        output: PathBuf,
-        with_examples: bool,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        println!("🔧 Generating .env file...");
-
-        let (config, secrets) = if self.config.exists() {
-            let secrets_path = if self.secrets.exists() {
-                Some(&self.secrets)
-            } else {
-                None
-            };
-            AppConfig::from_files(&self.config, secrets_path)?
-        } else {
-            println!("⚠️  Config file not found, using defaults");
-            (AppConfig::default(), None)
-        };
-
-        let mut env_vars = config.to_env_vars();
-
-        // Add secrets to env vars if available
-        if let Some(ref secrets) = secrets {
-            let secret_env_vars = secrets.to_env_vars();
-            env_vars.extend(secret_env_vars);
-        }
-        let mut content = String::new();
-
-        // Core variables - Database Configuration
-        for (key, value) in &env_vars {
-            if key.starts_with("DATABASE") || key.starts_with("POSTGRES") {
-                content.push_str(&format!("{}={}\n", key, value));
-            }
-        }
-
-        // Application Configuration
-        for (key, value) in &env_vars {
-            if key.starts_with("APP_") || key == "RUST_LOG" {
-                content.push_str(&format!("{}={}\n", key, value));
-            }
-        }
-
-        // Other environment variables
-        for (key, value) in &env_vars {
-            if !key.starts_with("DATABASE")
-                && !key.starts_with("POSTGRES")
-                && !key.starts_with("APP_")
-                && key != "RUST_LOG"
-            {
-                content.push_str(&format!("{}={}\n", key, value));
-            }
-        }
-
-        if with_examples {
-            content.push_str("\n");
-            if secrets.is_none() {
-                content.push_str("DATABASE_PASSWORD=your_secure_password_here\n");
-                content.push_str("POSTGRES_PASSWORD=your_secure_password_here\n");
-            }
-            content.push_str("PGADMIN_DEFAULT_EMAIL=admin@example.com\n");
-            content.push_str("PGADMIN_DEFAULT_PASSWORD=admin_password\n");
-        }
-
-        std::fs::write(&output, content)?;
-
-        println!("✅ Generated .env file: {}", output.display());
-        println!();
-        println!("🔒 Security reminders:");
-        println!("  • Add .env to your .gitignore file");
-        if secrets.is_none() {
-            println!("  • Set DATABASE_PASSWORD or POSTGRES_PASSWORD");
-            println!("  • Consider using secrets file: config init-secrets");
-        } else {
-            println!("  • Secrets loaded from {}", self.secrets.display());
-        }
-        println!("  • Never commit environment files to version control");
-        println!("  • Use strong, unique passwords in production");
-
-        Ok(())
-    }
-
-    async fn show_config(
-        &self,
-        json: bool,
-        section: Option<String>,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        let (config, secrets) = if self.config.exists() {
-            let secrets_path = if self.secrets.exists() {
-                Some(&self.secrets)
-            } else {
-                None
-            };
-            AppConfig::from_files(&self.config, secrets_path)?
-        } else {
-            println!("⚠️  Config file not found, showing defaults");
-            (AppConfig::default(), None)
-        };
-
-        if let Some(ref _secrets) = secrets {
-            println!("🔐 Secrets file loaded from: {}", self.secrets.display());
-        }
-
-        if json {
-            if let Some(section) = section {
-                // Show specific section
-                let value = match section.as_str() {
-                    "app" => serde_json::to_value(&config.app)?,
-                    "database" => serde_json::to_value(&config.database)?,
-                    "webauthn" => serde_json::to_value(&config.webauthn)?,
-                    "server" => serde_json::to_value(&config.server)?,
-                    "sessions" => serde_json::to_value(&config.sessions)?,
-                    "logging" => serde_json::to_value(&config.logging)?,
-                    "features" => serde_json::to_value(&config.features)?,
-                    _ => {
-                        eprintln!("❌ Unknown section: {}", section);
-                        eprintln!("Available sections: app, database, webauthn, server, sessions, logging, features");
-                        return Ok(());
-                    }
-                };
-                println!("{}", serde_json::to_string_pretty(&value)?);
-            } else {
-                println!("{}", serde_json::to_string_pretty(&config)?);
-            }
-        } else {
-            // Human-readable format
-            println!("📋 Current Configuration");
-            println!("========================");
-            println!();
-            println!("🏷️  Application:");
-            println!("   Name: {}", config.app.name);
-            println!("   Version: {}", config.app.version);
-            println!("   Environment: {}", config.app.environment);
-            println!();
-            println!("🗄️  Database:");
-            println!("   Host: {}", config.database.host);
-            println!("   Port: {}", config.database.port);
-            println!("   Database: {}", config.database.database);
-            println!("   Username: {}", config.database.username);
-            println!(
-                "   Max Connections: {}",
-                config.database.pool.max_connections
-            );
-            println!();
-            println!("🔐 WebAuthn:");
-            println!("   RP ID: {}", config.webauthn.rp_id);
-            println!("   RP Name: {}", config.webauthn.rp_name);
-            println!("   Origin: {}", config.webauthn.rp_origin);
-            println!("   Timeout: {}ms", config.webauthn.timeout_ms);
-            println!();
-            println!("🌐 Server:");
-            println!("   Host: {}", config.server.host);
-            println!("   Port: {}", config.server.port);
-            println!(
-                "   TLS: {}",
-                if config.server.tls.enabled {
-                    "enabled"
-                } else {
-                    "disabled"
-                }
-            );
-            println!();
-            println!("🎫 Invite Codes:");
-            println!("   Default Length: {}", config.invite_codes.default_length);
-            println!("   Single Use: {}", config.invite_codes.single_use);
-            println!("   Max Batch: {}", config.invite_codes.max_batch_size);
-        }
-
-        Ok(())
     }
 }
