@@ -39,13 +39,13 @@ auth_repo.list_users().await
 
 ```bash
 # Create an admin user
-cargo run --bin webauthn-admin -- create-admin admin_user
+cargo run --bin cli users create-admin admin_user
 
 # List all users with roles
-cargo run --bin webauthn-admin -- list-users
+cargo run --bin cli users list-users
 
 # Update a user's role
-cargo run --bin webauthn-admin -- update-user-role someuser admin
+cargo run --bin cli users update-user-role someuser admin
 ```
 
 ## Route Protection
@@ -88,23 +88,23 @@ The first user to register will automatically become an admin. You can also crea
 
 ```bash
 # Create admin with specific invite code
-cargo run --bin webauthn-admin -- create-admin admin_user --invite-code ABC123
+cargo run --bin cli users create-admin admin_user --invite-code ABC123
 
 # Create admin without invite code (if configured to allow)
-cargo run --bin webauthn-admin -- create-admin admin_user
+cargo run --bin cli users create-admin admin_user
 ```
 
 ### Managing User Roles
 
 ```bash
 # List all users to see their current roles
-cargo run --bin webauthn-admin -- list-users
+cargo run --bin cli users list-users
 
 # Promote a user to admin
-cargo run --bin webauthn-admin -- update-user-role alice admin
+cargo run --bin cli users update-user-role alice admin
 
 # Demote an admin to member
-cargo run --bin webauthn-admin -- update-user-role bob member
+cargo run --bin cli users update-user-role bob member
 ```
 
 ### Using Roles in Handlers

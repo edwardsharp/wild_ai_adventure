@@ -1082,10 +1082,10 @@ impl AppConfig {
 // configure your editor to use the generated schema file.
 //
 // To generate environment variables for Docker/SQLx:
-//   cargo run --bin webauthn-admin config generate-env
+//   cargo run --bin cli config generate-env
 //
 // To validate this configuration:
-//   cargo run --bin webauthn-admin config validate
+//   cargo run --bin cli config validate
 //
 "#;
 

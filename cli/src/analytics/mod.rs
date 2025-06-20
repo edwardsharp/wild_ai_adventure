@@ -7,8 +7,8 @@
 //! - Analytics statistics
 
 use clap::Subcommand;
-use webauthn_server::database::DatabaseConnection;
-use webauthn_server::storage::AnalyticsService;
+use server::database::DatabaseConnection;
+use server::storage::AnalyticsService;
 
 #[derive(Subcommand, Clone)]
 pub enum AnalyticsCommands {

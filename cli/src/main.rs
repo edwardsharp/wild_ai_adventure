@@ -1,5 +1,5 @@
-use webauthn_cli::Cli;
 use clap::Parser;
+use cli::Cli;
 
 #[tokio::main]
 async fn main() {

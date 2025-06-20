@@ -9,8 +9,8 @@
 use clap::Subcommand;
 use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
-use webauthn_server::auth::{AuthRepository, UserRole};
-use webauthn_server::database::DatabaseConnection;
+use server::auth::{AuthRepository, UserRole};
+use server::database::DatabaseConnection;
 
 #[derive(Subcommand, Clone)]
 pub enum UserCommands {

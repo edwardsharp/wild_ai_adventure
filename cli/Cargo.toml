@@ -1,5 +1,5 @@
 [package]
-name = "webauthn-cli"
+name = "cli"
 version = "0.1.0"
 authors = [
   "William Brown <william@blackhats.net.au>, Ben Wishovich <ben@benw.is>",
@@ -19,7 +19,7 @@ tokio.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 uuid.workspace = true
-webauthn-server = { path = "../server" }
+server = { path = "../server" }
 
 [features]
 default = []

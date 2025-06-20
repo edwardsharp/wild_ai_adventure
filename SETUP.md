@@ -54,7 +54,7 @@ cp .env.example .env
 
 ```bash
 # Test the CLI tool (this will also run migrations)
-cargo run --bin webauthn-admin -- stats
+cargo run --bin cli users stats
 ```
 
 If successful, you should see:
@@ -71,23 +71,23 @@ Invite Code Statistics:
 
 ```bash
 # Generate a single invite code
-cargo run --bin webauthn-admin -- generate-invite
+cargo run --bin cli users generate-invite
 
 # Generate multiple codes
-cargo run --bin webauthn-admin -- generate-invite --count 5
+cargo run --bin cli users generate-invite --count 5
 
 # Generate longer codes
-cargo run --bin webauthn-admin -- generate-invite --length 12
+cargo run --bin cli users generate-invite --length 12
 ```
 
 ## 6. View Invite Codes
 
 ```bash
 # List all invite codes
-cargo run --bin webauthn-admin -- list-invites
+cargo run --bin cli users list-invites
 
 # List only active/unused codes
-cargo run --bin webauthn-admin -- list-invites --active-only
+cargo run --bin cli users list-invites --active-only
 ```
 
 ## 7. Start the Web Server
@@ -122,13 +122,15 @@ cargo run
 ## Quick Test Sequence
 
 1. Generate an invite code:
+
    ```bash
-   cargo run --bin webauthn-admin -- generate-invite
+   cargo run --bin cli users generate-invite
    ```
 
 2. Note the generated code (e.g., "ABC12345")
 
 3. Start the server:
+
    ```bash
    ./start_dev.sh
    ```
@@ -136,13 +138,14 @@ cargo run
 4. Open http://localhost:8080 in your browser
 
 5. Try to register:
+
    - Username: `testuser`
    - Invite Code: `ABC12345` (use the code you generated)
    - Complete WebAuthn registration with your device
 
 6. Verify the invite code was used:
    ```bash
-   cargo run --bin webauthn-admin -- list-invites
+   cargo run --bin cli users list-invites
    ```
 
 The code should now show as used!

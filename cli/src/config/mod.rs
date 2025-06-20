@@ -7,8 +7,8 @@
 //! - Environment file generation
 
 use clap::Subcommand;
+use server::config::AppConfig;
 use std::path::PathBuf;
-use webauthn_server::config::AppConfig;
 
 #[derive(Subcommand, Clone)]
 pub enum ConfigCommands {
@@ -113,9 +113,9 @@ impl ConfigCommands {
         if with_secrets {
             println!("  2. Edit {} to set your secrets", secrets_path);
         } else {
-            println!("  2. Run 'webauthn-admin config init-secrets' to generate secrets file");
+            println!("  2. Run 'cli config init-secrets' to generate secrets file");
         }
-        println!("  3. Run 'webauthn-admin config validate' to check your configuration");
+        println!("  3. Run 'cli config validate' to check your configuration");
 
         Ok(())
     }

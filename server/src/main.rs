@@ -6,12 +6,12 @@ use tower_sessions::{
     Expiry, SessionManagerLayer,
 };
 
-use webauthn_server::analytics::{analytics_middleware, security_logging};
-use webauthn_server::config::AppConfig;
-use webauthn_server::routes::build_routes;
-use webauthn_server::startup::AppState;
-use webauthn_server::static_filez::build_assets_fallback_service;
-use webauthn_server::storage::SessionStore;
+use server::analytics::{analytics_middleware, security_logging};
+use server::config::AppConfig;
+use server::routes::build_routes;
+use server::startup::AppState;
+use server::static_filez::build_assets_fallback_service;
+use server::storage::SessionStore;
 
 #[macro_use]
 extern crate tracing;
@@ -49,16 +49,14 @@ async fn main() {
                     "❌ Failed to load configuration from {}: {}",
                     config_path, e
                 );
-                eprintln!(
-                    "💡 Run 'cargo run --bin webauthn-admin config init' to create a config file"
-                );
+                eprintln!("💡 Run 'cargo run --bin cli config init' to create a config file");
                 eprintln!("🔄 Using default configuration...");
                 AppConfig::default()
             }
         }
     } else {
         eprintln!("⚠️  Configuration file '{}' not found", config_path);
-        eprintln!("💡 Run 'cargo run --bin webauthn-admin config init' to create one");
+        eprintln!("💡 Run 'cargo run --bin cli config init' to create one");
         eprintln!("🔄 Using default configuration...");
         AppConfig::default()
     };
@@ -72,7 +70,7 @@ async fn main() {
     // Validate configuration
     if let Err(e) = config.validate() {
         eprintln!("❌ Configuration validation failed: {}", e);
-        eprintln!("💡 Run 'cargo run --bin webauthn-admin config validate' for details");
+        eprintln!("💡 Run 'cargo run --bin cli config validate' for details");
         std::process::exit(1);
     }
 

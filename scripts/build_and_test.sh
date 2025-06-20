@@ -19,7 +19,7 @@ cleanup() {
         wait "$SERVER_PID" 2>/dev/null || true
     fi
 
-    # Also kill any other webauthn-server processes on the test port
+    # Also kill any other server processes on the test port
     if command -v lsof >/dev/null 2>&1; then
         local pids=$(lsof -ti:$API_PORT 2>/dev/null || true)
         if [ ! -z "$pids" ]; then
@@ -62,7 +62,7 @@ usage() {
     echo -e "  ${GREEN}clean${NC}         - Clean build artifacts and containers"
     echo -e "  ${GREEN}setup${NC}         - Initial project setup"
     echo -e "  ${GREEN}dev${NC}           - Start development environment"
-    echo -e "  ${GREEN}kill-server${NC}   - Kill any running webauthn-server processes"
+    echo -e "  ${GREEN}kill-server${NC}   - Kill any running server processes"
     echo -e ""
     echo -e "${YELLOW}Environment Variables:${NC}"
     echo -e "  RUST_LOG           - Rust logging level (default: info)"
@@ -257,7 +257,7 @@ ensure_test_database_running() {
     if ! pg_isready -h localhost -p 5433 &>/dev/null; then
         if [ -f "docker-compose.test.yml" ]; then
             log "Starting test database container..."
-            docker-compose -f docker-compose.test.yml up -d webauthn-test-postgres
+            docker-compose -f docker-compose.test.yml up -d test-postgres
 
             # Wait for database to be ready
             for i in {1..30}; do
@@ -336,7 +336,7 @@ generate_test_invite_codes() {
     mkdir -p generated/ts-client/test-data
 
     # Generate invite codes using the CLI and capture output
-    local invite_output=$(DATABASE_URL=$TEST_DB_URL CONFIG_PATH="config.test.jsonc" SECRETS_PATH="config.secrets.test.jsonc" cargo run --release --bin webauthn-cli generate-invite --count 5 --length 8 2>/dev/null)
+    local invite_output=$(DATABASE_URL=$TEST_DB_URL CONFIG_PATH="config.test.jsonc" SECRETS_PATH="config.secrets.test.jsonc" cargo run --release --bin cli users generate-invite --count 5 --length 8 2>/dev/null)
 
     # Extract invite codes from output and save to file
     echo "$invite_output" | grep "Generated invite code" | sed 's/.*: //' > generated/ts-client/test-data/invite-codes.txt
@@ -384,7 +384,7 @@ run_typescript_tests() {
 
     # Start server in background with test configuration and database
     # Run from project root so server can find assets directory
-    (cd ../.. && DATABASE_URL=$TEST_DB_URL CONFIG_PATH="config.test.jsonc" SECRETS_PATH="config.secrets.test.jsonc" cargo llvm-cov run --bin webauthn-server --no-report; true) &
+    (cd ../.. && DATABASE_URL=$TEST_DB_URL CONFIG_PATH="config.test.jsonc" SECRETS_PATH="config.secrets.test.jsonc" cargo llvm-cov run --bin server --no-report; true) &
     SERVER_PID=$!
 
     log "Started server with PID: $SERVER_PID"
@@ -466,101 +466,101 @@ run_cli_coverage() {
 
     # Test help and basic commands
     log "Testing CLI help and basic commands..."
-    cargo llvm-cov run --bin webauthn-cli --no-report -- --help || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- help || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- help config || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- help generate-invite || true
+    cargo llvm-cov run --bin cli --no-report -- --help || true
+    cargo llvm-cov run --bin cli --no-report -- help || true
+    cargo llvm-cov run --bin cli --no-report -- help config || true
+    cargo llvm-cov run --bin cli --no-report -- help users || true
 
     # Test config commands
     log "Testing CLI config commands..."
-    cargo llvm-cov run --bin webauthn-cli --no-report -- config --help || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- config validate || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- config schema --output /tmp/test_schema.json || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- config generate-env --output /tmp/test_env.env || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- config generate-env --output /tmp/test_env_examples.env --with-examples || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- config show || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- config show --json || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- config show --section app || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- config show --section database || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- config show --section webauthn || true
+    cargo llvm-cov run --bin cli --no-report -- config --help || true
+    cargo llvm-cov run --bin cli --no-report -- config validate || true
+    cargo llvm-cov run --bin cli --no-report -- config schema --output /tmp/test_schema.json || true
+    cargo llvm-cov run --bin cli --no-report -- config generate-env --output /tmp/test_env.env || true
+    cargo llvm-cov run --bin cli --no-report -- config generate-env --output /tmp/test_env_examples.env --with-examples || true
+    cargo llvm-cov run --bin cli --no-report -- config show || true
+    cargo llvm-cov run --bin cli --no-report -- config show --json || true
+    cargo llvm-cov run --bin cli --no-report -- config show --section app || true
+    cargo llvm-cov run --bin cli --no-report -- config show --section database || true
+    cargo llvm-cov run --bin cli --no-report -- config show --section webauthn || true
 
     # Test config init commands (with force to avoid prompts)
     log "Testing CLI config init commands..."
-    cargo llvm-cov run --bin webauthn-cli --no-report -- config init --force || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- config init --force --with-secrets || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- config init-secrets --force || true
+    cargo llvm-cov run --bin cli --no-report -- config init --force || true
+    cargo llvm-cov run --bin cli --no-report -- config init --force --with-secrets || true
+    cargo llvm-cov run --bin cli --no-report -- config init-secrets --force || true
 
     # Test invite code commands
     log "Testing CLI invite code commands..."
-    cargo llvm-cov run --bin webauthn-cli --no-report -- generate-invite --help || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- generate-invite --count 1 --length 8 || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- generate-invite --count 3 --length 8 || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- generate-invite --count 5 --length 6 || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- list-invites --help || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- list-invites || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- list-invites --active-only || true
+    cargo llvm-cov run --bin cli --no-report -- users generate-invite --help || true
+    cargo llvm-cov run --bin cli --no-report -- users generate-invite --count 1 --length 8 || true
+    cargo llvm-cov run --bin cli --no-report -- users generate-invite --count 3 --length 8 || true
+    cargo llvm-cov run --bin cli --no-report -- users generate-invite --count 5 --length 6 || true
+    cargo llvm-cov run --bin cli --no-report -- users list-invites --help || true
+    cargo llvm-cov run --bin cli --no-report -- users list-invites || true
+    cargo llvm-cov run --bin cli --no-report -- users list-invites --active-only || true
 
     # Test stats command
     log "Testing CLI stats command..."
-    cargo llvm-cov run --bin webauthn-cli --no-report -- stats --help || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- stats || true
+    cargo llvm-cov run --bin cli --no-report -- users stats --help || true
+    cargo llvm-cov run --bin cli --no-report -- users stats || true
 
     # Test user management commands
     log "Testing CLI user commands..."
-    cargo llvm-cov run --bin webauthn-cli --no-report -- list-users --help || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- list-users || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- create-admin --help || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- create-admin test_admin_user || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- create-admin test_admin_user2 --invite-code $(cargo llvm-cov run --bin webauthn-cli --no-report -- generate-invite --count 1 --length 8 2>/dev/null | grep -o '[A-Z0-9]\{8\}' | head -1) || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- update-user-role --help || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- update-user-role nonexistent_user --role admin || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- update-user-role test_admin_user --role user || true
+    cargo llvm-cov run --bin cli --no-report -- users list-users --help || true
+    cargo llvm-cov run --bin cli --no-report -- users list-users || true
+    cargo llvm-cov run --bin cli --no-report -- users create-admin --help || true
+    cargo llvm-cov run --bin cli --no-report -- users create-admin test_admin_user || true
+    cargo llvm-cov run --bin cli --no-report -- users create-admin test_admin_user2 --invite-code $(cargo llvm-cov run --bin cli --no-report -- users generate-invite --count 1 --length 8 2>/dev/null | grep -o '[A-Z0-9]\{8\}' | head -1) || true
+    cargo llvm-cov run --bin cli --no-report -- users update-user-role --help || true
+    cargo llvm-cov run --bin cli --no-report -- users update-user-role nonexistent_user --role admin || true
+    cargo llvm-cov run --bin cli --no-report -- users update-user-role test_admin_user --role member || true
 
     # Test analytics commands
     log "Testing CLI analytics commands..."
-    cargo llvm-cov run --bin webauthn-cli --no-report -- analytics --help || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- analytics || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- analytics --hours 1 || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- analytics --hours 24 --limit 10 || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- analytics --hours 168 --limit 100 || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- user-activity --help || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- user-activity || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- user-activity --limit 10 || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- user-activity --limit 50 || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- user-activity --user-id test_admin_user || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- cleanup-analytics --help || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- cleanup-analytics --days 1 || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- cleanup-analytics --days 7 || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- cleanup-analytics --days 30 --execute || true
+    cargo llvm-cov run --bin cli --no-report -- analytics analytics --help || true
+    cargo llvm-cov run --bin cli --no-report -- analytics analytics || true
+    cargo llvm-cov run --bin cli --no-report -- analytics analytics --hours 1 || true
+    cargo llvm-cov run --bin cli --no-report -- analytics analytics --hours 24 --limit 10 || true
+    cargo llvm-cov run --bin cli --no-report -- analytics analytics --hours 168 --limit 100 || true
+    cargo llvm-cov run --bin cli --no-report -- analytics user-activity --help || true
+    cargo llvm-cov run --bin cli --no-report -- analytics user-activity --user-id dummy_id || true
+    cargo llvm-cov run --bin cli --no-report -- analytics user-activity --user-id dummy_id --limit 10 || true
+    cargo llvm-cov run --bin cli --no-report -- analytics user-activity --user-id dummy_id --limit 50 || true
+    cargo llvm-cov run --bin cli --no-report -- analytics user-activity --user-id dummy_id || true
+    cargo llvm-cov run --bin cli --no-report -- analytics cleanup-analytics --help || true
+    cargo llvm-cov run --bin cli --no-report -- analytics cleanup-analytics --days 1 || true
+    cargo llvm-cov run --bin cli --no-report -- analytics cleanup-analytics --days 7 || true
+    cargo llvm-cov run --bin cli --no-report -- analytics cleanup-analytics --days 30 --execute || true
 
     # Test CLI with different config files and options
     log "Testing CLI with different configurations..."
-    cargo llvm-cov run --bin webauthn-cli --no-report -- --config config.test.jsonc config show || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- --secrets config.secrets.test.jsonc config show || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- --database-url "$TEST_DB_URL" list-users || true
+    cargo llvm-cov run --bin cli --no-report -- --config config.test.jsonc config show || true
+    cargo llvm-cov run --bin cli --no-report -- --secrets config.secrets.test.jsonc config show || true
+    cargo llvm-cov run --bin cli --no-report -- --database-url "$TEST_DB_URL" users list-users || true
 
     # Test error conditions and edge cases
     log "Testing CLI error conditions..."
-    cargo llvm-cov run --bin webauthn-cli --no-report -- --config nonexistent.jsonc config show || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- --secrets nonexistent.jsonc config show || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- --database-url "invalid://connection" list-users || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- generate-invite --count 0 || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- generate-invite --count 999 || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- generate-invite --length 1 || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- generate-invite --length 100 || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- update-user-role test_user --role invalid_role || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- analytics --hours 0 || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- analytics --hours 999999 || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- user-activity --limit 0 || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- cleanup-analytics --days 0 || true
+    cargo llvm-cov run --bin cli --no-report -- --config nonexistent.jsonc config show || true
+    cargo llvm-cov run --bin cli --no-report -- --secrets nonexistent.jsonc config show || true
+    cargo llvm-cov run --bin cli --no-report -- --database-url "invalid://connection" users list-users || true
+    cargo llvm-cov run --bin cli --no-report -- users generate-invite --count 0 || true
+    cargo llvm-cov run --bin cli --no-report -- users generate-invite --count 999 || true
+    cargo llvm-cov run --bin cli --no-report -- users generate-invite --length 1 || true
+    cargo llvm-cov run --bin cli --no-report -- users generate-invite --length 100 || true
+    cargo llvm-cov run --bin cli --no-report -- users update-user-role test_user --role invalid_role || true
+    cargo llvm-cov run --bin cli --no-report -- analytics analytics --hours 0 || true
+    cargo llvm-cov run --bin cli --no-report -- analytics analytics --hours 999999 || true
+    cargo llvm-cov run --bin cli --no-report -- analytics user-activity --user-id dummy_id --limit 0 || true
+    cargo llvm-cov run --bin cli --no-report -- analytics cleanup-analytics --days 0 || true
 
     # Test command combinations and sequences
     log "Testing CLI command sequences..."
-    cargo llvm-cov run --bin webauthn-cli --no-report -- generate-invite --count 2 --length 8 || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- list-invites || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- stats || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- list-users || true
-    cargo llvm-cov run --bin webauthn-cli --no-report -- analytics --hours 1 || true
+    cargo llvm-cov run --bin cli --no-report -- users generate-invite --count 2 --length 8 || true
+    cargo llvm-cov run --bin cli --no-report -- users list-invites || true
+    cargo llvm-cov run --bin cli --no-report -- users stats || true
+    cargo llvm-cov run --bin cli --no-report -- users list-users || true
+    cargo llvm-cov run --bin cli --no-report -- analytics analytics --hours 1 || true
 
     log "CLI coverage tests completed"
 }
@@ -738,7 +738,7 @@ main() {
             ;;
         "kill-server")
             cleanup
-            success "Killed any running webauthn-server processes"
+            success "Killed any running server processes"
             ;;
         "help"|"-h"|"--help")
             usage

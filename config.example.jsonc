@@ -4,10 +4,10 @@
 // each option. Copy this to config.jsonc and customize for your setup.
 //
 // For JSON Schema support in your editor:
-//   cargo run --bin webauthn-admin config schema
+//   cargo run --bin cli config schema
 //
 // To validate your configuration:
-//   cargo run --bin webauthn-admin config validate
+//   cargo run --bin cli config validate
 //
 {
   // Application metadata and identification

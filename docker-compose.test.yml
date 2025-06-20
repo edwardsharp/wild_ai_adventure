@@ -2,9 +2,9 @@ version: "3.8"
 
 services:
   # Test PostgreSQL database
-  webauthn-test-postgres:
+  test-postgres:
     image: postgres:16-alpine
-    container_name: webauthn-test-db
+    container_name: test-db
     environment:
       POSTGRES_DB: test_db
       POSTGRES_USER: postgres
@@ -13,7 +13,7 @@ services:
     ports:
       - "5433:5432"
     volumes:
-      - webauthn_test_postgres_data:/var/lib/postgresql/data
+      - test_postgres_data:/var/lib/postgresql/data
       - ./migrations:/docker-entrypoint-initdb.d
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d test_db"]
@@ -21,40 +21,40 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - webauthn-test-network
+      - test-network
 
   # Redis for session storage (if needed)
-  webauthn-test-redis:
+  test-redis:
     image: redis:7-alpine
-    container_name: webauthn-test-redis
+    container_name: test-redis
     ports:
       - "6380:6379"
     command: redis-server --appendonly yes
     volumes:
-      - webauthn_test_redis_data:/data
+      - test_redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
       retries: 5
     networks:
-      - webauthn-test-network
+      - test-network
 
   # Test runner container (optional - for running tests in isolated environment)
-  webauthn-test-runner:
+  test-runner:
     build:
       context: .
       dockerfile: Dockerfile.test
-    container_name: webauthn-test-runner
+    container_name: test-runner
     environment:
-      DATABASE_URL: postgres://postgres:test_password_123@webauthn-test-postgres:5432/test_db
-      REDIS_URL: redis://webauthn-test-redis:6379
+      DATABASE_URL: postgres://postgres:test_password_123@test-postgres:5432/test_db
+      REDIS_URL: redis://test-redis:6379
       RUST_LOG: debug
       RUST_BACKTRACE: 1
     depends_on:
-      webauthn-test-postgres:
+      test-postgres:
         condition: service_healthy
-      webauthn-test-redis:
+      test-redis:
         condition: service_healthy
     volumes:
       - .:/workspace
@@ -62,14 +62,12 @@ services:
       - cargo_cache:/usr/local/cargo/registry
     working_dir: /workspace
     networks:
-      - webauthn-test-network
-    profiles:
-      - test-container
+      - test-network
 
   # Test database with specific version for compatibility testing
-  webauthn-test-postgres-14:
+  test-postgres-14:
     image: postgres:14-alpine
-    container_name: webauthn-test-db-14
+    container_name: test-db-14
     environment:
       POSTGRES_DB: test_db
       POSTGRES_USER: postgres
@@ -78,23 +76,21 @@ services:
     ports:
       - "5434:5432"
     volumes:
-      - webauthn_test_postgres_14_data:/var/lib/postgresql/data
+      - test_postgres_14_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d test_db"]
       interval: 5s
       timeout: 5s
       retries: 5
     networks:
-      - webauthn-test-network
-    profiles:
-      - postgres-14
+      - test-network
 
   # Integration test environment with Node.js for TypeScript client testing
-  webauthn-typescript-test:
+  typescript-test:
     image: node:20-alpine
-    container_name: webauthn-ts-test
+    container_name: ts-test
     environment:
-      API_BASE_URL: http://webauthn-test-api:3000
+      API_BASE_URL: http://test-api:3000
       NODE_ENV: test
     volumes:
       - ./generated/ts-client:/app
@@ -102,32 +98,30 @@ services:
     working_dir: /app
     command: sh -c "npm install && npm run test:integration"
     depends_on:
-      - webauthn-test-api
+      - test-api
     networks:
-      - webauthn-test-network
-    profiles:
-      - e2e
+      - test-network
 
   # Test API server
-  webauthn-test-api:
+  test-api:
     build:
       context: .
       dockerfile: Dockerfile
       target: runtime
-    container_name: webauthn-test-api
+    container_name: test-api
     environment:
-      DATABASE_URL: postgres://postgres:test_password_123@webauthn-test-postgres:5432/test_db
-      REDIS_URL: redis://webauthn-test-redis:6379
+      DATABASE_URL: postgres://postgres:test_password_123@test-postgres:5432/test_db
+      REDIS_URL: redis://test-redis:6379
       RUST_LOG: info
       PORT: 3000
       CONFIG_PATH: config.test.jsonc
     ports:
       - "3001:3000"
     depends_on:
-      webauthn-test-postgres:
+      test-postgres:
         condition: service_healthy
     networks:
-      - webauthn-test-network
+      - test-network
     profiles:
       - e2e
     healthcheck:
@@ -137,31 +131,29 @@ services:
       retries: 3
 
   # Performance testing with wrk
-  webauthn-perf-test:
+  perf-test:
     image: williamyeh/wrk
-    container_name: webauthn-perf-test
+    container_name: perf-test
     command: >
       sh -c "
         echo 'Waiting for API to be ready...' &&
         sleep 10 &&
         echo 'Running performance tests...' &&
-        wrk -t4 -c100 -d30s --timeout 10s http://webauthn-test-api:3000/health &&
+        wrk -t4 -c100 -d30s --timeout 10s http://test-api:3000/health &&
         echo 'Health endpoint test completed' &&
-        wrk -t2 -c10 -d10s --timeout 10s -s /scripts/register.lua http://webauthn-test-api:3000/
+        wrk -t2 -c10 -d10s --timeout 10s -s /scripts/register.lua http://test-api:3000/
       "
     volumes:
       - ./scripts/perf:/scripts
     depends_on:
-      - webauthn-test-api
+      - test-api
     networks:
-      - webauthn-test-network
-    profiles:
-      - perf
+      - test-network
 
   # Prometheus for metrics collection during testing
-  webauthn-test-prometheus:
+  test-prometheus:
     image: prom/prometheus:latest
-    container_name: webauthn-test-prometheus
+    container_name: test-prometheus
     ports:
       - "9091:9090"
     volumes:
@@ -174,26 +166,26 @@ services:
       - "--storage.tsdb.retention.time=1h"
       - "--web.enable-lifecycle"
     networks:
-      - webauthn-test-network
+      - test-network
     profiles:
       - monitoring
 
 volumes:
-  webauthn_test_postgres_data:
+  test_postgres_data:
     driver: local
-  webauthn_test_postgres_14_data:
+  test_postgres_14_data:
     driver: local
-  webauthn_test_redis_data:
+  test_redis_data:
     driver: local
-  webauthn_test_target_cache:
+  test_target_cache:
     driver: local
-  webauthn_test_cargo_cache:
+  test_cargo_cache:
     driver: local
-  webauthn_ts_node_modules:
+  ts_node_modules:
     driver: local
 
 networks:
-  webauthn-test-network:
+  test-network:
     driver: bridge
     ipam:
       config:

@@ -77,7 +77,7 @@
     "default_frontend": "javascript"
   },
   "admin": {
-    "cli_tool": "webauthn-admin",
+    "cli_tool": "cli",
     "invite_generation": {
       "default_count": 1,
       "default_length": 8,

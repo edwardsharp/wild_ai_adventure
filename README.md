@@ -50,10 +50,10 @@ This demonstrates using Axum as the backend for a WebAuthn authentication system
 
    ```bash
    # Generate default configuration file
-   cargo run --bin webauthn-admin config init
+   cargo run --bin cli config init
 
    # Generate JSON Schema for editor support
-   cargo run --bin webauthn-admin config schema
+   cargo run --bin cli config schema
    ```
 
 3. **Configure your setup**
@@ -64,7 +64,7 @@ This demonstrates using Axum as the backend for a WebAuthn authentication system
    edit config.jsonc
 
    # Generate .env file for Docker/SQLx compatibility
-   cargo run --bin webauthn-admin config generate-env
+   cargo run --bin cli config generate-env
 
    # Set your database password
    export DATABASE_PASSWORD="your_secure_password"
@@ -98,19 +98,19 @@ This demonstrates using Axum as the backend for a WebAuthn authentication system
 
    ```bash
    # Initialize default configuration
-   cargo run --bin webauthn-admin config init
+   cargo run --bin cli config init
 
    # Generate JSON Schema for your editor
-   cargo run --bin webauthn-admin config schema
+   cargo run --bin cli config schema
 
    # Edit configuration to match your setup
    edit config.jsonc
 
    # Validate your configuration
-   cargo run --bin webauthn-admin config validate
+   cargo run --bin cli config validate
 
    # Generate .env file for compatibility
-   cargo run --bin webauthn-admin config generate-env
+   cargo run --bin cli config generate-env
    ```
 
 3. **Set Environment Variables**
@@ -124,10 +124,10 @@ This demonstrates using Axum as the backend for a WebAuthn authentication system
 
    ```bash
    # Generate invite codes (uses config defaults)
-   cargo run --bin webauthn-admin generate-invite
+   cargo run --bin cli users generate-invite
 
    # Override defaults
-   cargo run --bin webauthn-admin generate-invite --count 5 --length 12
+   cargo run --bin cli users generate-invite --count 5 --length 12
    ```
 
 ## Running the Server
@@ -170,25 +170,25 @@ The server uses a JSONC configuration file (`config.jsonc`) with full JSON Schem
 
 ```bash
 # Initialize default configuration
-cargo run --bin webauthn-admin config init
+cargo run --bin cli config init
 
 # Initialize configuration WITH secrets file
-cargo run --bin webauthn-admin config init --with-secrets
+cargo run --bin cli config init --with-secrets
 
 # Create just the secrets file
-cargo run --bin webauthn-admin config init-secrets
+cargo run --bin cli config init-secrets
 
 # Generate JSON Schema for editor support
-cargo run --bin webauthn-admin config schema
+cargo run --bin cli config schema
 
 # Validate configuration (includes secrets validation)
-cargo run --bin webauthn-admin config validate
+cargo run --bin cli config validate
 
 # View current configuration
-cargo run --bin webauthn-admin config show
+cargo run --bin cli config show
 
 # Generate clean .env file for Docker/SQLx
-cargo run --bin webauthn-admin config generate-env
+cargo run --bin cli config generate-env
 ```
 
 ### Editor Setup
@@ -235,69 +235,69 @@ For the best experience, configure your editor to use the JSON Schema:
 
 ## CLI Administration
 
-The `webauthn-admin` CLI tool provides comprehensive management:
+The `cli` tool provides comprehensive management:
 
 ### Configuration Commands
 
 ```bash
 # Initialize configuration (basic)
-cargo run --bin webauthn-admin config init
+cargo run --bin cli config init
 
 # Initialize configuration with secrets file
-cargo run --bin webauthn-admin config init --with-secrets
+cargo run --bin cli config init --with-secrets
 
 # Create/update secrets file only
-cargo run --bin webauthn-admin config init-secrets
+cargo run --bin cli config init-secrets
 
 # Validate configuration and secrets
-cargo run --bin webauthn-admin config validate
+cargo run --bin cli config validate
 
 # Show merged configuration
-cargo run --bin webauthn-admin config show
+cargo run --bin cli config show
 
 # Generate schema for editor support
-cargo run --bin webauthn-admin config schema
+cargo run --bin cli config schema
 
 # Generate clean .env file (no comments)
-cargo run --bin webauthn-admin config generate-env
+cargo run --bin cli config generate-env
 
 # Generate .env with example values
-cargo run --bin webauthn-admin config generate-env --with-examples
+cargo run --bin cli config generate-env --with-examples
 ```
 
 ### Invite Code Management
 
 ```bash
 # Generate invite codes (uses config defaults)
-cargo run --bin webauthn-admin generate-invite
+cargo run --bin cli users generate-invite
 
 # Override defaults
-cargo run --bin webauthn-admin generate-invite --count 10 --length 12
+cargo run --bin cli users generate-invite --count 10 --length 12
 
 # List all invite codes
-cargo run --bin webauthn-admin list-invites
+cargo run --bin cli users list-invites
 
 # List only active codes
-cargo run --bin webauthn-admin list-invites --active-only
+cargo run --bin cli users list-invites --active-only
 
 # Show usage statistics
-cargo run --bin webauthn-admin stats
+cargo run --bin cli users stats
 ```
 
 ### Analytics Commands
 
 ```bash
 # Show request analytics
-cargo run --bin webauthn-admin analytics
+cargo run --bin cli analytics analytics
 
 # Show specific time period
-cargo run --bin webauthn-admin analytics --hours 1
+cargo run --bin cli analytics analytics --hours 1
 
 # Show user activity
-cargo run --bin webauthn-admin user-activity --user-id USER_UUID
+cargo run --bin cli analytics user-activity --user-id USER_UUID
 
 # Clean up old data
-cargo run --bin webauthn-admin cleanup-analytics --days 30 --execute
+cargo run --bin cli analytics cleanup-analytics --days 30 --execute
 ```
 
 ## Using the System
@@ -369,7 +369,7 @@ Migrations are automatically run when the server starts (configurable via `datab
 
    ```bash
    # Create config and secrets together
-   cargo run --bin webauthn-admin config init --with-secrets
+   cargo run --bin cli config init --with-secrets
 
    # Edit your actual secrets (use strong passwords!)
    edit config.secrets.jsonc
@@ -385,7 +385,7 @@ Migrations are automatically run when the server starts (configurable via `datab
    edit config.jsonc
 
    # Validate everything
-   cargo run --bin webauthn-admin config validate
+   cargo run --bin cli config validate
 
    # Start development server (secrets-aware)
    ./start_dev.sh
@@ -401,16 +401,16 @@ Migrations are automatically run when the server starts (configurable via `datab
 
    ```bash
    # Check configuration validity
-   cargo run --bin webauthn-admin config validate
+   cargo run --bin cli config validate
 
    # Show current configuration
-   cargo run --bin webauthn-admin config show
+   cargo run --bin cli config show
    ```
 
 2. **Editor Schema Support**
    ```bash
    # Generate/update JSON Schema
-   cargo run --bin webauthn-admin config schema
+   cargo run --bin cli config schema
    ```
 
 ### Database Issues
@@ -420,7 +420,7 @@ Migrations are automatically run when the server starts (configurable via `datab
    - Verify PostgreSQL is running
    - Check database settings in `config.jsonc`
    - Ensure `DATABASE_PASSWORD` environment variable is set
-   - Test: `cargo run --bin webauthn-admin stats`
+   - Test: `cargo run --bin cli users stats`
 
 2. **Migration Issues**
    - Migrations run automatically by default
@@ -459,7 +459,7 @@ RUST_LOG=debug cargo run
 Check analytics for request patterns:
 
 ```bash
-cargo run --bin webauthn-admin analytics --hours 1
+cargo run --bin cli analytics analytics --hours 1
 ```
 
 ## Development Notes
@@ -556,11 +556,11 @@ Monitor via CLI:
 
 ```bash
 # Regular health checks (automatically finds secrets file)
-cargo run --bin webauthn-admin --config config.production.jsonc analytics
+cargo run --bin cli --config config.production.jsonc analytics analytics
 
 # User activity monitoring
-cargo run --bin webauthn-admin --config config.production.jsonc user-activity --user-id UUID
+cargo run --bin cli --config config.production.jsonc analytics user-activity --user-id UUID
 
 # Validate production setup
-cargo run --bin webauthn-admin --config config.production.jsonc --secrets config.secrets.production.jsonc config validate
+cargo run --bin cli --config config.production.jsonc --secrets config.secrets.production.jsonc config validate
 ```

@@ -3,16 +3,16 @@
 use clap::{Parser, Subcommand};
 use sqlx::PgPool;
 
-use webauthn_server::config::{AppConfig, StorageBackend};
-use webauthn_server::database::DatabaseConnection;
-use webauthn_server::storage::AnalyticsService as StorageAnalyticsService;
+use server::config::{AppConfig, StorageBackend};
+use server::database::DatabaseConnection;
+use server::storage::AnalyticsService as StorageAnalyticsService;
 
 use crate::analytics::AnalyticsCommands;
 use crate::config::ConfigCommands;
 use crate::users::UserCommands;
 
 #[derive(Parser)]
-#[command(name = "webauthn-admin")]
+#[command(name = "cli")]
 #[command(about = "WebAuthn administration CLI")]
 pub struct Cli {
     #[command(subcommand)]
