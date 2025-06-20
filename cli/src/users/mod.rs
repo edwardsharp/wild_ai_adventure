@@ -49,6 +49,17 @@ pub enum UserCommands {
         #[arg(value_parser = parse_role)]
         role: UserRole,
     },
+    /// Generate recovery code for existing user
+    GenerateRecovery {
+        /// Username to generate recovery code for
+        username: String,
+        /// Recovery code length (default: 12)
+        #[arg(short, long, default_value = "12")]
+        length: usize,
+        /// Recovery code expiry in hours (default: 24)
+        #[arg(short, long, default_value = "24")]
+        expires_hours: u32,
+    },
 }
 
 fn parse_role(s: &str) -> Result<UserRole, String> {
@@ -83,6 +94,11 @@ impl UserCommands {
             UserCommands::UpdateUserRole { username, role } => {
                 Self::update_user_role(db, username, *role).await
             }
+            UserCommands::GenerateRecovery {
+                username,
+                length,
+                expires_hours,
+            } => Self::generate_recovery_code(db, username, *length, *expires_hours).await,
         }
     }
 
@@ -103,12 +119,7 @@ impl UserCommands {
         println!();
 
         for i in 1..=count {
-            let code: String = thread_rng()
-                .sample_iter(&Alphanumeric)
-                .take(length)
-                .map(char::from)
-                .collect::<String>()
-                .to_uppercase();
+            let code = Self::generate_code(length);
 
             let auth_repo = AuthRepository::new(db);
             match auth_repo.create_invite_code(&code).await {
@@ -311,5 +322,82 @@ impl UserCommands {
         }
 
         Ok(())
+    }
+
+    async fn generate_recovery_code(
+        db: &DatabaseConnection,
+        username: &str,
+        length: usize,
+        expires_hours: u32,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let auth_repo = AuthRepository::new(db);
+
+        // Check if user exists
+        let user = match auth_repo.get_user_by_username(username).await? {
+            Some(user) => user,
+            None => {
+                eprintln!("❌ User '{}' not found", username);
+                return Err("User not found".into());
+            }
+        };
+
+        // Generate recovery code
+        let code = Self::generate_code(length);
+        let expires_at =
+            time::OffsetDateTime::now_utc() + time::Duration::hours(expires_hours as i64);
+
+        // TODO: Uncomment after migration runs
+        // Use existing invite code insertion logic but with recovery fields
+        /*
+        let result = sqlx::query!(
+            r#"
+            INSERT INTO invite_codes (code, code_type, recovery_for_user_id, recovery_expires_at, is_active)
+            VALUES ($1, 'recovery', $2, $3, true)
+            RETURNING id, code
+            "#,
+            code,
+            user.id,
+            expires_at
+        )
+        .fetch_one(db.pool())
+        .await;
+
+        match result {
+            Ok(record) => {
+                println!("✓ Generated recovery code for user '{}':", username);
+                println!("  Code: {}", record.code);
+                println!("  Expires: {} hours from now", expires_hours);
+                println!();
+                println!("💡 User can now register a new passkey using:");
+                println!("  1. Their existing username: {}", username);
+                println!("  2. This recovery code: {}", record.code);
+                println!("  3. The new passkey will be linked to their existing account");
+                println!();
+                println!("⚠️  Security notes:");
+                println!("  • This code expires in {} hours", expires_hours);
+                println!("  • It can only be used once");
+                println!("  • Share this code securely with the user");
+            }
+            Err(e) => {
+                eprintln!("❌ Failed to generate recovery code: {}", e);
+                return Err(e.into());
+            }
+        }
+        */
+
+        println!("🚧 Recovery code generation temporarily disabled - migration needed first");
+        println!("Run migration to add recovery support to invite_codes table");
+
+        Ok(())
+    }
+
+    /// Generate a random alphanumeric code of specified length
+    fn generate_code(length: usize) -> String {
+        thread_rng()
+            .sample_iter(&Alphanumeric)
+            .take(length)
+            .map(char::from)
+            .collect::<String>()
+            .to_uppercase()
     }
 }

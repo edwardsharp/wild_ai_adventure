@@ -377,6 +377,77 @@ The server primarily uses `assets/config/config.jsonc` + `assets/config/config.s
 2. Environment variables (fallback)
 3. Generated `.env` file (Docker/tooling compatibility)
 
+## Account Recovery
+
+The system provides a secure account recovery mechanism for users who lose access to their passkeys. This is particularly useful in personal/family hosting scenarios where users might lose or replace devices.
+
+### How Recovery Works
+
+Recovery codes are **admin-generated** temporary codes that allow users to register new passkeys on their existing accounts:
+
+1. **Admin generates recovery code** for a specific user
+2. **User receives the recovery code** (shared securely out-of-band)
+3. **User visits registration page** with their original username + recovery code
+4. **System links new passkey** to existing account instead of creating new user
+5. **User regains access** with their new passkey on existing account
+
+### Generating Recovery Codes
+
+```bash
+# Generate recovery code for specific user
+cargo run --bin cli users generate-recovery --username alice
+
+# Customize expiry and length
+cargo run --bin cli users generate-recovery --username alice --expires-hours 12 --length 16
+
+# Example output:
+✓ Generated recovery code for user 'alice':
+  Code: ABC123XYZ789
+  Expires: 24 hours from now
+
+💡 User can now register a new passkey using:
+  1. Their existing username: alice
+  2. This recovery code: ABC123XYZ789
+  3. The new passkey will be linked to their existing account
+```
+
+### Security Features
+
+- **Admin-only generation**: Only admins can generate recovery codes
+- **User-specific**: Each recovery code is tied to a specific user account
+- **Single-use**: Recovery codes can only be used once
+- **Time-limited**: Default 24-hour expiry (configurable)
+- **Secure length**: Default 12-character codes (configurable)
+- **No self-service**: Users cannot generate their own recovery codes
+
+### Recovery Process for Users
+
+1. **Contact admin** and request account recovery
+2. **Receive recovery code** through secure channel (email, SMS, in-person)
+3. **Visit registration page** on any device
+4. **Enter original username** (not a new one)
+5. **Enter recovery code** instead of invite code
+6. **Register new passkey** - will be linked to existing account
+7. **Access restored** with all original data intact
+
+### Use Cases
+
+- **Lost device**: User's phone/laptop with passkey is lost or stolen
+- **Device replacement**: User upgrades device and needs to migrate passkey
+- **Multiple devices**: User wants to add passkey to additional devices
+- **Passkey corruption**: Rare cases where passkey data becomes unusable
+
+### Database Integration
+
+Recovery codes extend the existing invite code system with minimal additional complexity:
+
+- Reuses existing `invite_codes` table with recovery-specific fields
+- Same expiry, single-use, and validation logic as regular invites
+- Maintains audit trail of recovery code usage
+- No separate authentication system required
+
+This approach provides enterprise-grade account recovery while maintaining the security and simplicity of the passkey-only authentication model.
+
 ### Build Features
 
 - `javascript` (default): Serves JavaScript frontend
@@ -451,6 +522,35 @@ Migrations are automatically run when the server starts (configurable via `datab
    - Migrations run automatically by default
    - Disable with `database.migrations.auto_run: false`
    - Manual migration info in database module
+
+### Account Recovery Issues
+
+1. **Recovery Code Generation Fails**
+
+   ```bash
+   # Check if user exists
+   cargo run --bin cli users list-users
+
+   # Verify admin permissions
+   cargo run --bin cli users stats
+   ```
+
+2. **Recovery Code Not Working**
+
+   - Verify recovery code hasn't expired (default: 24 hours)
+   - Ensure code hasn't been used already (single-use)
+   - Check user is entering exact original username
+   - Confirm recovery code was generated for correct user
+
+3. **Multiple Passkeys on Same Account**
+
+   ```bash
+   # List user's credentials (admin only)
+   # Check webauthn_credentials table for user_id
+
+   # Remove old/compromised passkeys if needed
+   # (Manual database operation currently)
+   ```
 
 ### WebAuthn Issues
 
@@ -589,6 +689,9 @@ cargo run --bin cli --config assets/config/config.production.jsonc analytics ana
 
 # User activity monitoring
 cargo run --bin cli --config assets/config/config.production.jsonc analytics user-activity --user-id UUID
+
+# Generate recovery codes for users
+cargo run --bin cli --config assets/config/config.production.jsonc users generate-recovery --username alice
 
 # Validate production setup
 cargo run --bin cli --config assets/config/config.production.jsonc --secrets assets/config/config.secrets.production.jsonc config validate
