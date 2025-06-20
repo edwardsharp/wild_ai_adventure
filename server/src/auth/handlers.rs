@@ -202,8 +202,14 @@ pub async fn finish_register(
                         // Don't fail the registration for this, but log it
                     }
 
+                    // Set user_id in session to automatically log in the user
+                    session
+                        .insert("user_id", user.id)
+                        .await
+                        .expect("Failed to insert user_id into session");
+
                     info!(
-                        "User {} registered successfully with invite code {} (role: {:?})",
+                        "User {} registered successfully with invite code {} (role: {:?}) and automatically logged in",
                         username, invite_code, user.role
                     );
                     StatusCode::OK
