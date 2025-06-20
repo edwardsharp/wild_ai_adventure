@@ -1,3 +1,17 @@
+# a wild ride with claude
+
+this repo is mostly all ai-generated code. mostly a wild adventure staring into the llm abyss. 😎 it's both frightening and thrilling.
+
+i started with a browser passkey demo from [webauthn-rs](https://github.com/kanidm/webauthn-rs/tree/master/tutorial/server/axum)
+
+but then ...well i just kept lobbing prompts and claude kept pumping out code. i burned all my 10-dollar-a-month credits real quick. i'm also currently $28.16 deep in premium credit usage. 💸
+
+if you're curious i tried to log all the prompts over in [docs/prompts.md](docs/prompts.md) 😳
+
+lolol, are we cooked??
+
+everything below is what claude ai though should be in the root README:
+
 # Axum WebAuthn Server with Invite Codes
 
 This demonstrates using Axum as the backend for a WebAuthn authentication system with invite code functionality and comprehensive configuration management.
@@ -24,12 +38,14 @@ This demonstrates using Axum as the backend for a WebAuthn authentication system
 ### Using the Development Script (Recommended)
 
 1. **Set up PostgreSQL database**
+
    ```bash
    # Create a PostgreSQL database
    createdb webauthn_db
    ```
 
 2. **Initialize configuration**
+
    ```bash
    # Generate default configuration file
    cargo run --bin webauthn-admin config init
@@ -39,6 +55,7 @@ This demonstrates using Axum as the backend for a WebAuthn authentication system
    ```
 
 3. **Configure your setup**
+
    ```bash
    # Edit the configuration file (supports comments!)
    # Your editor should provide autocomplete and validation
@@ -52,11 +69,13 @@ This demonstrates using Axum as the backend for a WebAuthn authentication system
    ```
 
 4. **Run the development script**
+
    ```bash
    ./start_dev.sh
    ```
 
    This script will:
+
    - Validate your configuration
    - Check database connectivity
    - Run migrations automatically
@@ -67,12 +86,14 @@ This demonstrates using Axum as the backend for a WebAuthn authentication system
 ### Manual Setup
 
 1. **Database Setup**
+
    ```bash
    # Create a PostgreSQL database
    createdb webauthn_db
    ```
 
 2. **Configuration Setup**
+
    ```bash
    # Initialize default configuration
    cargo run --bin webauthn-admin config init
@@ -91,12 +112,14 @@ This demonstrates using Axum as the backend for a WebAuthn authentication system
    ```
 
 3. **Set Environment Variables**
+
    ```bash
    # Set your database password
    export DATABASE_PASSWORD="your_secure_password"
    ```
 
 4. **Generate Invite Codes**
+
    ```bash
    # Generate invite codes (uses config defaults)
    cargo run --bin webauthn-admin generate-invite
@@ -120,12 +143,14 @@ The server will start on `http://localhost:8080` and serve the JavaScript fronte
 To use the WASM frontend instead:
 
 1. Change the features in `Cargo.toml`:
+
    ```toml
    [features]
    default = ["wasm"]
    ```
 
 2. Build the WASM files:
+
    ```bash
    ./build_wasm.sh
    ```
@@ -339,6 +364,7 @@ Migrations are automatically run when the server starts (configurable via `datab
 ### Development Workflow
 
 1. **Initial Setup:**
+
    ```bash
    # Create config and secrets together
    cargo run --bin webauthn-admin config init --with-secrets
@@ -351,6 +377,7 @@ Migrations are automatically run when the server starts (configurable via `datab
    ```
 
 2. **Daily Development:**
+
    ```bash
    # Edit main configuration (with schema validation)
    edit config.jsonc
@@ -369,6 +396,7 @@ Migrations are automatically run when the server starts (configurable via `datab
 ### Configuration Issues
 
 1. **Configuration Validation Errors**
+
    ```bash
    # Check configuration validity
    cargo run --bin webauthn-admin config validate
@@ -386,6 +414,7 @@ Migrations are automatically run when the server starts (configurable via `datab
 ### Database Issues
 
 1. **Connection Errors**
+
    - Verify PostgreSQL is running
    - Check database settings in `config.jsonc`
    - Ensure `DATABASE_PASSWORD` environment variable is set
@@ -399,6 +428,7 @@ Migrations are automatically run when the server starts (configurable via `datab
 ### WebAuthn Issues
 
 1. **RP ID/Origin Mismatch**
+
    - Check `webauthn.rp_id` matches your domain
    - Ensure `webauthn.rp_origin` is correct and accessible
    - Use `localhost` (not `127.0.0.1`) for development
@@ -441,6 +471,7 @@ cargo run --bin webauthn-admin analytics --hours 1
 ### Configuration for Production
 
 1. **Create production configurations**:
+
    ```bash
    # Copy main config and secrets
    cp config.jsonc config.production.jsonc
@@ -448,34 +479,36 @@ cargo run --bin webauthn-admin analytics --hours 1
    ```
 
 2. **Edit production settings**:
+
    ```jsonc
    // config.production.jsonc
    {
      "app": {
-       "environment": "production"
+       "environment": "production",
      },
      "server": {
        "tls": {
          "enabled": true,
          "cert_file": "/path/to/cert.pem",
-         "key_file": "/path/to/key.pem"
-       }
+         "key_file": "/path/to/key.pem",
+       },
      },
      "sessions": {
        "secure": true,
-       "store_type": "postgres" // Future feature
+       "store_type": "postgres", // Future feature
      },
      "production": {
        "require_https": true,
        "security_headers": true,
        "rate_limiting": {
-         "enabled": true
-       }
-     }
+         "enabled": true,
+       },
+     },
    }
    ```
 
 3. **Update production secrets**:
+
    ```bash
    # Edit with production credentials
    edit config.secrets.production.jsonc
@@ -511,9 +544,9 @@ Enable metrics collection:
     "metrics": {
       "enabled": true,
       "prometheus_endpoint": "/metrics",
-      "health_endpoint": "/health"
-    }
-  }
+      "health_endpoint": "/health",
+    },
+  },
 }
 ```
 
