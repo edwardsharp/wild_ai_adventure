@@ -12,8 +12,6 @@ config.secrets.*.jsonc
 # EXCEPT example files (safe to commit)
 !config.secrets.example.jsonc
 
-# Generated files
-config.schema.json
 
 # Logs
 logs/

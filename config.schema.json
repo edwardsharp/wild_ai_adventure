@@ -1,0 +1,931 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AppConfig",
+  "description": "Main application configuration",
+  "type": "object",
+  "required": [
+    "analytics",
+    "app",
+    "database",
+    "development",
+    "features",
+    "invite_codes",
+    "logging",
+    "production",
+    "server",
+    "sessions",
+    "static_files",
+    "storage",
+    "webauthn"
+  ],
+  "properties": {
+    "analytics": {
+      "description": "Analytics and metrics configuration",
+      "allOf": [
+        {
+          "$ref": "#/definitions/AnalyticsConfig"
+        }
+      ]
+    },
+    "app": {
+      "description": "Application metadata and identification",
+      "allOf": [
+        {
+          "$ref": "#/definitions/AppInfo"
+        }
+      ]
+    },
+    "database": {
+      "description": "Database connection and pool settings",
+      "allOf": [
+        {
+          "$ref": "#/definitions/DatabaseConfig"
+        }
+      ]
+    },
+    "development": {
+      "description": "Development-specific settings",
+      "allOf": [
+        {
+          "$ref": "#/definitions/DevelopmentConfig"
+        }
+      ]
+    },
+    "features": {
+      "description": "Feature flags",
+      "allOf": [
+        {
+          "$ref": "#/definitions/FeatureFlags"
+        }
+      ]
+    },
+    "invite_codes": {
+      "description": "Invite code system configuration",
+      "allOf": [
+        {
+          "$ref": "#/definitions/InviteCodeConfig"
+        }
+      ]
+    },
+    "logging": {
+      "description": "Logging and tracing configuration",
+      "allOf": [
+        {
+          "$ref": "#/definitions/LoggingConfig"
+        }
+      ]
+    },
+    "production": {
+      "description": "Production deployment settings",
+      "allOf": [
+        {
+          "$ref": "#/definitions/ProductionConfig"
+        }
+      ]
+    },
+    "server": {
+      "description": "HTTP server configuration",
+      "allOf": [
+        {
+          "$ref": "#/definitions/ServerConfig"
+        }
+      ]
+    },
+    "sessions": {
+      "description": "Session management settings",
+      "allOf": [
+        {
+          "$ref": "#/definitions/SessionConfig"
+        }
+      ]
+    },
+    "static_files": {
+      "description": "Static file serving configuration",
+      "allOf": [
+        {
+          "$ref": "#/definitions/StaticFilesConfig"
+        }
+      ]
+    },
+    "storage": {
+      "description": "Storage backend configuration",
+      "allOf": [
+        {
+          "$ref": "#/definitions/StorageConfig"
+        }
+      ]
+    },
+    "webauthn": {
+      "description": "WebAuthn/FIDO2 authentication configuration",
+      "allOf": [
+        {
+          "$ref": "#/definitions/WebAuthnConfig"
+        }
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "AnalyticsConfig": {
+      "description": "Analytics configuration",
+      "type": "object",
+      "required": [
+        "metrics"
+      ],
+      "properties": {
+        "detailed_logging": {
+          "description": "Enable detailed request logging",
+          "default": true,
+          "type": "boolean"
+        },
+        "enabled": {
+          "description": "Enable analytics collection",
+          "default": true,
+          "type": "boolean"
+        },
+        "metrics": {
+          "description": "Metrics endpoints configuration",
+          "allOf": [
+            {
+              "$ref": "#/definitions/MetricsConfig"
+            }
+          ]
+        },
+        "retention_days": {
+          "description": "Data retention period in days",
+          "default": 30,
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
+        },
+        "sample_rate": {
+          "description": "Sample rate for analytics (0.0 to 1.0)",
+          "default": 1.0,
+          "type": "number",
+          "format": "double"
+        }
+      }
+    },
+    "AppInfo": {
+      "description": "Application metadata",
+      "type": "object",
+      "properties": {
+        "description": {
+          "description": "Optional description",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "environment": {
+          "description": "Environment (development, staging, production)",
+          "default": "development",
+          "type": "string"
+        },
+        "name": {
+          "description": "Application name",
+          "default": "WebAuthn Demo",
+          "type": "string"
+        },
+        "version": {
+          "description": "Application version",
+          "default": "1.0.0",
+          "type": "string"
+        }
+      }
+    },
+    "CacheConfig": {
+      "description": "Static file cache configuration",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "description": "Enable caching",
+          "default": true,
+          "type": "boolean"
+        },
+        "etags": {
+          "description": "ETags enabled",
+          "default": true,
+          "type": "boolean"
+        },
+        "max_age_seconds": {
+          "description": "Cache max age in seconds",
+          "default": 3600,
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
+        }
+      }
+    },
+    "CorsConfig": {
+      "description": "CORS configuration",
+      "type": "object",
+      "properties": {
+        "allowed_headers": {
+          "description": "Allowed headers",
+          "default": [],
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "allowed_methods": {
+          "description": "Allowed methods",
+          "default": [
+            "GET",
+            "POST",
+            "OPTIONS"
+          ],
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "allowed_origins": {
+          "description": "Allowed origins",
+          "default": [],
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "enabled": {
+          "description": "Enable CORS",
+          "default": false,
+          "type": "boolean"
+        }
+      }
+    },
+    "DatabaseConfig": {
+      "description": "Database configuration",
+      "type": "object",
+      "required": [
+        "migrations",
+        "pool"
+      ],
+      "properties": {
+        "database": {
+          "description": "Database name",
+          "default": "webauthn_db",
+          "type": "string"
+        },
+        "host": {
+          "description": "Database host",
+          "default": "localhost",
+          "type": "string"
+        },
+        "migrations": {
+          "description": "Migration settings",
+          "allOf": [
+            {
+              "$ref": "#/definitions/MigrationConfig"
+            }
+          ]
+        },
+        "password": {
+          "description": "Database password (will be read from env var)",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "pool": {
+          "description": "Connection pool settings",
+          "allOf": [
+            {
+              "$ref": "#/definitions/DatabasePoolConfig"
+            }
+          ]
+        },
+        "port": {
+          "description": "Database port",
+          "default": 5432,
+          "type": "integer",
+          "format": "uint16",
+          "minimum": 0.0
+        },
+        "url": {
+          "description": "Database connection URL (will be generated from components or read from env)",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "username": {
+          "description": "Database username",
+          "default": "postgres",
+          "type": "string"
+        }
+      }
+    },
+    "DatabasePoolConfig": {
+      "description": "Database connection pool configuration",
+      "type": "object",
+      "properties": {
+        "connect_timeout_seconds": {
+          "description": "Connection timeout in seconds",
+          "default": 30,
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "idle_timeout_seconds": {
+          "description": "Idle timeout in seconds",
+          "default": 600,
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "max_connections": {
+          "description": "Maximum number of connections in the pool",
+          "default": 10,
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
+        },
+        "min_connections": {
+          "description": "Minimum number of connections in the pool",
+          "default": 1,
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
+        }
+      }
+    },
+    "DevelopmentConfig": {
+      "description": "Development configuration",
+      "type": "object",
+      "properties": {
+        "auto_generate_invites": {
+          "description": "Auto-generate invite codes on startup",
+          "default": false,
+          "type": "boolean"
+        },
+        "auto_invite_count": {
+          "description": "Number of invite codes to auto-generate",
+          "default": 3,
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
+        },
+        "debug_middleware": {
+          "description": "Enable debug middleware",
+          "default": false,
+          "type": "boolean"
+        },
+        "hot_reload": {
+          "description": "Enable hot reloading",
+          "default": false,
+          "type": "boolean"
+        },
+        "seed_data": {
+          "description": "Seed test data",
+          "default": false,
+          "type": "boolean"
+        },
+        "test_users": {
+          "description": "Test users to create",
+          "default": [],
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "FeatureFlags": {
+      "description": "Feature flags",
+      "type": "object",
+      "properties": {
+        "admin_cli_enabled": {
+          "description": "Enable CLI administration tools",
+          "default": true,
+          "type": "boolean"
+        },
+        "analytics_enabled": {
+          "description": "Enable analytics collection",
+          "default": true,
+          "type": "boolean"
+        },
+        "invite_codes_required": {
+          "description": "Require invite codes for registration",
+          "default": true,
+          "type": "boolean"
+        },
+        "multiple_credentials": {
+          "description": "Allow multiple credentials per user",
+          "default": true,
+          "type": "boolean"
+        },
+        "private_static_files": {
+          "description": "Enable private static file serving",
+          "default": true,
+          "type": "boolean"
+        },
+        "public_static_files": {
+          "description": "Enable public static file serving",
+          "default": true,
+          "type": "boolean"
+        },
+        "registration_enabled": {
+          "description": "Enable user registration",
+          "default": true,
+          "type": "boolean"
+        }
+      }
+    },
+    "InviteCodeConfig": {
+      "description": "Invite code configuration",
+      "type": "object",
+      "properties": {
+        "case_sensitive": {
+          "description": "Case sensitive codes",
+          "default": false,
+          "type": "boolean"
+        },
+        "default_count": {
+          "description": "Default number of codes to generate",
+          "default": 1,
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
+        },
+        "default_length": {
+          "description": "Default length of generated invite codes",
+          "default": 8,
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0.0
+        },
+        "expiry_days": {
+          "description": "Expiry days for invite codes (0 = no expiry)",
+          "default": 0,
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
+        },
+        "max_batch_size": {
+          "description": "Maximum batch size for code generation",
+          "default": 100,
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
+        },
+        "single_use": {
+          "description": "Single use enforcement",
+          "default": true,
+          "type": "boolean"
+        }
+      }
+    },
+    "LogFileConfig": {
+      "description": "Log file configuration",
+      "type": "object",
+      "required": [
+        "path"
+      ],
+      "properties": {
+        "keep_files": {
+          "description": "Number of rotated files to keep",
+          "default": 10,
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
+        },
+        "max_size_mb": {
+          "description": "Max file size in MB before rotation",
+          "default": 100,
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "path": {
+          "description": "Log file path",
+          "type": "string"
+        },
+        "rotate": {
+          "description": "Rotate logs",
+          "default": true,
+          "type": "boolean"
+        }
+      }
+    },
+    "LoggingConfig": {
+      "description": "Logging configuration",
+      "type": "object",
+      "required": [
+        "security"
+      ],
+      "properties": {
+        "file": {
+          "description": "Log to file",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/LogFileConfig"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "format": {
+          "description": "Log format (json, pretty, compact)",
+          "default": "pretty",
+          "type": "string"
+        },
+        "level": {
+          "description": "Log level (trace, debug, info, warn, error)",
+          "default": "info",
+          "type": "string"
+        },
+        "security": {
+          "description": "Security event logging",
+          "allOf": [
+            {
+              "$ref": "#/definitions/SecurityLoggingConfig"
+            }
+          ]
+        }
+      }
+    },
+    "MetricsConfig": {
+      "description": "Metrics configuration",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "description": "Enable metrics endpoints",
+          "default": false,
+          "type": "boolean"
+        },
+        "health_endpoint": {
+          "description": "Health check endpoint path",
+          "default": "/health",
+          "type": "string"
+        },
+        "prometheus_endpoint": {
+          "description": "Prometheus metrics endpoint path",
+          "default": "/metrics",
+          "type": "string"
+        },
+        "require_auth": {
+          "description": "Require authentication for metrics",
+          "default": false,
+          "type": "boolean"
+        }
+      }
+    },
+    "MigrationConfig": {
+      "description": "Database migration configuration",
+      "type": "object",
+      "properties": {
+        "auto_run": {
+          "description": "Automatically run migrations on startup",
+          "default": true,
+          "type": "boolean"
+        },
+        "path": {
+          "description": "Migration directory path",
+          "default": "migrations",
+          "type": "string"
+        }
+      }
+    },
+    "ProductionConfig": {
+      "description": "Production configuration",
+      "type": "object",
+      "required": [
+        "rate_limiting",
+        "security"
+      ],
+      "properties": {
+        "rate_limiting": {
+          "description": "Rate limiting configuration",
+          "allOf": [
+            {
+              "$ref": "#/definitions/RateLimitConfig"
+            }
+          ]
+        },
+        "require_https": {
+          "description": "Require HTTPS",
+          "default": false,
+          "type": "boolean"
+        },
+        "security": {
+          "description": "Security settings",
+          "allOf": [
+            {
+              "$ref": "#/definitions/ProductionSecurityConfig"
+            }
+          ]
+        },
+        "security_headers": {
+          "description": "Enable security headers",
+          "default": true,
+          "type": "boolean"
+        }
+      }
+    },
+    "ProductionSecurityConfig": {
+      "description": "Production security configuration",
+      "type": "object",
+      "properties": {
+        "content_type_options": {
+          "description": "X-Content-Type-Options header",
+          "default": "nosniff",
+          "type": "string"
+        },
+        "csp": {
+          "description": "Content security policy",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "frame_options": {
+          "description": "X-Frame-Options header",
+          "default": "DENY",
+          "type": "string"
+        },
+        "hsts_max_age": {
+          "description": "Strict transport security max age",
+          "default": 31536000,
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
+        }
+      }
+    },
+    "RateLimitConfig": {
+      "description": "Rate limiting configuration",
+      "type": "object",
+      "properties": {
+        "burst": {
+          "description": "Burst allowance",
+          "default": 10,
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
+        },
+        "enabled": {
+          "description": "Enable rate limiting",
+          "default": false,
+          "type": "boolean"
+        },
+        "requests_per_minute": {
+          "description": "Requests per minute per IP",
+          "default": 60,
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
+        }
+      }
+    },
+    "SecurityLoggingConfig": {
+      "description": "Security logging configuration",
+      "type": "object",
+      "properties": {
+        "log_auth_attempts": {
+          "description": "Log authentication attempts",
+          "default": true,
+          "type": "boolean"
+        },
+        "log_failed_invites": {
+          "description": "Log failed invite code attempts",
+          "default": true,
+          "type": "boolean"
+        },
+        "log_private_access": {
+          "description": "Log private content access",
+          "default": true,
+          "type": "boolean"
+        },
+        "log_request_analytics": {
+          "description": "Log all request analytics",
+          "default": true,
+          "type": "boolean"
+        }
+      }
+    },
+    "ServerConfig": {
+      "description": "HTTP server configuration",
+      "type": "object",
+      "required": [
+        "cors",
+        "tls"
+      ],
+      "properties": {
+        "cors": {
+          "description": "CORS configuration",
+          "allOf": [
+            {
+              "$ref": "#/definitions/CorsConfig"
+            }
+          ]
+        },
+        "host": {
+          "description": "Server host to bind to",
+          "default": "0.0.0.0",
+          "type": "string"
+        },
+        "max_request_size_bytes": {
+          "description": "Maximum request size in bytes",
+          "default": 1048576,
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0.0
+        },
+        "port": {
+          "description": "Server port to bind to",
+          "default": 8080,
+          "type": "integer",
+          "format": "uint16",
+          "minimum": 0.0
+        },
+        "request_timeout_seconds": {
+          "description": "Request timeout in seconds",
+          "default": 30,
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "tls": {
+          "description": "TLS configuration",
+          "allOf": [
+            {
+              "$ref": "#/definitions/TlsConfig"
+            }
+          ]
+        }
+      }
+    },
+    "SessionConfig": {
+      "description": "Session configuration Session management settings",
+      "type": "object",
+      "properties": {
+        "http_only": {
+          "description": "HttpOnly cookie flag",
+          "default": true,
+          "type": "boolean"
+        },
+        "max_age_seconds": {
+          "description": "Session max age in seconds",
+          "default": 3600,
+          "type": "integer",
+          "format": "int64"
+        },
+        "name": {
+          "description": "Session cookie name",
+          "default": "webauthnrs",
+          "type": "string"
+        },
+        "same_site": {
+          "description": "SameSite cookie attribute",
+          "default": "strict",
+          "type": "string"
+        },
+        "secure": {
+          "description": "Secure cookie flag",
+          "default": false,
+          "type": "boolean"
+        }
+      }
+    },
+    "StaticFilesConfig": {
+      "description": "Static file serving configuration",
+      "type": "object",
+      "required": [
+        "cache"
+      ],
+      "properties": {
+        "assets_directory": {
+          "description": "Main assets directory (contains js, css, images, etc.)",
+          "default": "assets",
+          "type": "string"
+        },
+        "cache": {
+          "description": "Cache control settings",
+          "allOf": [
+            {
+              "$ref": "#/definitions/CacheConfig"
+            }
+          ]
+        },
+        "private_directory": {
+          "description": "Private directory path",
+          "default": "assets/private",
+          "type": "string"
+        },
+        "public_directory": {
+          "description": "Public directory path",
+          "default": "assets/public",
+          "type": "string"
+        }
+      }
+    },
+    "StorageBackend": {
+      "description": "Storage backend configuration",
+      "type": "string",
+      "enum": [
+        "memory",
+        "postgres"
+      ]
+    },
+    "StorageConfig": {
+      "description": "Storage backend configuration",
+      "type": "object",
+      "properties": {
+        "analytics": {
+          "description": "Analytics storage backend",
+          "default": "memory",
+          "allOf": [
+            {
+              "$ref": "#/definitions/StorageBackend"
+            }
+          ]
+        },
+        "cache": {
+          "description": "Cache storage backend (future use)",
+          "default": "memory",
+          "allOf": [
+            {
+              "$ref": "#/definitions/StorageBackend"
+            }
+          ]
+        },
+        "sessions": {
+          "description": "Session storage backend",
+          "default": "memory",
+          "allOf": [
+            {
+              "$ref": "#/definitions/StorageBackend"
+            }
+          ]
+        }
+      }
+    },
+    "TlsConfig": {
+      "description": "TLS configuration",
+      "type": "object",
+      "properties": {
+        "cert_file": {
+          "description": "Certificate file path",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "enabled": {
+          "description": "Enable TLS",
+          "default": false,
+          "type": "boolean"
+        },
+        "key_file": {
+          "description": "Private key file path",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "WebAuthnConfig": {
+      "description": "WebAuthn configuration",
+      "type": "object",
+      "properties": {
+        "require_resident_key": {
+          "description": "Require resident key (device-bound credentials)",
+          "default": false,
+          "type": "boolean"
+        },
+        "rp_id": {
+          "description": "Relying Party ID (your domain)",
+          "default": "localhost",
+          "type": "string"
+        },
+        "rp_name": {
+          "description": "Relying Party name (display name)",
+          "default": "WebAuthn Demo",
+          "type": "string"
+        },
+        "rp_origin": {
+          "description": "Relying Party origin URL",
+          "default": "http://localhost:8080",
+          "type": "string"
+        },
+        "timeout_ms": {
+          "description": "Timeout for WebAuthn operations in milliseconds",
+          "default": 60000,
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
+        },
+        "user_verification": {
+          "description": "User verification requirement",
+          "default": "preferred",
+          "type": "string"
+        }
+      }
+    }
+  }
+}

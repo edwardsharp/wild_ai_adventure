@@ -64,7 +64,7 @@
     "secure": false,
     "same_site": "strict",
     "http_only": true,
-    "store_type": "memory"
+    "store_type": "postgres"
   },
   "invite_codes": {
     "default_length": 8,
@@ -110,8 +110,8 @@
   },
   // Storage backend configuration
   "storage": {
-    "analytics": "memory",
-    "sessions": "memory",
+    "analytics": "postgres",
+    "sessions": "postgres",
     "cache": "memory"
   },
   "development": {
