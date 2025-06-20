@@ -1,9 +1,9 @@
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use sqlx::{PgPool, Row};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
+use time::OffsetDateTime;
 use uuid::Uuid;
 
 /// Storage backend configuration
@@ -49,7 +49,7 @@ impl Default for StorageConfig {
 pub struct RequestAnalytics {
     pub id: Uuid,
     pub request_id: String,
-    pub timestamp: DateTime<Utc>,
+    pub timestamp: OffsetDateTime,
     pub user_id: Option<Uuid>,
     pub method: String,
     pub path: String,
@@ -123,7 +123,7 @@ impl MemoryAnalyticsStore {
         hours: i32,
     ) -> Result<AnalyticsStats, Box<dyn std::error::Error>> {
         let data = self.data.read().unwrap();
-        let cutoff = Utc::now() - chrono::Duration::hours(hours as i64);
+        let cutoff = OffsetDateTime::now_utc() - time::Duration::hours(hours as i64);
 
         let recent_requests: Vec<&RequestAnalytics> =
             data.iter().filter(|req| req.timestamp >= cutoff).collect();
@@ -163,7 +163,7 @@ impl MemoryAnalyticsStore {
         limit: i64,
     ) -> Result<Vec<PathStats>, Box<dyn std::error::Error>> {
         let data = self.data.read().unwrap();
-        let cutoff = Utc::now() - chrono::Duration::hours(hours as i64);
+        let cutoff = OffsetDateTime::now_utc() - time::Duration::hours(hours as i64);
 
         let mut path_stats: HashMap<String, (i64, i64)> = HashMap::new();
 
@@ -194,7 +194,7 @@ impl MemoryAnalyticsStore {
 
     pub async fn cleanup_old_data(&self, days: i32) -> Result<u64, Box<dyn std::error::Error>> {
         let mut data = self.data.write().unwrap();
-        let cutoff = Utc::now() - chrono::Duration::days(days as i64);
+        let cutoff = OffsetDateTime::now_utc() - time::Duration::days(days as i64);
         let original_len = data.len();
         data.retain(|req| req.timestamp >= cutoff);
         let removed = original_len - data.len();
@@ -579,7 +579,7 @@ impl AnalyticsBuilder {
         RequestAnalytics {
             id: Uuid::new_v4(),
             request_id: self.request_id,
-            timestamp: Utc::now(),
+            timestamp: OffsetDateTime::now_utc(),
             user_id: self.user_id,
             method: self.method,
             path: self.path,

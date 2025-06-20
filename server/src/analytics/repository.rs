@@ -2,8 +2,8 @@ use super::models::{
     AnalyticsError, PathMetric, RequestAnalytics, RequestMetrics, TimeSeriesPoint,
 };
 use crate::database::DatabaseConnection;
-use chrono::{DateTime, Utc};
 use sqlx::Row;
+use time::OffsetDateTime;
 use uuid::Uuid;
 
 /// Repository for analytics-related database operations
@@ -52,8 +52,8 @@ impl<'a> AnalyticsRepository<'a> {
     /// Get request analytics for a specific time range
     pub async fn get_requests_in_range(
         &self,
-        from: DateTime<Utc>,
-        to: DateTime<Utc>,
+        from: OffsetDateTime,
+        to: OffsetDateTime,
     ) -> Result<Vec<RequestAnalytics>, AnalyticsError> {
         let rows = sqlx::query(
             r#"
@@ -96,8 +96,8 @@ impl<'a> AnalyticsRepository<'a> {
     pub async fn get_user_requests(
         &self,
         user_id: Uuid,
-        from: DateTime<Utc>,
-        to: DateTime<Utc>,
+        from: OffsetDateTime,
+        to: OffsetDateTime,
     ) -> Result<Vec<RequestAnalytics>, AnalyticsError> {
         let rows = sqlx::query(
             r#"
@@ -140,8 +140,8 @@ impl<'a> AnalyticsRepository<'a> {
     /// Get aggregated request metrics for a time range
     pub async fn get_request_metrics(
         &self,
-        from: DateTime<Utc>,
-        to: DateTime<Utc>,
+        from: OffsetDateTime,
+        to: OffsetDateTime,
     ) -> Result<RequestMetrics, AnalyticsError> {
         // Get total requests and unique users
         let summary_row = sqlx::query(
@@ -206,8 +206,8 @@ impl<'a> AnalyticsRepository<'a> {
     /// Get time-series data for request volume
     pub async fn get_request_volume_timeseries(
         &self,
-        from: DateTime<Utc>,
-        to: DateTime<Utc>,
+        from: OffsetDateTime,
+        to: OffsetDateTime,
         interval_minutes: i32,
     ) -> Result<Vec<TimeSeriesPoint>, AnalyticsError> {
         let rows = sqlx::query(
@@ -241,8 +241,8 @@ impl<'a> AnalyticsRepository<'a> {
     /// Get error rate time-series data
     pub async fn get_error_rate_timeseries(
         &self,
-        from: DateTime<Utc>,
-        to: DateTime<Utc>,
+        from: OffsetDateTime,
+        to: OffsetDateTime,
         interval_minutes: i32,
     ) -> Result<Vec<TimeSeriesPoint>, AnalyticsError> {
         let rows = sqlx::query(
@@ -274,7 +274,10 @@ impl<'a> AnalyticsRepository<'a> {
     }
 
     /// Clean up old analytics data
-    pub async fn cleanup_old_data(&self, older_than: DateTime<Utc>) -> Result<u64, AnalyticsError> {
+    pub async fn cleanup_old_data(
+        &self,
+        older_than: OffsetDateTime,
+    ) -> Result<u64, AnalyticsError> {
         let result = sqlx::query(
             r#"
             DELETE FROM request_analytics

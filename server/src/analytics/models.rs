@@ -1,5 +1,5 @@
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use time::OffsetDateTime;
 use uuid::Uuid;
 
 /// Analytics data for HTTP request tracking
@@ -7,7 +7,7 @@ use uuid::Uuid;
 pub struct RequestAnalytics {
     pub id: Uuid,
     pub request_id: String,
-    pub timestamp: DateTime<Utc>,
+    pub timestamp: OffsetDateTime,
     pub user_id: Option<Uuid>,
     pub method: String,
     pub path: String,
@@ -72,7 +72,7 @@ pub struct PathMetric {
 /// Time-series data for charts
 #[derive(Debug, Clone, Serialize)]
 pub struct TimeSeriesPoint {
-    pub timestamp: DateTime<Utc>,
+    pub timestamp: OffsetDateTime,
     pub value: f64,
     pub label: Option<String>,
 }

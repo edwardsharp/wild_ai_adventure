@@ -9,7 +9,7 @@ license = "MPL-2.0"
 
 [dependencies]
 axum.workspace = true
-chrono.workspace = true
+time.workspace = true
 config.workspace = true
 dotenvy.workspace = true
 json5.workspace = true

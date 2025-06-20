@@ -1,5 +1,5 @@
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use time::OffsetDateTime;
 use uuid::Uuid;
 
 /// User roles in the system
@@ -41,7 +41,7 @@ pub struct User {
     pub id: Uuid,
     pub username: String,
     pub role: UserRole,
-    pub created_at: DateTime<Utc>,
+    pub created_at: OffsetDateTime,
     pub invite_code_used: Option<String>,
 }
 
@@ -67,8 +67,8 @@ impl User {
 pub struct InviteCode {
     pub id: Uuid,
     pub code: String,
-    pub created_at: DateTime<Utc>,
-    pub used_at: Option<DateTime<Utc>>,
+    pub created_at: OffsetDateTime,
+    pub used_at: Option<OffsetDateTime>,
     pub used_by_user_id: Option<Uuid>,
     pub is_active: bool,
 }
@@ -80,8 +80,8 @@ pub struct WebauthnCredential {
     pub user_id: Uuid,
     pub credential_id: Vec<u8>,
     pub credential_data: String,
-    pub created_at: DateTime<Utc>,
-    pub last_used_at: Option<DateTime<Utc>>,
+    pub created_at: OffsetDateTime,
+    pub last_used_at: Option<OffsetDateTime>,
 }
 
 /// Session information for authenticated users
@@ -89,7 +89,7 @@ pub struct WebauthnCredential {
 pub struct AuthenticatedUser {
     pub user: User,
     pub session_id: String,
-    pub authenticated_at: DateTime<Utc>,
+    pub authenticated_at: OffsetDateTime,
 }
 
 /// Authentication errors

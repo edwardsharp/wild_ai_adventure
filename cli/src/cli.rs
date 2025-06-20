@@ -278,7 +278,14 @@ impl Cli {
                                 UserRole::Admin => "Admin",
                                 UserRole::Member => "Member",
                             },
-                            user.created_at.format("%Y-%m-%d %H:%M"),
+                            user.created_at
+                                .format(
+                                    &time::format_description::parse(
+                                        "[year]-[month]-[day] [hour]:[minute]"
+                                    )
+                                    .unwrap()
+                                )
+                                .unwrap(),
                             invite_used
                         );
                     }
@@ -340,7 +347,15 @@ impl Cli {
                     for code in filtered_codes {
                         let used_at = code
                             .used_at
-                            .map(|dt| dt.format("%Y-%m-%d %H:%M").to_string())
+                            .map(|dt| {
+                                dt.format(
+                                    &time::format_description::parse(
+                                        "[year]-[month]-[day] [hour]:[minute]",
+                                    )
+                                    .unwrap(),
+                                )
+                                .unwrap()
+                            })
                             .unwrap_or_else(|| "Never".to_string());
 
                         let user_id = code
@@ -352,7 +367,14 @@ impl Cli {
                             "{:<10} {:<8} {:<20} {:<20} {:<10}",
                             code.code,
                             if code.is_active { "Yes" } else { "No" },
-                            code.created_at.format("%Y-%m-%d %H:%M"),
+                            code.created_at
+                                .format(
+                                    &time::format_description::parse(
+                                        "[year]-[month]-[day] [hour]:[minute]"
+                                    )
+                                    .unwrap()
+                                )
+                                .unwrap(),
                             used_at,
                             user_id
                         );
@@ -436,7 +458,14 @@ impl Cli {
                     for req in requests {
                         println!(
                             "{:<20} {:<8} {:<30} {:<6} {:<10}ms",
-                            req.timestamp.format("%Y-%m-%d %H:%M:%S"),
+                            req.timestamp
+                                .format(
+                                    &time::format_description::parse(
+                                        "[year]-[month]-[day] [hour]:[minute]:[second]"
+                                    )
+                                    .unwrap()
+                                )
+                                .unwrap(),
                             req.method,
                             if req.path.len() > 28 {
                                 format!("{}...", &req.path[..25])

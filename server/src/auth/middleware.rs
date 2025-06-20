@@ -190,14 +190,14 @@ pub fn auth_error_response(error: AuthError) -> Response {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::Utc;
+    use time::OffsetDateTime;
 
     fn create_test_user(role: UserRole) -> User {
         User {
             id: Uuid::new_v4(),
             username: "testuser".to_string(),
             role,
-            created_at: Utc::now(),
+            created_at: OffsetDateTime::now_utc(),
             invite_code_used: None,
         }
     }

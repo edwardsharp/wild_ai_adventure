@@ -46,7 +46,7 @@ fn default_activity_limit() -> i64 {
 pub async fn health_check() -> Result<impl IntoResponse, WebauthnError> {
     let health_response = serde_json::json!({
         "status": "healthy",
-        "timestamp": chrono::Utc::now(),
+        "timestamp": time::OffsetDateTime::now_utc(),
         "message": "WebAuthn server is running"
     });
 

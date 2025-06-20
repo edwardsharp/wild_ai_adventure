@@ -3,7 +3,7 @@ use super::models::{
 };
 use super::repository::AnalyticsRepository;
 use crate::database::DatabaseConnection;
-use chrono::{DateTime, Utc};
+use time::OffsetDateTime;
 use uuid::Uuid;
 
 /// Analytics service that provides business logic for analytics operations
@@ -48,8 +48,8 @@ impl<'a> AnalyticsService<'a> {
     /// Get request metrics for a time range
     pub async fn get_metrics(
         &self,
-        from: DateTime<Utc>,
-        to: DateTime<Utc>,
+        from: OffsetDateTime,
+        to: OffsetDateTime,
     ) -> Result<RequestMetrics, AnalyticsError> {
         if !self.config.enabled {
             return Err(AnalyticsError::Disabled);
@@ -63,8 +63,8 @@ impl<'a> AnalyticsService<'a> {
         &self,
         hours: u32,
     ) -> Result<RequestMetrics, AnalyticsError> {
-        let to = Utc::now();
-        let from = to - chrono::Duration::hours(hours as i64);
+        let to = OffsetDateTime::now_utc();
+        let from = to - time::Duration::hours(hours as i64);
         self.get_metrics(from, to).await
     }
 
@@ -72,8 +72,8 @@ impl<'a> AnalyticsService<'a> {
     pub async fn get_user_requests(
         &self,
         user_id: Uuid,
-        from: DateTime<Utc>,
-        to: DateTime<Utc>,
+        from: OffsetDateTime,
+        to: OffsetDateTime,
     ) -> Result<Vec<RequestAnalytics>, AnalyticsError> {
         if !self.config.enabled {
             return Err(AnalyticsError::Disabled);
@@ -88,8 +88,8 @@ impl<'a> AnalyticsService<'a> {
         user_id: Uuid,
         limit: u32,
     ) -> Result<Vec<RequestAnalytics>, AnalyticsError> {
-        let to = Utc::now();
-        let from = to - chrono::Duration::days(30); // Look back 30 days max
+        let to = OffsetDateTime::now_utc();
+        let from = to - time::Duration::days(30); // Look back 30 days max
 
         let mut requests = self.repo.get_user_requests(user_id, from, to).await?;
 
@@ -103,8 +103,8 @@ impl<'a> AnalyticsService<'a> {
     /// Get request volume time series
     pub async fn get_request_volume_timeseries(
         &self,
-        from: DateTime<Utc>,
-        to: DateTime<Utc>,
+        from: OffsetDateTime,
+        to: OffsetDateTime,
         interval_minutes: i32,
     ) -> Result<Vec<TimeSeriesPoint>, AnalyticsError> {
         if !self.config.enabled {
@@ -119,8 +119,8 @@ impl<'a> AnalyticsService<'a> {
     /// Get error rate time series
     pub async fn get_error_rate_timeseries(
         &self,
-        from: DateTime<Utc>,
-        to: DateTime<Utc>,
+        from: OffsetDateTime,
+        to: OffsetDateTime,
         interval_minutes: i32,
     ) -> Result<Vec<TimeSeriesPoint>, AnalyticsError> {
         if !self.config.enabled {
@@ -133,7 +133,10 @@ impl<'a> AnalyticsService<'a> {
     }
 
     /// Clean up old analytics data
-    pub async fn cleanup_old_data(&self, older_than: DateTime<Utc>) -> Result<u64, AnalyticsError> {
+    pub async fn cleanup_old_data(
+        &self,
+        older_than: OffsetDateTime,
+    ) -> Result<u64, AnalyticsError> {
         self.repo.cleanup_old_data(older_than).await
     }
 
@@ -260,7 +263,7 @@ impl RequestAnalyticsBuilder {
         RequestAnalytics {
             id: Uuid::new_v4(),
             request_id: self.request_id,
-            timestamp: Utc::now(),
+            timestamp: OffsetDateTime::now_utc(),
             user_id: self.user_id,
             method: self.method,
             path: self.path,

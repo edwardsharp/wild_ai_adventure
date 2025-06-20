@@ -1,6 +1,6 @@
 use super::models::{AuthError, InviteCode, User, UserRole};
 use crate::database::DatabaseConnection;
-use chrono::{DateTime, Utc};
+use time::OffsetDateTime;
 
 use uuid::Uuid;
 use webauthn_rs::prelude::Passkey;
@@ -34,14 +34,8 @@ impl<'a> AuthRepository<'a> {
         Ok(InviteCode {
             id: row.id,
             code: row.code,
-            created_at: DateTime::from_timestamp(row.created_at.unix_timestamp(), 0)
-                .unwrap_or_default()
-                .with_timezone(&Utc),
-            used_at: row.used_at.map(|ts| {
-                DateTime::from_timestamp(ts.unix_timestamp(), 0)
-                    .unwrap_or_default()
-                    .with_timezone(&Utc)
-            }),
+            created_at: row.created_at,
+            used_at: row.used_at,
             used_by_user_id: row.used_by_user_id,
             is_active: row.is_active,
         })
@@ -63,14 +57,8 @@ impl<'a> AuthRepository<'a> {
         Ok(row.map(|r| InviteCode {
             id: r.id,
             code: r.code,
-            created_at: DateTime::from_timestamp(r.created_at.unix_timestamp(), 0)
-                .unwrap_or_default()
-                .with_timezone(&Utc),
-            used_at: r.used_at.map(|ts| {
-                DateTime::from_timestamp(ts.unix_timestamp(), 0)
-                    .unwrap_or_default()
-                    .with_timezone(&Utc)
-            }),
+            created_at: r.created_at,
+            used_at: r.used_at,
             used_by_user_id: r.used_by_user_id,
             is_active: r.is_active,
         }))
@@ -110,14 +98,8 @@ impl<'a> AuthRepository<'a> {
             .map(|r| InviteCode {
                 id: r.id,
                 code: r.code,
-                created_at: DateTime::from_timestamp(r.created_at.unix_timestamp(), 0)
-                    .unwrap_or_default()
-                    .with_timezone(&Utc),
-                used_at: r.used_at.map(|ts| {
-                    DateTime::from_timestamp(ts.unix_timestamp(), 0)
-                        .unwrap_or_default()
-                        .with_timezone(&Utc)
-                }),
+                created_at: r.created_at,
+                used_at: r.used_at,
                 used_by_user_id: r.used_by_user_id,
                 is_active: r.is_active,
             })
@@ -171,9 +153,7 @@ impl<'a> AuthRepository<'a> {
             id: row.id,
             username: row.username,
             role,
-            created_at: DateTime::from_timestamp(row.created_at.unix_timestamp(), 0)
-                .unwrap_or_default()
-                .with_timezone(&Utc),
+            created_at: row.created_at,
             invite_code_used: row.invite_code_used,
         })
     }
@@ -202,9 +182,7 @@ impl<'a> AuthRepository<'a> {
                 id: r.id,
                 username: r.username,
                 role,
-                created_at: DateTime::from_timestamp(r.created_at.unix_timestamp(), 0)
-                    .unwrap_or_default()
-                    .with_timezone(&Utc),
+                created_at: r.created_at,
                 invite_code_used: r.invite_code_used,
             }
         }))
@@ -234,9 +212,7 @@ impl<'a> AuthRepository<'a> {
                 id: r.id,
                 username: r.username,
                 role,
-                created_at: DateTime::from_timestamp(r.created_at.unix_timestamp(), 0)
-                    .unwrap_or_default()
-                    .with_timezone(&Utc),
+                created_at: r.created_at,
                 invite_code_used: r.invite_code_used,
             }
         }))
@@ -289,9 +265,7 @@ impl<'a> AuthRepository<'a> {
                     id: r.id,
                     username: r.username,
                     role,
-                    created_at: DateTime::from_timestamp(r.created_at.unix_timestamp(), 0)
-                        .unwrap_or_default()
-                        .with_timezone(&Utc),
+                    created_at: r.created_at,
                     invite_code_used: r.invite_code_used,
                 }
             })
