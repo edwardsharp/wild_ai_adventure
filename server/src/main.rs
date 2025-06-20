@@ -6,8 +6,6 @@ use tower_sessions::{
     Expiry, SessionManagerLayer,
 };
 
-// The handlers that process the data can be found in the auth.rs file
-// This file contains the wasm client loading code and the axum routing
 use webauthn_server::analytics::{analytics_middleware, security_logging};
 use webauthn_server::config::AppConfig;
 use webauthn_server::routes::build_routes;
@@ -17,14 +15,6 @@ use webauthn_server::storage::SessionStore;
 
 #[macro_use]
 extern crate tracing;
-
-// Both JavaScript and WASM frontends are always available
-
-// 7. That's it! The user has now authenticated!
-
-// =======
-// Below is glue/stubs that are needed to make the above work, but don't really affect
-// the work flow too much.
 
 #[tokio::main]
 async fn main() {
@@ -106,8 +96,6 @@ async fn main() {
     // Get analytics service for middleware
     let analytics_service = app_state.analytics.clone();
 
-    // Build all routes using the routes module
-
     // Build session manager with config
     let same_site = match config.sessions.same_site.as_str() {
         "strict" => SameSite::Strict,
@@ -175,7 +163,3 @@ async fn main() {
 
     axum::serve(listener, app).await.unwrap();
 }
-
-// async fn handler_404() -> impl IntoResponse {
-//     (StatusCode::NOT_FOUND, "nothing to see here")
-// }
