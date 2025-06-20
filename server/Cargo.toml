@@ -31,8 +31,7 @@ uuid.workspace = true
 webauthn-rs = { workspace = true, features = [
     "danger-allow-state-serialisation",
 ] }
-utoipa = { workspace = true }
-utoipa-swagger-ui = { workspace = true }
+
 serde_with = { workspace = true }
 
 [dev-dependencies]

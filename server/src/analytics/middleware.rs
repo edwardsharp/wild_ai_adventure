@@ -2,43 +2,11 @@ use crate::error::WebauthnError;
 use crate::storage::{AnalyticsBuilder, AnalyticsService};
 use axum::{
     extract::{Extension, Request},
-    http::{HeaderMap, StatusCode},
+    http::HeaderMap,
     middleware::Next,
-    response::{IntoResponse, Response},
+    response::Response,
 };
-
 use tower_sessions::Session;
-
-/// Authentication middleware that checks if a user is logged in
-/// Returns 401 Unauthorized if no valid session is found
-pub async fn require_authentication(
-    session: Session,
-    request: Request,
-    next: Next,
-) -> Result<Response, WebauthnError> {
-    // Check if user_id exists in session (set during successful authentication)
-    match session.get::<uuid::Uuid>("user_id").await? {
-        Some(user_id) => {
-            // User is authenticated, log the access and continue
-            tracing::info!("Authenticated user {} accessing private content", user_id);
-            Ok(next.run(request).await)
-        }
-        None => {
-            // No valid session found
-            tracing::warn!(
-                "Unauthenticated access attempt to private content from {:?}",
-                request.headers().get("user-agent")
-            );
-
-            // Return 401 with a helpful message
-            Ok((
-                StatusCode::UNAUTHORIZED,
-                "Authentication required. Please log in to access this content.",
-            )
-                .into_response())
-        }
-    }
-}
 
 /// Analytics middleware that logs all requests to the database
 pub async fn analytics_middleware(

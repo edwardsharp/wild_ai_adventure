@@ -219,12 +219,9 @@ check_coverage_threshold() {
     fi
 }
 
-# Generate OpenAPI spec and TypeScript client
+# Generate TypeScript client
 generate_client() {
     log "Generating TypeScript client..."
-
-    # Skip OpenAPI generation for now due to compilation issues
-    log "Skipping OpenAPI generation (not working yet)"
 
     # Generate TypeScript client
     if [ -f "codegen/generate_ts_client.js" ]; then

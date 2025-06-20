@@ -1,10 +1,5 @@
 use axum::{
-    extract::Extension,
-    http::StatusCode,
-    middleware as axum_middleware,
-    response::IntoResponse,
-    routing::{get, post},
-    Router,
+    extract::Extension, http::StatusCode, middleware as axum_middleware, response::IntoResponse,
 };
 
 use std::net::SocketAddr;
@@ -14,19 +9,11 @@ use tower_sessions::{
     Expiry, SessionManagerLayer,
 };
 
-/*
- * Webauthn RS server side tutorial.
- */
-
 // The handlers that process the data can be found in the auth.rs file
 // This file contains the wasm client loading code and the axum routing
-use webauthn_server::api::{get_metrics, get_prometheus_metrics, health_check};
-use webauthn_server::auth::{
-    finish_authentication, finish_register, logout, require_admin, require_authentication,
-    start_authentication, start_register,
-};
+use webauthn_server::analytics::{analytics_middleware, security_logging};
 use webauthn_server::config::AppConfig;
-use webauthn_server::middleware::{analytics_middleware, security_logging};
+use webauthn_server::routes::build_routes;
 use webauthn_server::startup::AppState;
 use webauthn_server::storage::SessionStore;
 
@@ -121,39 +108,7 @@ async fn main() {
     // Get analytics service for middleware
     let analytics_service = app_state.analytics.clone();
 
-    // Create admin-only routes that require admin role
-    let admin_routes = Router::new() // Placeholder until analytics migration complete
-        .route("/api/admin/metrics", get(get_metrics))
-        .layer(axum_middleware::from_fn(require_admin))
-        .layer(axum_middleware::from_fn(require_authentication));
-
-    // Create protected routes that require authentication (any role)
-    let protected_routes = Router::new()
-        .nest_service(
-            "/private",
-            tower_http::services::ServeDir::new(&config.static_files.private_directory),
-        )
-        .route("/api/user/profile", get(health_check)) // Placeholder for user profile
-        .layer(axum_middleware::from_fn(require_authentication));
-
-    // Create public routes
-    let mut public_routes = Router::new()
-        .nest_service(
-            "/public",
-            tower_http::services::ServeDir::new(&config.static_files.public_directory),
-        )
-        .route("/health", get(health_check));
-
-    // Add metrics endpoints if enabled
-    if config.analytics.metrics.enabled {
-        public_routes = public_routes
-            .route(&config.analytics.metrics.health_endpoint, get(health_check))
-            .route(
-                &config.analytics.metrics.prometheus_endpoint,
-                get(get_prometheus_metrics),
-            )
-            .route("/api/metrics", get(get_metrics));
-    }
+    // Build all routes using the routes module
 
     // Build session manager with config
     let same_site = match config.sessions.same_site.as_str() {
@@ -172,23 +127,8 @@ async fn main() {
             config.sessions.max_age_seconds,
         )));
 
-    // Build main router
-    let mut app = Router::new();
-
-    // Add authentication routes if registration is enabled
-    if config.features.registration_enabled {
-        app = app
-            .route("/register_start/{username}", post(start_register))
-            .route("/register_finish", post(finish_register));
-    }
-
-    app = app
-        .route("/login_start/{username}", post(start_authentication))
-        .route("/login_finish", post(finish_authentication))
-        .route("/logout", post(logout))
-        .merge(admin_routes)
-        .merge(protected_routes)
-        .merge(public_routes)
+    // Build main router with all routes
+    let mut app = build_routes(&config)
         .layer(Extension(app_state.database.clone()))
         .layer(Extension(app_state))
         .layer(axum_middleware::from_fn(security_logging));

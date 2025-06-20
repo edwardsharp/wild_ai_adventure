@@ -41,7 +41,6 @@ webauthn-rs = { version = "0.5.1", features = [
 reqwest = { version = "0.12", features = ["json"] }
 testcontainers = "0.20"
 testcontainers-modules = { version = "0.8", features = ["postgres"] }
-utoipa = { version = "4.0", features = ["axum_extras", "uuid"] }
-utoipa-swagger-ui = { version = "6.0", features = ["axum"] }
+
 serde_with = "3.0"
 serde_yaml = "0.9"

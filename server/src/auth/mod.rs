@@ -11,6 +11,7 @@ pub mod handlers;
 pub mod middleware;
 pub mod models;
 pub mod repository;
+pub mod routes;
 
 // Re-export commonly used types
 pub use models::{AuthError, InviteCode, User, UserRole, WebauthnCredential};
@@ -23,6 +24,9 @@ pub use handlers::*;
 pub use middleware::{
     require_admin, require_analytics_access, require_authentication, AuthenticatedUser,
 };
+
+// Re-export routes
+pub use routes::build_auth_routes;
 
 // Future exports (to be added as we move more code)
 // pub mod service;
