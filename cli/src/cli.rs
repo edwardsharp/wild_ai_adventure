@@ -2,13 +2,22 @@ use clap::{Parser, Subcommand};
 use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
 use sqlx::PgPool;
-use webauthn_server::auth::AuthRepository;
+use webauthn_server::auth::{AuthRepository, UserRole};
 use webauthn_server::config::{AppConfig, ConfigError, SecretsConfig, StorageBackend};
 use webauthn_server::database::DatabaseConnection;
 use webauthn_server::storage::AnalyticsService;
 
 use std::path::PathBuf;
 use uuid::Uuid;
+
+/// Parse a role string into UserRole
+fn parse_role(s: &str) -> Result<UserRole, String> {
+    match s.to_lowercase().as_str() {
+        "admin" => Ok(UserRole::Admin),
+        "member" => Ok(UserRole::Member),
+        _ => Err(format!("Invalid role: {}. Must be 'admin' or 'member'", s)),
+    }
+}
 
 #[derive(Parser)]
 #[command(name = "webauthn-admin")]
@@ -54,6 +63,24 @@ pub enum Commands {
     },
     /// Show invite code statistics
     Stats,
+    /// Create an admin user
+    CreateAdmin {
+        /// Username for the admin
+        username: String,
+        /// Invite code to use (optional)
+        #[arg(short, long)]
+        invite_code: Option<String>,
+    },
+    /// List all users
+    ListUsers,
+    /// Update a user's role
+    UpdateUserRole {
+        /// Username to update
+        username: String,
+        /// New role (admin or member)
+        #[arg(value_parser = parse_role)]
+        role: UserRole,
+    },
     /// Show request analytics
     Analytics {
         /// Time period in hours
@@ -193,6 +220,96 @@ impl Cli {
 
                 println!();
                 println!("Done! Generated {} invite code(s).", count);
+            }
+            Commands::CreateAdmin {
+                username,
+                invite_code,
+            } => {
+                let auth_repo = AuthRepository::new(&db);
+
+                // Check if user already exists
+                if let Ok(Some(_)) = auth_repo.get_user_by_username(&username).await {
+                    return Err(format!("User '{}' already exists", username).into());
+                }
+
+                match auth_repo
+                    .create_user_with_role(&username, invite_code.as_deref(), UserRole::Admin)
+                    .await
+                {
+                    Ok(user) => {
+                        println!("✓ Created admin user: {}", user.username);
+                        println!("  User ID: {}", user.id);
+                        println!("  Role: {:?}", user.role);
+                        if let Some(code) = &user.invite_code_used {
+                            println!("  Used invite code: {}", code);
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("Failed to create admin user: {}", e);
+                        return Err(e.into());
+                    }
+                }
+            }
+            Commands::ListUsers => {
+                let auth_repo = AuthRepository::new(&db);
+                let users = auth_repo
+                    .list_users()
+                    .await
+                    .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)?;
+
+                if users.is_empty() {
+                    println!("No users found.");
+                } else {
+                    println!("Users:");
+                    println!(
+                        "{:<25} {:<8} {:<20} {:<15}",
+                        "Username", "Role", "Created", "Invite Used"
+                    );
+                    println!("{}", "-".repeat(75));
+
+                    for user in users {
+                        let invite_used =
+                            user.invite_code_used.unwrap_or_else(|| "None".to_string());
+
+                        println!(
+                            "{:<25} {:<8} {:<20} {:<15}",
+                            user.username,
+                            match user.role {
+                                UserRole::Admin => "Admin",
+                                UserRole::Member => "Member",
+                            },
+                            user.created_at.format("%Y-%m-%d %H:%M"),
+                            invite_used
+                        );
+                    }
+                }
+            }
+            Commands::UpdateUserRole { username, role } => {
+                let auth_repo = AuthRepository::new(&db);
+
+                // Find the user
+                let user = match auth_repo.get_user_by_username(&username).await {
+                    Ok(Some(user)) => user,
+                    Ok(None) => {
+                        eprintln!("User '{}' not found", username);
+                        return Err("User not found".into());
+                    }
+                    Err(e) => {
+                        eprintln!("Error finding user: {}", e);
+                        return Err(e.into());
+                    }
+                };
+
+                // Update the role
+                match auth_repo.update_user_role(user.id, role).await {
+                    Ok(_) => {
+                        println!("✓ Updated user '{}' role to {:?}", username, role);
+                    }
+                    Err(e) => {
+                        eprintln!("Failed to update user role: {}", e);
+                        return Err(e.into());
+                    }
+                }
             }
             Commands::ListInvites { active_only } => {
                 let auth_repo = AuthRepository::new(&db);

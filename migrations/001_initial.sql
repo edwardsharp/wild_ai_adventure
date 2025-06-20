@@ -30,9 +30,11 @@ END $$;
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     username VARCHAR(255) NOT NULL UNIQUE,
+    role VARCHAR(20) NOT NULL DEFAULT 'member',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     invite_code_used VARCHAR(8),
-    CONSTRAINT fk_users_invite_code FOREIGN KEY (invite_code_used) REFERENCES invite_codes(code)
+    CONSTRAINT fk_users_invite_code FOREIGN KEY (invite_code_used) REFERENCES invite_codes(code),
+    CONSTRAINT users_role_check CHECK (role IN ('admin', 'member'))
 );
 
 -- Indexes for users

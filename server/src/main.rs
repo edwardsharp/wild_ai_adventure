@@ -22,10 +22,11 @@ use tower_sessions::{
 // This file contains the wasm client loading code and the axum routing
 use webauthn_server::api::{get_metrics, get_prometheus_metrics, health_check};
 use webauthn_server::auth::{
-    finish_authentication, finish_register, logout, start_authentication, start_register,
+    finish_authentication, finish_register, logout, require_admin, require_analytics_access,
+    require_authentication, start_authentication, start_register,
 };
 use webauthn_server::config::AppConfig;
-use webauthn_server::middleware::{analytics_middleware, require_authentication, security_logging};
+use webauthn_server::middleware::{analytics_middleware, security_logging};
 use webauthn_server::startup::AppState;
 use webauthn_server::storage::SessionStore;
 
@@ -113,15 +114,20 @@ async fn main() {
     // Get analytics service for middleware
     let analytics_service = app_state.analytics.clone();
 
-    // Create protected routes that require authentication
+    // Create admin-only routes that require admin role
+    let admin_routes = Router::new()
+        .route("/api/analytics", get(health_check)) // Placeholder until analytics migration complete
+        .route("/api/admin/metrics", get(get_metrics))
+        .layer(axum_middleware::from_fn(require_admin))
+        .layer(axum_middleware::from_fn(require_authentication));
+
+    // Create protected routes that require authentication (any role)
     let protected_routes = Router::new()
         .nest_service(
             "/private",
             tower_http::services::ServeDir::new(&config.static_files.private_directory),
         )
-        // TODO: Re-enable these routes after analytics migration is complete
-        // .route("/api/analytics", get(get_analytics))
-        // .route("/api/user/activity", get(get_user_activity))
+        .route("/api/user/profile", get(health_check)) // Placeholder for user profile
         .layer(axum_middleware::from_fn(require_authentication));
 
     // Create public routes
@@ -172,8 +178,10 @@ async fn main() {
         .route("/login_start/{username}", post(start_authentication))
         .route("/login_finish", post(finish_authentication))
         .route("/logout", post(logout))
+        .merge(admin_routes)
         .merge(protected_routes)
         .merge(public_routes)
+        .layer(Extension(app_state.database.clone()))
         .layer(Extension(app_state))
         .layer(axum_middleware::from_fn(security_logging));
 

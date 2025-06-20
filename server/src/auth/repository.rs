@@ -1,4 +1,4 @@
-use super::models::{AuthError, InviteCode, User};
+use super::models::{AuthError, InviteCode, User, UserRole};
 use crate::database::DatabaseConnection;
 use sqlx::Row;
 use uuid::Uuid;
@@ -113,21 +113,45 @@ impl<'a> AuthRepository<'a> {
         username: &str,
         invite_code: Option<&str>,
     ) -> Result<User, AuthError> {
+        self.create_user_with_role(username, invite_code, UserRole::Member)
+            .await
+    }
+
+    /// Create a new user account with a specific role
+    pub async fn create_user_with_role(
+        &self,
+        username: &str,
+        invite_code: Option<&str>,
+        role: UserRole,
+    ) -> Result<User, AuthError> {
+        let role_str = match role {
+            UserRole::Admin => "admin",
+            UserRole::Member => "member",
+        };
+
         let row = sqlx::query(
             r#"
-            INSERT INTO users (username, invite_code_used)
-            VALUES ($1, $2)
-            RETURNING id, username, created_at, invite_code_used
+            INSERT INTO users (username, role, invite_code_used)
+            VALUES ($1, $2, $3)
+            RETURNING id, username, role, created_at, invite_code_used
             "#,
         )
         .bind(username)
+        .bind(role_str)
         .bind(invite_code)
         .fetch_one(self.db.pool())
         .await?;
 
+        let role = match row.get::<&str, _>("role") {
+            "admin" => UserRole::Admin,
+            "member" => UserRole::Member,
+            _ => UserRole::Member, // Default fallback
+        };
+
         Ok(User {
             id: row.get("id"),
             username: row.get("username"),
+            role,
             created_at: row.get("created_at"),
             invite_code_used: row.get("invite_code_used"),
         })
@@ -137,7 +161,7 @@ impl<'a> AuthRepository<'a> {
     pub async fn get_user_by_username(&self, username: &str) -> Result<Option<User>, AuthError> {
         let row = sqlx::query(
             r#"
-            SELECT id, username, created_at, invite_code_used
+            SELECT id, username, role, created_at, invite_code_used
             FROM users
             WHERE username = $1
             "#,
@@ -146,11 +170,20 @@ impl<'a> AuthRepository<'a> {
         .fetch_optional(self.db.pool())
         .await?;
 
-        Ok(row.map(|r| User {
-            id: r.get("id"),
-            username: r.get("username"),
-            created_at: r.get("created_at"),
-            invite_code_used: r.get("invite_code_used"),
+        Ok(row.map(|r| {
+            let role = match r.get::<&str, _>("role") {
+                "admin" => UserRole::Admin,
+                "member" => UserRole::Member,
+                _ => UserRole::Member, // Default fallback
+            };
+
+            User {
+                id: r.get("id"),
+                username: r.get("username"),
+                role,
+                created_at: r.get("created_at"),
+                invite_code_used: r.get("invite_code_used"),
+            }
         }))
     }
 
@@ -158,7 +191,7 @@ impl<'a> AuthRepository<'a> {
     pub async fn get_user_by_id(&self, user_id: Uuid) -> Result<Option<User>, AuthError> {
         let row = sqlx::query(
             r#"
-            SELECT id, username, created_at, invite_code_used
+            SELECT id, username, role, created_at, invite_code_used
             FROM users
             WHERE id = $1
             "#,
@@ -167,12 +200,75 @@ impl<'a> AuthRepository<'a> {
         .fetch_optional(self.db.pool())
         .await?;
 
-        Ok(row.map(|r| User {
-            id: r.get("id"),
-            username: r.get("username"),
-            created_at: r.get("created_at"),
-            invite_code_used: r.get("invite_code_used"),
+        Ok(row.map(|r| {
+            let role = match r.get::<&str, _>("role") {
+                "admin" => UserRole::Admin,
+                "member" => UserRole::Member,
+                _ => UserRole::Member, // Default fallback
+            };
+
+            User {
+                id: r.get("id"),
+                username: r.get("username"),
+                role,
+                created_at: r.get("created_at"),
+                invite_code_used: r.get("invite_code_used"),
+            }
         }))
+    }
+
+    /// Update a user's role
+    pub async fn update_user_role(&self, user_id: Uuid, role: UserRole) -> Result<(), AuthError> {
+        let role_str = match role {
+            UserRole::Admin => "admin",
+            UserRole::Member => "member",
+        };
+
+        sqlx::query(
+            r#"
+            UPDATE users
+            SET role = $2
+            WHERE id = $1
+            "#,
+        )
+        .bind(user_id)
+        .bind(role_str)
+        .execute(self.db.pool())
+        .await?;
+
+        Ok(())
+    }
+
+    /// List all users (admin function)
+    pub async fn list_users(&self) -> Result<Vec<User>, AuthError> {
+        let rows = sqlx::query(
+            r#"
+            SELECT id, username, role, created_at, invite_code_used
+            FROM users
+            ORDER BY created_at DESC
+            "#,
+        )
+        .fetch_all(self.db.pool())
+        .await?;
+
+        Ok(rows
+            .into_iter()
+            .map(|r| {
+                let role = match r.get::<&str, _>("role") {
+                    "admin" => UserRole::Admin,
+                    "member" => UserRole::Member,
+                    _ => UserRole::Member, // Default fallback
+                };
+
+                User {
+                    id: r.get("id"),
+                    username: r.get("username"),
+                    role,
+                    created_at: r.get("created_at"),
+                    invite_code_used: r.get("invite_code_used"),
+                }
+            })
+            .collect())
     }
 
     // ========== WebAuthn Credential Operations ==========

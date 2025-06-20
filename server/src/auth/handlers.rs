@@ -1,4 +1,4 @@
-use crate::auth::AuthRepository;
+use crate::auth::{AuthRepository, UserRole};
 use crate::error::WebauthnError;
 use crate::startup::AppState;
 use axum::{
@@ -172,7 +172,23 @@ pub async fn finish_register(
         Ok(sk) => {
             // Create the user in the database
             let auth_repo = AuthRepository::new(&app_state.database);
-            match auth_repo.create_user(&username, Some(&invite_code)).await {
+
+            // Check if this is the first user (make them admin)
+            let is_first_user = match auth_repo.list_users().await {
+                Ok(users) => users.is_empty(),
+                Err(_) => false,
+            };
+
+            let role = if is_first_user {
+                UserRole::Admin
+            } else {
+                UserRole::Member
+            };
+
+            match auth_repo
+                .create_user_with_role(&username, Some(&invite_code), role)
+                .await
+            {
                 Ok(user) => {
                     // Save the credential
                     if let Err(e) = auth_repo.save_credential(user.id, &sk).await {
@@ -187,8 +203,8 @@ pub async fn finish_register(
                     }
 
                     info!(
-                        "User {} registered successfully with invite code {}",
-                        username, invite_code
+                        "User {} registered successfully with invite code {} (role: {:?})",
+                        username, invite_code, user.role
                     );
                     StatusCode::OK
                 }
