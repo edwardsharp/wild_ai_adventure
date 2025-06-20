@@ -55,17 +55,20 @@ function inlineHtmlTemplate(): import('vite').Plugin {
 
   <script>
     // Listen for WebAuthn events
-    document.querySelector('webauthn-auth').addEventListener('webauthn-login', (e) => {
-      console.log('✅ Login successful:', e.detail.username);
-    });
+    const webauthnElement = document.querySelector('webauthn-auth');
+    if (webauthnElement) {
+      webauthnElement.addEventListener('webauthn-login', (e) => {
+        console.log('✅ Login successful:', e.detail.username);
+      });
 
-    document.querySelector('webauthn-auth').addEventListener('webauthn-logout', (e) => {
-      console.log('👋 User logged out');
-    });
+      webauthnElement.addEventListener('webauthn-logout', (e) => {
+        console.log('👋 User logged out');
+      });
 
-    document.querySelector('webauthn-auth').addEventListener('webauthn-error', (e) => {
-      console.error('❌ Auth error:', e.detail.error);
-    });
+      webauthnElement.addEventListener('webauthn-error', (e) => {
+        console.error('❌ Auth error:', e.detail.error);
+      });
+    }
   </script>
 </body>
 </html>
@@ -100,7 +103,7 @@ export default defineConfig({
     sourcemap: true,
     rollupOptions: {
       input: {
-        main: './src/simple-test.tsx',
+        main: './src/webauthn-component.tsx',
       },
       output: {
         entryFileNames: 'webauthn-auth.js',

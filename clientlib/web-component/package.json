@@ -7,6 +7,8 @@
   "types": "dist/webauthn-auth.d.ts",
   "scripts": {
     "build": "vite build --config vite.wc.config.ts",
+    "build:copy": "npm run build && npm run copy",
+    "copy": "cp dist/webauthn-auth-standalone.js ../../assets/clientlib/web-component/dist/webauthn-auth-standalone.js",
     "build:old": "node build.js",
     "build:dev": "esbuild src/index.ts --bundle --format=esm --outfile=dist/webauthn-auth.js --external:solid-js --sourcemap",
     "watch": "esbuild src/index.ts --bundle --format=esm --outfile=dist/webauthn-auth.js --external:solid-js --watch --sourcemap",

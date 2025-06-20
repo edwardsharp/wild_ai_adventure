@@ -10,7 +10,8 @@
         <h1>🔐 WebAuthn Server</h1>
         <p>Modern passwordless authentication with Web Components</p>
 
-        <simple-test></simple-test>
+        <webauthn-auth base-url="http://localhost:8080" theme="dark">
+        </webauthn-auth>
 
         <div>
             <h2>Explore</h2>
@@ -40,37 +41,26 @@
         <script src="/clientlib/web-component/dist/webauthn-auth-standalone.js"></script>
 
         <script>
-            // Add error handling to catch script errors
-            window.addEventListener("error", (e) => {
-                console.error("❌ JavaScript Error:", e.error);
-                console.error("❌ Error message:", e.message);
-                console.error("❌ Error filename:", e.filename);
-                console.error("❌ Error line:", e.lineno);
+            // Listen for WebAuthn events
+            document.addEventListener("DOMContentLoaded", () => {
+                const webauthnElement = document.querySelector("webauthn-auth");
+                if (webauthnElement) {
+                    webauthnElement.addEventListener("webauthn-login", (e) => {
+                        console.log("✅ Login successful:", e.detail.username);
+                        // Optionally redirect to dashboard or update UI
+                    });
+
+                    webauthnElement.addEventListener("webauthn-logout", (e) => {
+                        console.log("👋 User logged out");
+                        // Optionally redirect to home or update UI
+                    });
+
+                    webauthnElement.addEventListener("webauthn-error", (e) => {
+                        console.error("❌ Auth error:", e.detail.error);
+                        // Optionally show error notification
+                    });
+                }
             });
-
-            // Simple test - no event listeners needed for the counter component
-            console.log("✅ Simple test component loaded");
-
-            // Debug custom element registration
-            setTimeout(() => {
-                console.log("🔍 Checking for errors...");
-                const element = document.querySelector("simple-test");
-                console.log("🔍 Found simple-test element:", element);
-                console.log(
-                    "🔍 Custom elements registry:",
-                    customElements.get("simple-test"),
-                );
-                console.log(
-                    "🔍 Element innerHTML:",
-                    element ? element.innerHTML : "null",
-                );
-
-                // Try to manually check if the script loaded
-                console.log(
-                    "🔍 Script tags:",
-                    document.querySelectorAll('script[src*="webauthn-auth"]'),
-                );
-            }, 1000);
         </script>
     </body>
 </html>
