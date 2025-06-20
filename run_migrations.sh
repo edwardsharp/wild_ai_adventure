@@ -5,12 +5,18 @@
 
 set -e  # Exit on any error
 
-# Configuration
-DB_HOST="${DB_HOST:-localhost}"
-DB_PORT="${DB_PORT:-5432}"
-DB_NAME="${DB_NAME:-webauthn_db}"
-DB_USER="${DB_USER:-webauthn_user}"
-DB_PASSWORD="${DB_PASSWORD:-webauthn_password}"
+# Load environment variables from .env file if it exists
+if [[ -f .env ]]; then
+    echo "[INFO] Loading environment variables from .env file..."
+    export $(cat .env | grep -v '^#' | grep -v '^$' | xargs)
+fi
+
+# Configuration with fallback defaults
+DB_HOST="${POSTGRES_HOST:-${DB_HOST:-localhost}}"
+DB_PORT="${POSTGRES_PORT:-${DB_PORT:-5432}}"
+DB_NAME="${POSTGRES_DB:-${DB_NAME:-webauthn_db}}"
+DB_USER="${POSTGRES_USER:-${DB_USER:-postgres}}"
+DB_PASSWORD="${POSTGRES_PASSWORD:-${DB_PASSWORD:-password}}"
 
 # Colors for output
 RED='\033[0;31m'
@@ -170,16 +176,19 @@ show_usage() {
     echo "  help        Show this help message"
     echo ""
     echo "Environment Variables:"
-    echo "  DB_HOST     Database host (default: localhost)"
-    echo "  DB_PORT     Database port (default: 5432)"
-    echo "  DB_NAME     Database name (default: webauthn_db)"
-    echo "  DB_USER     Database user (default: webauthn_user)"
-    echo "  DB_PASSWORD Database password (default: webauthn_password)"
+    echo "  POSTGRES_HOST     Database host (default: localhost)"
+    echo "  POSTGRES_PORT     Database port (default: 5432)"
+    echo "  POSTGRES_DB       Database name (default: webauthn_db)"
+    echo "  POSTGRES_USER     Database user (default: postgres)"
+    echo "  POSTGRES_PASSWORD Database password (default: password)"
+    echo ""
+    echo "  Or legacy variables:"
+    echo "  DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD"
     echo ""
     echo "Examples:"
-    echo "  $0                              # Run migrations"
-    echo "  $0 status                       # Check status"
-    echo "  DB_HOST=remote.db $0 run        # Run on remote database"
+    echo "  $0                                    # Run migrations"
+    echo "  $0 status                             # Check status"
+    echo "  POSTGRES_HOST=remote.db $0 run        # Run on remote database"
 }
 
 # Main function

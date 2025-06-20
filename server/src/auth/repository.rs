@@ -322,7 +322,7 @@ impl<'a> AuthRepository<'a> {
         Ok(credentials)
     }
 
-    /// Update an existing WebAuthn credential
+    /// Update an existing WebAuthn credential - using sqlx::query! for demo
     pub async fn update_credential(
         &self,
         user_id: Uuid,
@@ -331,15 +331,16 @@ impl<'a> AuthRepository<'a> {
         let credential_id = passkey.cred_id().as_ref().to_vec();
         let credential_data = serde_json::to_string(passkey)?;
 
+        // This one stays as sqlx::query! as an example of named parameters
         sqlx::query!(
             r#"
             UPDATE webauthn_credentials
             SET credential_data = $3, last_used_at = NOW()
             WHERE user_id = $1 AND credential_id = $2
             "#,
-            user_id,
-            credential_id,
-            credential_data
+            user_id,         // $1
+            credential_id,   // $2
+            credential_data  // $3
         )
         .execute(self.db.pool())
         .await?;
