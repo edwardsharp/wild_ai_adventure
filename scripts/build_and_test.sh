@@ -205,6 +205,20 @@ build_rust() {
     success "Rust build completed"
 }
 
+# Check coverage threshold (to be called after all tests)
+check_coverage_threshold() {
+    log "Checking coverage threshold..."
+
+    COVERAGE_PERCENT=$(cargo llvm-cov report --ignore-filename-regex="(target|tests|codegen)/.*" | grep -E "TOTAL.*%" | grep -oE "[0-9]+\.[0-9]+%" | head -1 | grep -oE "[0-9]+\.[0-9]+" || echo "0")
+
+    if (( $(echo "$COVERAGE_PERCENT >= $COVERAGE_THRESHOLD" | bc -l) )); then
+        success "Coverage ($COVERAGE_PERCENT%) meets threshold ($COVERAGE_THRESHOLD%)"
+    else
+        error "Coverage ($COVERAGE_PERCENT%) below threshold ($COVERAGE_THRESHOLD%)"
+        exit 1
+    fi
+}
+
 # Generate OpenAPI spec and TypeScript client
 generate_client() {
     log "Generating TypeScript client..."
@@ -373,7 +387,7 @@ run_typescript_tests() {
 
     # Start server in background with test configuration and database
     # Run from project root so server can find assets directory
-    (cd ../.. && DATABASE_URL=$TEST_DB_URL CONFIG_PATH="config.test.jsonc" SECRETS_PATH="config.secrets.test.jsonc" cargo run --release --bin webauthn-server) &
+    (cd ../.. && DATABASE_URL=$TEST_DB_URL CONFIG_PATH="config.test.jsonc" SECRETS_PATH="config.secrets.test.jsonc" cargo llvm-cov run --bin webauthn-server --no-report) &
     SERVER_PID=$!
 
     log "Started server with PID: $SERVER_PID"
@@ -399,15 +413,23 @@ run_typescript_tests() {
     export API_BASE_URL="http://localhost:$API_PORT"
     npm test
 
+    # Explicitly stop the server and suppress exit code
+    if [ ! -z "$SERVER_PID" ] && kill -0 "$SERVER_PID" 2>/dev/null; then
+        log "Stopping coverage server process $SERVER_PID"
+        kill -TERM "$SERVER_PID" 2>/dev/null || true
+        wait "$SERVER_PID" 2>/dev/null || true
+        SERVER_PID=""  # Clear the PID so cleanup doesn't try again
+    fi
+
     # Cleanup will be handled by trap
     cd ../..
 
     success "TypeScript tests completed"
 }
 
-# Run tests with coverage
-run_coverage() {
-    log "Running tests with coverage..."
+# Run Rust tests with coverage (but don't generate reports yet)
+run_rust_coverage() {
+    log "Running Rust tests with coverage..."
 
     # Clean previous coverage data
     cargo llvm-cov clean --workspace
@@ -415,52 +437,46 @@ run_coverage() {
     # Ensure test environment is ready
     run_migrations
 
-    # Run tests with coverage
+    # Run tests with coverage (no report generation yet)
     export DATABASE_URL=$TEST_DB_URL
     export RUST_LOG=$RUST_LOG
 
     cargo llvm-cov \
         --workspace \
         --all-features \
+        --no-report \
+        --ignore-filename-regex="(target|tests|codegen)/.*" \
+        -- --test-threads=1
+
+    log "Rust tests completed - coverage data collected"
+}
+
+# Generate final coverage reports (after all tests)
+generate_coverage_reports() {
+    log "Generating coverage reports..."
+
+    # Generate LCOV report
+    cargo llvm-cov report \
         --lcov \
         --output-path target/coverage/lcov.info \
-        --ignore-filename-regex="target/.*" \
-        --ignore-filename-regex="tests/.*" \
-        --ignore-filename-regex="codegen/.*" \
-        -- --test-threads=1
+        --ignore-filename-regex="(target|tests|codegen)/.*"
 
     # Generate HTML report
     cargo llvm-cov report \
         --html \
         --output-dir target/coverage/html \
-        --ignore-filename-regex="target/.*" \
-        --ignore-filename-regex="tests/.*" \
-        --ignore-filename-regex="codegen/.*"
+        --ignore-filename-regex="(target|tests|codegen)/.*"
 
     # Generate JSON report
     cargo llvm-cov report \
         --json \
         --output-path target/coverage/coverage.json \
-        --ignore-filename-regex="target/.*" \
-        --ignore-filename-regex="tests/.*" \
-        --ignore-filename-regex="codegen/.*"
+        --ignore-filename-regex="(target|tests|codegen)/.*"
 
     # Display summary
     log "Coverage Summary:"
     cargo llvm-cov report \
-        --ignore-filename-regex="target/.*" \
-        --ignore-filename-regex="tests/.*" \
-        --ignore-filename-regex="codegen/.*"
-
-    # Check coverage threshold
-    COVERAGE_PERCENT=$(cargo llvm-cov report --ignore-filename-regex="target/.*" --ignore-filename-regex="tests/.*" --ignore-filename-regex="codegen/.*" | grep -E "TOTAL.*%" | grep -oE "[0-9]+\.[0-9]+%" | head -1 | grep -oE "[0-9]+\.[0-9]+" || echo "0")
-
-    if (( $(echo "$COVERAGE_PERCENT >= $COVERAGE_THRESHOLD" | bc -l) )); then
-        success "Coverage ($COVERAGE_PERCENT%) meets threshold ($COVERAGE_THRESHOLD%)"
-    else
-        error "Coverage ($COVERAGE_PERCENT%) below threshold ($COVERAGE_THRESHOLD%)"
-        exit 1
-    fi
+        --ignore-filename-regex="(target|tests|codegen)/.*"
 
     log "Coverage reports available at:"
     echo -e "  📊 HTML: ${YELLOW}target/coverage/html/index.html${NC}"
@@ -585,7 +601,10 @@ main() {
             ;;
         "coverage")
             check_dependencies
-            run_coverage
+            run_rust_coverage
+            run_typescript_tests
+            generate_coverage_reports
+            check_coverage_threshold
             ;;
         "generate")
             check_dependencies
