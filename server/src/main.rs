@@ -43,6 +43,12 @@ extern crate tracing;
 
 #[tokio::main]
 async fn main() {
+    // Load environment variables from .env file
+    if let Err(e) = dotenvy::dotenv() {
+        // It's okay if .env file doesn't exist, just log it
+        eprintln!("⚠️  Could not load .env file: {}", e);
+    }
+
     // Load configuration and secrets
     let config_path = std::env::var("CONFIG_PATH").unwrap_or_else(|_| "config.jsonc".to_string());
     let secrets_path = "config.secrets.jsonc".to_string();

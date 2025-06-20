@@ -3000,6 +3000,7 @@ dependencies = [
  "axum",
  "chrono",
  "config",
+ "dotenvy",
  "json5",
  "schemars",
  "serde",

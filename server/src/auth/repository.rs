@@ -331,16 +331,16 @@ impl<'a> AuthRepository<'a> {
         let credential_id = passkey.cred_id().as_ref().to_vec();
         let credential_data = serde_json::to_string(passkey)?;
 
-        sqlx::query(
+        sqlx::query!(
             r#"
             UPDATE webauthn_credentials
             SET credential_data = $3, last_used_at = NOW()
             WHERE user_id = $1 AND credential_id = $2
             "#,
+            user_id,
+            credential_id,
+            credential_data
         )
-        .bind(user_id)
-        .bind(credential_id)
-        .bind(credential_data)
         .execute(self.db.pool())
         .await?;
 
