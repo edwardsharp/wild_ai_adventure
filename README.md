@@ -165,8 +165,16 @@ To use the WASM frontend instead:
    ```
 
 3. Run the server:
+
    ```bash
-   cargo run
+   # Use default configuration
+   cargo run --bin server
+
+   # Override host and port
+   cargo run --bin server -- --host 127.0.0.1 --port 9999
+
+   # Use specific config files
+   cargo run --bin server -- --config my-config.jsonc --secrets my-secrets.jsonc
    ```
 
 ## Configuration Management
@@ -351,8 +359,17 @@ The server primarily uses `assets/config/config.jsonc` + `assets/config/config.s
 
 - `--config` / `-c`: Path to configuration file (default: `assets/config/config.jsonc`)
 - `--secrets` / `-s`: Path to secrets file (default: `assets/config/config.secrets.jsonc`)
+- `--host`: Override server hostname (conflicts with `--config`)
+- `--port`: Override server port (conflicts with `--config`)
 - `DATABASE_PASSWORD` or `POSTGRES_PASSWORD`: Database password (fallback if no secrets file)
 - `RUST_LOG`: Logging level (overrides config)
+
+**Argument Validation**:
+
+- `--host` and `--port` cannot be used together with explicit `--config` files
+- They can only be used with the default configuration to override specific settings
+- If you specify a custom config file, all server settings must come from that file
+- This prevents configuration conflicts and ensures predictable behavior
 
 **Secrets Priority Order:**
 
@@ -526,9 +543,13 @@ cargo run --bin cli analytics analytics --hours 1
    ```
 
 4. **Deploy with production config**:
+
    ```bash
    # Use command line arguments to specify config files
    cargo run --bin server -- --config assets/config/config.production.jsonc --secrets assets/config/config.secrets.production.jsonc
+
+   # Or for quick testing with different host/port (uses default config)
+   cargo run --bin server -- --host 0.0.0.0 --port 8443
    ```
 
 ### Production Checklist

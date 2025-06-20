@@ -172,6 +172,25 @@ Scripts expect these files in the project root:
 - `.env` - Environment variables (auto-generated)
 - `docker-compose.yml` - Docker services
 
+## Server Command Line Options
+
+The server supports these command line arguments:
+
+- `--config` / `-c`: Path to configuration file
+- `--secrets` / `-s`: Path to secrets file
+- `--host`: Override server hostname (conflicts with `--config`)
+- `--port`: Override server port (conflicts with `--config`)
+
+**Examples:**
+
+```bash
+# Use default config with custom host/port
+cargo run --bin server -- --host 127.0.0.1 --port 9999
+
+# Use specific config files
+cargo run --bin server -- --config my-config.jsonc --secrets my-secrets.jsonc
+```
+
 ## Dependencies
 
 ### Required for all scripts:
@@ -205,6 +224,7 @@ chmod +x scripts/*.sh
 - Verify PostgreSQL is running
 - Check configuration in `assets/config/config.jsonc`
 - Ensure command line arguments are passed correctly
+- Test server startup with: `cargo run --bin server -- --host localhost --port 8080`
 
 ### Script execution from wrong directory
 

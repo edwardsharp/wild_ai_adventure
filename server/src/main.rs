@@ -22,18 +22,49 @@ extern crate tracing;
 #[command(about = "WebAuthn server application")]
 struct ServerArgs {
     /// Path to configuration file
-    #[arg(long, short, default_value = "assets/config/config.jsonc")]
+    #[arg(long, short = 'c', default_value = "assets/config/config.jsonc")]
     config: String,
 
     /// Path to secrets configuration file
     #[arg(long, short, default_value = "assets/config/config.secrets.jsonc")]
     secrets: String,
+
+    /// Server hostname (conflicts with --config)
+    #[arg(long)]
+    host: Option<String>,
+
+    /// Server port (conflicts with --config)
+    #[arg(long)]
+    port: Option<u16>,
+}
+
+impl ServerArgs {
+    fn validate(&self) -> Result<(), String> {
+        let using_explicit_config = self.config != "assets/config/config.jsonc";
+        let using_host_port = self.host.is_some() || self.port.is_some();
+
+        if using_explicit_config && using_host_port {
+            return Err(
+                "Cannot use --host/--port arguments together with --config. \
+                Please either use configuration files OR command line host/port arguments."
+                    .to_string(),
+            );
+        }
+
+        Ok(())
+    }
 }
 
 #[tokio::main]
 async fn main() {
     // Parse command line arguments
     let args = ServerArgs::parse();
+
+    // Validate argument combinations
+    if let Err(e) = args.validate() {
+        eprintln!("❌ Argument validation failed: {}", e);
+        std::process::exit(1);
+    }
 
     // Load environment variables from .env file
     if let Err(e) = dotenvy::dotenv() {
@@ -45,7 +76,7 @@ async fn main() {
     let config_path = args.config;
     let secrets_path = args.secrets;
 
-    let config = if std::path::Path::new(&config_path).exists() {
+    let mut config = if std::path::Path::new(&config_path).exists() {
         let secrets_path_opt = if std::path::Path::new(&secrets_path).exists() {
             Some(&secrets_path)
         } else {
@@ -76,6 +107,14 @@ async fn main() {
         eprintln!("🔄 Using default configuration...");
         AppConfig::default()
     };
+
+    // Override config with command line arguments if provided
+    if let Some(host) = args.host {
+        config.server.host = host;
+    }
+    if let Some(port) = args.port {
+        config.server.port = port;
+    }
 
     // Set up logging based on config
     if std::env::var("RUST_LOG").is_err() {
