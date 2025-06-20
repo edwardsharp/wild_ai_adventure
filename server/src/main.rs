@@ -1,9 +1,6 @@
-use axum::{
-    extract::Extension, http::StatusCode, middleware as axum_middleware, response::IntoResponse,
-};
+use axum::{extract::Extension, middleware as axum_middleware};
 
 use std::net::SocketAddr;
-use std::path::PathBuf;
 use tower_sessions::{
     cookie::{time::Duration, SameSite},
     Expiry, SessionManagerLayer,
@@ -15,6 +12,7 @@ use webauthn_server::analytics::{analytics_middleware, security_logging};
 use webauthn_server::config::AppConfig;
 use webauthn_server::routes::build_routes;
 use webauthn_server::startup::AppState;
+use webauthn_server::static_filez::build_assets_fallback_service;
 use webauthn_server::storage::SessionStore;
 
 #[macro_use]
@@ -141,21 +139,9 @@ async fn main() {
     }
 
     // Serve main assets directory (contains both JS and WASM frontends)
-    let assets_dir = config.static_files.assets_directory.clone();
-
-    if !PathBuf::from(&assets_dir).exists() {
-        panic!("Can't find assets directory at: {}", assets_dir);
-    }
-
-    app = app.layer(session_layer).fallback_service(
-        tower_http::services::ServeDir::new(&assets_dir).not_found_service(tower::service_fn(
-            |_| async {
-                Ok::<_, std::convert::Infallible>(
-                    (StatusCode::NOT_FOUND, "nothing to see here").into_response(),
-                )
-            },
-        )),
-    );
+    app = app
+        .merge(build_assets_fallback_service(&config))
+        .layer(session_layer);
 
     // Parse server address from config
     let host = config

@@ -6,6 +6,7 @@ pub mod error;
 pub mod health;
 pub mod routes;
 pub mod startup;
+pub mod static_filez;
 pub mod storage;
 
 #[macro_use]
