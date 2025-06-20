@@ -1,14 +1,16 @@
 # a wild ride with claude
 
-this repo is mostly all ai-generated code. mostly a wild adventure staring into the llm abyss. 😎 it's both frightening and thrilling.
+this repo is mostly all ai-generated code. mostly a wild adventure staring into the llm abyss 😎
+
+both frightening and thrilling at the same time.
 
 i started with a browser passkey demo from [webauthn-rs](https://github.com/kanidm/webauthn-rs/tree/master/tutorial/server/axum)
 
-but then ...well i just kept lobbing prompts and claude kept pumping out code. i burned all my 10-dollar-a-month credits real quick. i'm also currently $28.16 deep in premium credit usage. 💸
+💸 but then ...well i just kept lobbing prompts and claude kept pumping out code. i burned all my 10-dollar-a-month credits real quick. i'm also currently ~$28.16~ $39.84 deep in premium credit usage.
 
-if you're curious i tried to log all the prompts over in [docs/prompts.md](docs/prompts.md) 😳
+😳 if you're curious i tried to log the prompts i used (or at least the ones i could retrieve) over in [docs/prompts.md](docs/prompts.md)
 
-lolol, are we cooked??
+⏲️ lolol, are we cooked??
 
 everything below is what claude ai though should be in the root README:
 
