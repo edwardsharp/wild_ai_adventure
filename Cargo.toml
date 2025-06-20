@@ -26,7 +26,9 @@ sqlx = { version = "0.8", features = [
 thiserror = "1.0"
 tokio = { version = "1.0", features = ["full"] }
 tower = "0.5"
-tower-http = { version = "0.6", features = ["fs"] }
+mime_guess = "2.0"
+httpdate = "1.0"
+tower-http = { version = "0.6", features = ["fs", "compression-gzip", "compression-br", "set-header", "trace"] }
 tower-sessions = "0.14"
 tower-sessions-sqlx-store = { version = "0.15", features = ["postgres"] }
 tracing = "0.1"
