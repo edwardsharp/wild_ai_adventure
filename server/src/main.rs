@@ -22,8 +22,8 @@ use tower_sessions::{
 // This file contains the wasm client loading code and the axum routing
 use webauthn_server::api::{get_metrics, get_prometheus_metrics, health_check};
 use webauthn_server::auth::{
-    finish_authentication, finish_register, logout, require_admin, require_analytics_access,
-    require_authentication, start_authentication, start_register,
+    finish_authentication, finish_register, logout, require_admin, require_authentication,
+    start_authentication, start_register,
 };
 use webauthn_server::config::AppConfig;
 use webauthn_server::middleware::{analytics_middleware, security_logging};

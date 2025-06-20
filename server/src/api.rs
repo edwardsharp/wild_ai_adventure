@@ -6,16 +6,14 @@
 
 use crate::error::WebauthnError;
 use axum::{
-    extract::{Extension, Query},
     http::StatusCode,
     response::{IntoResponse, Json},
 };
-use serde::{Deserialize, Serialize};
-use tower_sessions::Session;
-use uuid::Uuid;
+use serde::Deserialize;
 
 /// Query parameters for analytics endpoints
 #[derive(Deserialize)]
+#[allow(dead_code)]
 pub struct AnalyticsQuery {
     #[serde(default = "default_hours")]
     hours: i32,
@@ -33,6 +31,7 @@ fn default_limit() -> i64 {
 
 /// User activity query parameters
 #[derive(Deserialize)]
+#[allow(dead_code)]
 pub struct UserActivityQuery {
     #[serde(default = "default_activity_limit")]
     limit: i64,

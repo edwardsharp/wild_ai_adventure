@@ -1,7 +1,5 @@
 use super::models::{AuthError, InviteCode, User, UserRole};
 use crate::database::DatabaseConnection;
-use time::OffsetDateTime;
-
 use uuid::Uuid;
 use webauthn_rs::prelude::Passkey;
 
