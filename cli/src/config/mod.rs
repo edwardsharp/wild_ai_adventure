@@ -83,8 +83,13 @@ impl ConfigCommands {
         force: bool,
         with_secrets: bool,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let config_path = "config.jsonc";
-        let secrets_path = "config.secrets.jsonc";
+        let config_path = "assets/config/config.jsonc";
+        let secrets_path = "assets/config/config.secrets.jsonc";
+
+        // Ensure the assets/config directory exists
+        if let Some(parent) = std::path::Path::new(config_path).parent() {
+            std::fs::create_dir_all(parent)?;
+        }
 
         // Check if config file already exists
         if std::path::Path::new(config_path).exists() && !force {
@@ -121,7 +126,12 @@ impl ConfigCommands {
     }
 
     async fn init_secrets(force: bool) -> Result<(), Box<dyn std::error::Error>> {
-        let secrets_path = "config.secrets.jsonc";
+        let secrets_path = "assets/config/config.secrets.jsonc";
+
+        // Ensure the assets/config directory exists
+        if let Some(parent) = std::path::Path::new(secrets_path).parent() {
+            std::fs::create_dir_all(parent)?;
+        }
 
         // Check if secrets file already exists
         if std::path::Path::new(secrets_path).exists() && !force {
@@ -163,8 +173,9 @@ impl ConfigCommands {
         config_path: Option<String>,
         secrets_path: Option<String>,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let config_path = config_path.unwrap_or_else(|| "config.jsonc".to_string());
-        let secrets_path = secrets_path.unwrap_or_else(|| "config.secrets.jsonc".to_string());
+        let config_path = config_path.unwrap_or_else(|| "assets/config/config.jsonc".to_string());
+        let secrets_path =
+            secrets_path.unwrap_or_else(|| "assets/config/config.secrets.jsonc".to_string());
 
         println!("🔍 Validating configuration...");
         println!("  Config file: {}", config_path);
@@ -242,7 +253,7 @@ impl ConfigCommands {
         println!("✓ Generated JSON schema: {}", output.display());
         println!();
         println!("💡 Usage:");
-        println!("  - Configure your editor to use this schema for config.jsonc");
+        println!("  - Configure your editor to use this schema for assets/config/config.jsonc");
         println!("  - This enables autocompletion and validation in your editor");
 
         Ok(())
@@ -256,8 +267,9 @@ impl ConfigCommands {
     ) -> Result<(), Box<dyn std::error::Error>> {
         println!("📄 Generating .env file...");
 
-        let config_path = config_path.unwrap_or_else(|| "config.jsonc".to_string());
-        let secrets_path = secrets_path.unwrap_or_else(|| "config.secrets.jsonc".to_string());
+        let config_path = config_path.unwrap_or_else(|| "assets/config/config.jsonc".to_string());
+        let secrets_path =
+            secrets_path.unwrap_or_else(|| "assets/config/config.secrets.jsonc".to_string());
 
         // Load configuration if it exists
         let config = if std::path::Path::new(&config_path).exists() {
@@ -289,8 +301,8 @@ impl ConfigCommands {
 
         if with_examples {
             content.push_str("# Configuration and secrets file paths\n");
-            content.push_str("# CONFIG_PATH=config.jsonc\n");
-            content.push_str("# SECRETS_PATH=config.secrets.jsonc\n\n");
+            content.push_str("# CONFIG_PATH=assets/config/config.jsonc\n");
+            content.push_str("# SECRETS_PATH=assets/config/config.secrets.jsonc\n\n");
         }
 
         for (key, value) in env_vars {
@@ -318,8 +330,9 @@ impl ConfigCommands {
         config_path: Option<String>,
         secrets_path: Option<String>,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let config_path = config_path.unwrap_or_else(|| "config.jsonc".to_string());
-        let secrets_path = secrets_path.unwrap_or_else(|| "config.secrets.jsonc".to_string());
+        let config_path = config_path.unwrap_or_else(|| "assets/config/config.jsonc".to_string());
+        let secrets_path =
+            secrets_path.unwrap_or_else(|| "assets/config/config.secrets.jsonc".to_string());
 
         let secrets_path_opt = if std::path::Path::new(&secrets_path).exists() {
             Some(&secrets_path)

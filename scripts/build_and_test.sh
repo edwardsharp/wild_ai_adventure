@@ -144,14 +144,14 @@ setup_project() {
     mkdir -p logs
 
     # Copy example configs if they don't exist
-    if [ ! -f "config.jsonc" ] && [ -f "config.example.jsonc" ]; then
-        cp config.example.jsonc config.jsonc
-        warn "Created config.jsonc from example. Please review and update as needed."
+    if [ ! -f "assets/config/config.jsonc" ] && [ -f "assets/config/config.example.jsonc" ]; then
+        cp assets/config/config.example.jsonc assets/config/config.jsonc
+        warn "Created assets/config/config.jsonc from example. Please review and update as needed."
     fi
 
-    if [ ! -f "config.secrets.jsonc" ] && [ -f "config.secrets.example.jsonc" ]; then
-        cp config.secrets.example.jsonc config.secrets.jsonc
-        warn "Created config.secrets.jsonc from example. Please update with real secrets."
+    if [ ! -f "assets/config/config.secrets.jsonc" ] && [ -f "assets/config/config.secrets.example.jsonc" ]; then
+        cp assets/config/config.secrets.example.jsonc assets/config/config.secrets.jsonc
+        warn "Created assets/config/config.secrets.jsonc from example. Please update with real secrets."
     fi
 
 #     # Setup git hooks (if .git exists)
@@ -336,7 +336,7 @@ generate_test_invite_codes() {
     mkdir -p generated/ts-client/test-data
 
     # Generate invite codes using the CLI and capture output
-    local invite_output=$(DATABASE_URL=$TEST_DB_URL CONFIG_PATH="config.test.jsonc" SECRETS_PATH="config.secrets.test.jsonc" cargo run --release --bin cli users generate-invite --count 5 --length 8 2>/dev/null)
+    local invite_output=$(DATABASE_URL=$TEST_DB_URL cargo run --release --bin cli --config "assets/config/config.test.jsonc" --secrets "assets/config/config.secrets.test.jsonc" users generate-invite --count 5 --length 8 2>/dev/null)
 
     # Extract invite codes from output and save to file
     echo "$invite_output" | grep "Generated invite code" | sed 's/.*: //' > generated/ts-client/test-data/invite-codes.txt
@@ -384,7 +384,7 @@ run_typescript_tests() {
 
     # Start server in background with test configuration and database
     # Run from project root so server can find assets directory
-    (cd ../.. && DATABASE_URL=$TEST_DB_URL CONFIG_PATH="config.test.jsonc" SECRETS_PATH="config.secrets.test.jsonc" cargo llvm-cov run --bin server --no-report; true) &
+    (cd ../.. && DATABASE_URL=$TEST_DB_URL cargo llvm-cov run --bin server --no-report -- --config "assets/config/config.test.jsonc" --secrets "assets/config/config.secrets.test.jsonc"; true) &
     SERVER_PID=$!
 
     log "Started server with PID: $SERVER_PID"

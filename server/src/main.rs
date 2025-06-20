@@ -1,4 +1,5 @@
 use axum::{extract::Extension, middleware as axum_middleware};
+use clap::Parser;
 
 use std::net::SocketAddr;
 use tower_sessions::{
@@ -16,18 +17,33 @@ use server::storage::SessionStore;
 #[macro_use]
 extern crate tracing;
 
+#[derive(Parser)]
+#[command(name = "server")]
+#[command(about = "WebAuthn server application")]
+struct ServerArgs {
+    /// Path to configuration file
+    #[arg(long, short, default_value = "assets/config/config.jsonc")]
+    config: String,
+
+    /// Path to secrets configuration file
+    #[arg(long, short, default_value = "assets/config/config.secrets.jsonc")]
+    secrets: String,
+}
+
 #[tokio::main]
 async fn main() {
+    // Parse command line arguments
+    let args = ServerArgs::parse();
+
     // Load environment variables from .env file
     if let Err(e) = dotenvy::dotenv() {
         // It's okay if .env file doesn't exist, just log it
         eprintln!("⚠️  Could not load .env file: {}", e);
     }
 
-    // Load configuration and secrets
-    let config_path = std::env::var("CONFIG_PATH").unwrap_or_else(|_| "config.jsonc".to_string());
-    let secrets_path =
-        std::env::var("SECRETS_PATH").unwrap_or_else(|_| "config.secrets.jsonc".to_string());
+    // Use command line arguments for configuration paths
+    let config_path = args.config;
+    let secrets_path = args.secrets;
 
     let config = if std::path::Path::new(&config_path).exists() {
         let secrets_path_opt = if std::path::Path::new(&secrets_path).exists() {

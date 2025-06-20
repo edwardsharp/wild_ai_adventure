@@ -2861,6 +2861,7 @@ name = "server"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "clap",
  "config",
  "dotenvy",
  "json5",

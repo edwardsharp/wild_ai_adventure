@@ -109,12 +109,19 @@ services:
       dockerfile: Dockerfile
       target: runtime
     container_name: test-api
+    command:
+      [
+        "server",
+        "--config",
+        "assets/config/config.test.jsonc",
+        "--secrets",
+        "assets/config/config.secrets.test.jsonc",
+      ]
     environment:
       DATABASE_URL: postgres://postgres:test_password_123@test-postgres:5432/test_db
       REDIS_URL: redis://test-redis:6379
       RUST_LOG: info
       PORT: 3000
-      CONFIG_PATH: config.test.jsonc
     ports:
       - "3001:3000"
     depends_on:

@@ -18,11 +18,11 @@ echo -e "${GREEN}WebAuthn Axum Development Setup${NC}"
 echo "=================================="
 
 # Check for configuration file
-if [ ! -f "config.jsonc" ]; then
+if [ ! -f "assets/config/config.jsonc" ]; then
     echo -e "${YELLOW}Configuration file not found. Creating default config...${NC}"
     cargo run --bin cli config init --with-secrets
     echo ""
-    echo -e "${BLUE}📝 Please review and edit config.jsonc for your setup${NC}"
+    echo -e "${BLUE}📝 Please review and edit assets/config/config.jsonc for your setup${NC}"
     echo -e "${BLUE}💡 Key settings to check:${NC}"
     echo -e "${BLUE}  • Database connection (host, port, username, database)${NC}"
     echo -e "${BLUE}  • WebAuthn settings (rp_id, rp_origin)${NC}"
@@ -31,15 +31,15 @@ if [ ! -f "config.jsonc" ]; then
 fi
 
 # Check for secrets file
-if [ ! -f "config.secrets.jsonc" ]; then
+if [ ! -f "assets/config/config.secrets.jsonc" ]; then
     echo -e "${YELLOW}Secrets file not found. Creating default secrets...${NC}"
     cargo run --bin cli config init-secrets
     echo ""
-    echo -e "${BLUE}🔐 Please edit config.secrets.jsonc with your actual secrets${NC}"
+    echo -e "${BLUE}🔐 Please edit assets/config/config.secrets.jsonc with your actual secrets${NC}"
     echo -e "${BLUE}⚠️  Security reminders:${NC}"
     echo -e "${BLUE}  • Change all default passwords${NC}"
     echo -e "${BLUE}  • Use strong, unique credentials${NC}"
-    echo -e "${BLUE}  • Set proper file permissions: chmod 600 config.secrets.jsonc${NC}"
+    echo -e "${BLUE}  • Set proper file permissions: chmod 600 assets/config/config.secrets.jsonc${NC}"
     echo ""
 fi
 
@@ -60,8 +60,8 @@ if [ -f ".env" ]; then
 fi
 
 # Check if we have secrets or need environment variables
-if [ -f "config.secrets.jsonc" ]; then
-    echo -e "${GREEN}Found secrets file: config.secrets.jsonc${NC}"
+if [ -f "assets/config/config.secrets.jsonc" ]; then
+    echo -e "${GREEN}Found secrets file: assets/config/config.secrets.jsonc${NC}"
     echo -e "${BLUE}💡 Database password will be loaded from secrets file${NC}"
 else
     # Check if DATABASE_PASSWORD is set
@@ -88,7 +88,7 @@ if ! cargo run --bin cli users stats > /dev/null 2>&1; then
     echo "5. Configuration file has correct database settings"
     echo ""
     echo -e "${BLUE}💡 Tips:${NC}"
-    echo "  • Check config.jsonc database section"
+    echo "  • Check assets/config/config.jsonc database section"
     echo "  • Set DATABASE_PASSWORD environment variable"
     echo "  • Verify PostgreSQL is running: brew services start postgresql@15"
     echo "  • Test connection: psql -h localhost -U postgres -d webauthn_db"
@@ -129,7 +129,7 @@ cargo run --bin cli config schema
 echo ""
 
 echo -e "${GREEN}🚀 Starting WebAuthn server...${NC}"
-echo -e "${YELLOW}📡 Server will be available based on your config.jsonc settings${NC}"
+echo -e "${YELLOW}📡 Server will be available based on your assets/config/config.jsonc settings${NC}"
 echo -e "${YELLOW}🔗 Default: http://localhost:8080${NC}"
 echo -e "${YELLOW}⏹️  Press Ctrl+C to stop the server${NC}"
 echo ""
@@ -143,4 +143,4 @@ echo -e "${BLUE}  • Manage secrets: cargo run --bin cli config init-secrets${N
 echo ""
 
 # Start the server
-cargo run
+cargo run --bin server

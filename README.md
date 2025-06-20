@@ -68,7 +68,7 @@ This demonstrates using Axum as the backend for a WebAuthn authentication system
    ```bash
    # Edit the configuration file (supports comments!)
    # Your editor should provide autocomplete and validation
-   edit config.jsonc
+   edit assets/config/config.jsonc
 
    # Generate .env file for Docker/SQLx compatibility
    cargo run --bin cli config generate-env
@@ -111,7 +111,7 @@ This demonstrates using Axum as the backend for a WebAuthn authentication system
    cargo run --bin cli config schema
 
    # Edit configuration to match your setup
-   edit config.jsonc
+   edit assets/config/config.jsonc
 
    # Validate your configuration
    cargo run --bin cli config validate
@@ -173,7 +173,7 @@ To use the WASM frontend instead:
 
 ### Configuration Files
 
-The server uses a JSONC configuration file (`config.jsonc`) with full JSON Schema support for editor assistance, plus an optional secrets file for sensitive data:
+The server uses a JSONC configuration file (`assets/config/config.jsonc`) with full JSON Schema support for editor assistance, plus an optional secrets file for sensitive data:
 
 ```bash
 # Initialize default configuration
@@ -208,7 +208,7 @@ For the best experience, configure your editor to use the JSON Schema:
 {
   "json.schemas": [
     {
-      "fileMatch": ["config.jsonc"],
+      "fileMatch": ["assets/config/config.jsonc"],
       "url": "./config.schema.json"
     }
   ]
@@ -219,7 +219,7 @@ For the best experience, configure your editor to use the JSON Schema:
 
 ### Key Configuration Sections
 
-**Main Configuration (`config.jsonc`):**
+**Main Configuration (`assets/config/config.jsonc`):**
 
 - **`app`**: Application metadata and environment
 - **`database`**: Database connection and pool settings (password comes from secrets)
@@ -234,7 +234,7 @@ For the best experience, configure your editor to use the JSON Schema:
 - **`production`**: Production deployment settings
 - **`features`**: Feature flags
 
-**Secrets Configuration (`config.secrets.jsonc`):**
+**Secrets Configuration (`assets/config/config.secrets.jsonc`):**
 
 - **`database`**: Database password and optional URL override
 - **`app`**: Session secrets and API keys
@@ -347,15 +347,16 @@ Migrations are automatically run when the server starts (configurable via `datab
 
 ### Configuration vs Environment Variables
 
-The server primarily uses `config.jsonc` + `config.secrets.jsonc` for configuration, but also supports these environment variables:
+The server primarily uses `assets/config/config.jsonc` + `assets/config/config.secrets.jsonc` for configuration, and supports command line arguments:
 
-- `CONFIG_PATH`: Path to configuration file (default: `config.jsonc`)
+- `--config` / `-c`: Path to configuration file (default: `assets/config/config.jsonc`)
+- `--secrets` / `-s`: Path to secrets file (default: `assets/config/config.secrets.jsonc`)
 - `DATABASE_PASSWORD` or `POSTGRES_PASSWORD`: Database password (fallback if no secrets file)
 - `RUST_LOG`: Logging level (overrides config)
 
 **Secrets Priority Order:**
 
-1. `config.secrets.jsonc` file (preferred)
+1. `assets/config/config.secrets.jsonc` file (preferred)
 2. Environment variables (fallback)
 3. Generated `.env` file (Docker/tooling compatibility)
 
@@ -364,7 +365,7 @@ The server primarily uses `config.jsonc` + `config.secrets.jsonc` for configurat
 - `javascript` (default): Serves JavaScript frontend
 - `wasm`: Serves WASM frontend
 
-Configure via `static_files.frontend_type` in config.jsonc.
+Configure via `static_files.frontend_type` in assets/config/config.jsonc.
 
 ### Database Migrations
 
@@ -379,17 +380,17 @@ Migrations are automatically run when the server starts (configurable via `datab
    cargo run --bin cli config init --with-secrets
 
    # Edit your actual secrets (use strong passwords!)
-   edit config.secrets.jsonc
+   edit assets/config/config.secrets.jsonc
 
    # Set proper file permissions
-   chmod 600 config.secrets.jsonc
+   chmod 600 assets/config/config.secrets.jsonc
    ```
 
 2. **Daily Development:**
 
    ```bash
    # Edit main configuration (with schema validation)
-   edit config.jsonc
+   edit assets/config/config.jsonc
 
    # Validate everything
    cargo run --bin cli config validate
@@ -425,7 +426,7 @@ Migrations are automatically run when the server starts (configurable via `datab
 1. **Connection Errors**
 
    - Verify PostgreSQL is running
-   - Check database settings in `config.jsonc`
+   - Check database settings in `assets/config/config.jsonc`
    - Ensure `DATABASE_PASSWORD` environment variable is set
    - Test: `cargo run --bin cli users stats`
 
@@ -452,7 +453,7 @@ Migrations are automatically run when the server starts (configurable via `datab
 Enable detailed logging:
 
 ```bash
-# Edit config.jsonc
+# Edit assets/config/config.jsonc
 {
   "logging": {
     "level": "debug"
@@ -483,8 +484,8 @@ cargo run --bin cli analytics analytics --hours 1
 
    ```bash
    # Copy main config and secrets
-   cp config.jsonc config.production.jsonc
-   cp config.secrets.jsonc config.secrets.production.jsonc
+   cp assets/config/config.jsonc assets/config/config.production.jsonc
+   cp assets/config/config.secrets.jsonc assets/config/config.secrets.production.jsonc
    ```
 
 2. **Edit production settings**:
@@ -520,14 +521,14 @@ cargo run --bin cli analytics analytics --hours 1
 
    ```bash
    # Edit with production credentials
-   edit config.secrets.production.jsonc
-   chmod 600 config.secrets.production.jsonc
+   edit assets/config/config.secrets.production.jsonc
+   chmod 600 assets/config/config.secrets.production.jsonc
    ```
 
 4. **Deploy with production config**:
    ```bash
-   export CONFIG_PATH="config.production.jsonc"
-   # Secrets are automatically loaded from config.secrets.production.jsonc
+   # Use command line arguments to specify config files
+   cargo run --bin server -- --config assets/config/config.production.jsonc --secrets assets/config/config.secrets.production.jsonc
    ```
 
 ### Production Checklist
@@ -563,11 +564,11 @@ Monitor via CLI:
 
 ```bash
 # Regular health checks (automatically finds secrets file)
-cargo run --bin cli --config config.production.jsonc analytics analytics
+cargo run --bin cli --config assets/config/config.production.jsonc analytics analytics
 
 # User activity monitoring
-cargo run --bin cli --config config.production.jsonc analytics user-activity --user-id UUID
+cargo run --bin cli --config assets/config/config.production.jsonc analytics user-activity --user-id UUID
 
 # Validate production setup
-cargo run --bin cli --config config.production.jsonc --secrets config.secrets.production.jsonc config validate
+cargo run --bin cli --config assets/config/config.production.jsonc --secrets assets/config/config.secrets.production.jsonc config validate
 ```

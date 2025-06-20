@@ -19,11 +19,11 @@ pub struct Cli {
     pub command: Commands,
 
     /// Path to configuration file
-    #[arg(long, short, default_value = "config.jsonc")]
+    #[arg(long, short, default_value = "assets/config/config.jsonc")]
     pub config: Option<String>,
 
     /// Path to secrets configuration file
-    #[arg(long, default_value = "config.secrets.jsonc")]
+    #[arg(long, default_value = "assets/config/config.secrets.jsonc")]
     pub secrets: Option<String>,
 
     /// Database URL (overrides config file)
@@ -101,8 +101,14 @@ impl Cli {
     async fn load_config_with_secrets(
         &self,
     ) -> Result<(AppConfig, Option<()>), Box<dyn std::error::Error>> {
-        let config_path = self.config.as_deref().unwrap_or("config.jsonc");
-        let secrets_path = self.secrets.as_deref().unwrap_or("config.secrets.jsonc");
+        let config_path = self
+            .config
+            .as_deref()
+            .unwrap_or("assets/config/config.jsonc");
+        let secrets_path = self
+            .secrets
+            .as_deref()
+            .unwrap_or("assets/config/config.secrets.jsonc");
 
         let secrets_path_opt = if std::path::Path::new(secrets_path).exists() {
             Some(secrets_path)

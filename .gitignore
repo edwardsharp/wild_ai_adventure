@@ -3,14 +3,14 @@
 .DS_Store
 
 # configuration files that might contain secrets
-config.local.jsonc
-config.production.jsonc
-config.secrets.jsonc
-config.secrets.*.jsonc
-*.secrets.jsonc
+assets/config/config.local.jsonc
+assets/config/config.production.jsonc
+assets/config/config.secrets.jsonc
+assets/config/config.secrets.*.jsonc
+assets/config/*.secrets.jsonc
 
 # EXCEPT example files (safe to commit)
-!config.secrets.example.jsonc
+!assets/config/config.secrets.example.jsonc
 
 logs/
 *.log
