@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE invite_codes\n            SET used_at = NOW(), used_by_user_id = $2, is_active = FALSE\n            WHERE code = $1 AND is_active = TRUE AND used_at IS NULL\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1615af87531f38b425c87725e2641cf514a731c247db3d5f564bde91de53b6a5"
+}
