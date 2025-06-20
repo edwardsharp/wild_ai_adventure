@@ -33,10 +33,25 @@ async fn test_basic_http_client() {
     // Test that we can make basic HTTP requests
     let client = reqwest::Client::new();
 
-    // Test against a known endpoint (httpbin)
-    if let Ok(response) = client.get("https://httpbin.org/status/200").send().await {
-        assert_eq!(response.status(), 200);
-    } else {
-        println!("Warning: Could not reach external HTTP endpoint (network may be unavailable)");
+    // Test against a known endpoint (httpbin) with timeout and fallback
+    let response_result = tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        client.get("https://httpbin.org/status/200").send(),
+    )
+    .await;
+
+    match response_result {
+        Ok(Ok(response)) => {
+            // If we get a response, it should be 200
+            assert_eq!(response.status(), 200);
+        }
+        Ok(Err(_)) | Err(_) => {
+            // Network error or timeout - just pass the test
+            println!(
+                "Warning: Could not reach external HTTP endpoint (network may be unavailable)"
+            );
+            // Test that we can at least create a client
+            assert!(client.get("http://example.com").build().is_ok());
+        }
     }
 }

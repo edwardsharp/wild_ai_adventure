@@ -48,9 +48,18 @@
     "max_request_size_bytes": 1048576,
     "cors": {
       "enabled": false,
-      "allowed_origins": ["http://localhost:8080"],
-      "allowed_methods": ["GET", "POST", "OPTIONS"],
-      "allowed_headers": ["Content-Type", "Authorization"]
+      "allowed_origins": [
+        "http://localhost:8080"
+      ],
+      "allowed_methods": [
+        "GET",
+        "POST",
+        "OPTIONS"
+      ],
+      "allowed_headers": [
+        "Content-Type",
+        "Authorization"
+      ]
     },
     "tls": {
       "enabled": false,
@@ -63,8 +72,7 @@
     "max_age_seconds": 3600,
     "secure": false,
     "same_site": "strict",
-    "http_only": true,
-    "store_type": "postgres"
+    "http_only": true
   },
   "invite_codes": {
     "default_length": 8,
@@ -97,7 +105,6 @@
       "require_auth": false
     }
   },
-  // Static file serving configuration
   "static_files": {
     "public_directory": "assets/public",
     "private_directory": "assets/private",
@@ -108,10 +115,9 @@
       "etags": true
     }
   },
-  // Storage backend configuration
   "storage": {
-    "analytics": "postgres",
-    "sessions": "postgres",
+    "analytics": "memory",
+    "sessions": "memory",
     "cache": "memory"
   },
   "development": {
@@ -137,7 +143,6 @@
       "content_type_options": "nosniff"
     }
   },
-  // Feature flags - enable/disable functionality
   "features": {
     "registration_enabled": true,
     "invite_codes_required": true,
