@@ -63,7 +63,8 @@ impl User {
 }
 
 /// Invite code for user registration
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Invite code model
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct InviteCode {
     pub id: Uuid,
     pub code: String,
@@ -71,6 +72,44 @@ pub struct InviteCode {
     pub used_at: Option<OffsetDateTime>,
     pub used_by_user_id: Option<Uuid>,
     pub is_active: bool,
+    pub code_type: String,
+    pub link_for_user_id: Option<Uuid>,
+    pub link_expires_at: Option<OffsetDateTime>,
+}
+
+impl InviteCode {
+    /// Check if this is an account link code (vs regular invite code)
+    pub fn is_account_link_code(&self) -> bool {
+        self.code_type == "account-link"
+    }
+
+    /// Check if this is a regular invite code
+    pub fn is_invite_code(&self) -> bool {
+        self.code_type == "invite"
+    }
+
+    /// Check if the account link code has expired
+    pub fn is_expired(&self) -> bool {
+        if let Some(expires_at) = self.link_expires_at {
+            time::OffsetDateTime::now_utc() > expires_at
+        } else {
+            false
+        }
+    }
+
+    /// Check if the code is valid for use (active, not used, not expired)
+    pub fn is_valid_for_use(&self) -> bool {
+        self.is_active && self.used_at.is_none() && !self.is_expired()
+    }
+
+    /// Get the target user ID for account link codes
+    pub fn get_target_user_id(&self) -> Option<Uuid> {
+        if self.is_account_link_code() {
+            self.link_for_user_id
+        } else {
+            None
+        }
+    }
 }
 
 /// WebAuthn credential storage

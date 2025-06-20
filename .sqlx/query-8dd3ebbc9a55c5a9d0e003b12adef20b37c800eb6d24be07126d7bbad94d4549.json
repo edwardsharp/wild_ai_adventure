@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT id, code, created_at, used_at, used_by_user_id, is_active\n            FROM invite_codes\n            ORDER BY created_at DESC\n            ",
+  "query": "\n            SELECT id, code, created_at, used_at, used_by_user_id, is_active,\n                   code_type, link_for_user_id, link_expires_at\n            FROM invite_codes\n            WHERE code = $1\n            ",
   "describe": {
     "columns": [
       {
@@ -32,10 +32,27 @@
         "ordinal": 5,
         "name": "is_active",
         "type_info": "Bool"
+      },
+      {
+        "ordinal": 6,
+        "name": "code_type",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 7,
+        "name": "link_for_user_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 8,
+        "name": "link_expires_at",
+        "type_info": "Timestamptz"
       }
     ],
     "parameters": {
-      "Left": []
+      "Left": [
+        "Text"
+      ]
     },
     "nullable": [
       false,
@@ -43,8 +60,11 @@
       false,
       true,
       true,
-      false
+      false,
+      false,
+      true,
+      true
     ]
   },
-  "hash": "2f0ea5e4f4b7ffef88c00fbd4db11a80e119116223a6957203e304b731cf8a6f"
+  "hash": "8dd3ebbc9a55c5a9d0e003b12adef20b37c800eb6d24be07126d7bbad94d4549"
 }

@@ -3,94 +3,176 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>WebAuthn-rs Tutorial</title>
+        <title>WebAuthn Server</title>
+        <link rel="stylesheet" href="/minimal.css" />
         <script
             src="https://cdn.jsdelivr.net/npm/js-base64@3.7.4/base64.min.js"
             integrity="sha384-VkKbwLiG7C18stSGuvcw9W0BHk45Ba7P9LJG5c01Yo4BI6qhFoWSa9TQLNA6EOzI"
             crossorigin="anonymous"
         ></script>
         <script src="/auth.js" async></script>
+        <script>
+            function updateButtonVisibility() {
+                const username = document
+                    .getElementById("username")
+                    .value.trim();
+                const inviteCode = document
+                    .getElementById("invite_code")
+                    .value.trim();
+                const registerBtn = document.getElementById("register-btn");
+                const loginBtn = document.getElementById("login-btn");
+                const logoutBtn = document.getElementById("logout-btn");
+                const authForm = document.getElementById("auth-form");
+                const helpText = document.getElementById("form-help");
+
+                // Check if user is authenticated (logout button should be shown)
+                // We need to check a flag instead of button visibility since it starts hidden
+                if (window.isAuthenticated) {
+                    authForm.style.display = "none";
+                    logoutBtn.style.display = "inline-block";
+                    loginBtn.style.display = "none";
+                    registerBtn.style.display = "none";
+                    helpText.textContent = "You are logged in";
+                    return;
+                }
+
+                // Show form and update buttons based on input
+                authForm.style.display = "block";
+
+                // Show register button only if both username and invite/account link code are provided
+                if (username && inviteCode) {
+                    registerBtn.style.display = "inline-block";
+                    loginBtn.style.display = "none";
+                    helpText.textContent =
+                        "Ready to register with invite/account link code (Press Enter)";
+                } else if (username) {
+                    registerBtn.style.display = "none";
+                    loginBtn.style.display = "inline-block";
+                    helpText.textContent =
+                        "Ready to login (Press Enter, or add invite/account link code to register)";
+                } else {
+                    registerBtn.style.display = "none";
+                    loginBtn.style.display = "none";
+                    helpText.textContent =
+                        "Enter your username to login, or username + invite/account link code to register";
+                }
+            }
+
+            function handleEnterKey(event) {
+                if (event.key === "Enter") {
+                    const username = document
+                        .getElementById("username")
+                        .value.trim();
+                    const inviteCode = document
+                        .getElementById("invite_code")
+                        .value.trim();
+
+                    if (username && inviteCode) {
+                        // Both fields filled - trigger register
+                        register();
+                    } else if (username) {
+                        // Only username - trigger login
+                        login();
+                    }
+                    // If no username, do nothing
+                }
+            }
+
+            // Check authentication status on page load
+            window.checkAuthStatus = function checkAuthStatus() {
+                fetch("/auth/status", { credentials: "include" })
+                    .then((response) => response.json())
+                    .then((data) => {
+                        if (data.authenticated) {
+                            window.isAuthenticated = true;
+                            updateButtonVisibility(); // This will show the authenticated state
+                        } else {
+                            window.isAuthenticated = false;
+                            updateButtonVisibility(); // This will show the form again
+                        }
+                    })
+                    .catch(() => {
+                        // Not authenticated or endpoint doesn't exist, keep default state
+                    });
+            };
+
+            // Initialize on page load
+            document.addEventListener("DOMContentLoaded", function () {
+                window.isAuthenticated = false; // Initialize flag
+                updateButtonVisibility();
+                checkAuthStatus();
+            });
+        </script>
     </head>
     <body>
-        <p>Welcome to the WebAuthn Server!</p>
+        <h1>WebAuthn Server</h1>
 
-        <div>
+        <div id="auth-form">
             <input
                 type="text"
                 id="username"
-                placeholder="Enter your username here"
+                placeholder="Username"
+                oninput="updateButtonVisibility()"
+                onkeydown="handleEnterKey(event)"
             />
             <input
                 type="text"
                 id="invite_code"
-                placeholder="Enter your invite code here"
+                placeholder="Invite or account link code"
+                oninput="updateButtonVisibility()"
+                onkeydown="handleEnterKey(event)"
             />
-            <button onclick="register()">Register</button>
-            <button onclick="login()">Login</button>
-            <button onclick="logout()">Logout</button>
+
+            <div id="button-container">
+                <button
+                    id="register-btn"
+                    onclick="register()"
+                    style="display: none"
+                >
+                    Register
+                </button>
+                <button id="login-btn" onclick="login()">Login</button>
+            </div>
+        </div>
+
+        <div id="logout-container">
+            <button id="logout-btn" onclick="logout()" style="display: none">
+                Logout
+            </button>
         </div>
 
         <div>
             <p id="flash_message"></p>
         </div>
 
-        <div
-            style="
-                margin-top: 30px;
-                padding: 20px;
-                background-color: #f8f9fa;
-                border-radius: 8px;
-            "
-        >
-            <h3>📂 Explore the System:</h3>
-            <ul>
-                <li>
-                    <a href="/public/welcome.html">🌐 Public Area</a> -
-                    Accessible to everyone
-                </li>
-                <li>
-                    <a href="/private/dashboard.html">🔒 Private Area</a> -
-                    Requires authentication
-                </li>
-                <li>
-                    <a href="/public/readme.txt">📄 Public Documentation</a>
-                </li>
-                <li>
-                    <a href="/private/secret-document.txt"
-                        >🔐 Confidential Document</a
-                    >
-                    - Private only
-                </li>
-            </ul>
-            <p>
-                <strong>Note:</strong> Private content requires WebAuthn
-                authentication!
+        <div id="help-text">
+            <p id="form-help">
+                Enter your username to login, or username + invite/account link
+                code to register
             </p>
         </div>
 
-        <div
-            style="
-                margin-top: 20px;
-                padding: 20px;
-                background-color: #e8f4fd;
-                border-radius: 8px;
-                border-left: 4px solid #0066cc;
-            "
-        >
-            <h3>🚀 Frontend Options:</h3>
+        <div>
+            <h2>Explore</h2>
             <ul>
+                <li><a href="/public/welcome.html">Public Area</a></li>
+                <li><a href="/private/dashboard.html">Private Area</a></li>
+                <li><a href="/public/readme.txt">Documentation</a></li>
                 <li>
-                    <a href="/">📱 JavaScript Frontend</a> - This page (default)
-                </li>
-                <li>
-                    <a href="/wasm.html">⚡ WASM Frontend</a> - WebAssembly
-                    version
+                    <a href="/private/secret-document.txt"
+                        >Confidential Document</a
+                    >
                 </li>
             </ul>
-            <p>
-                <strong>Note:</strong> Both frontends provide the same WebAuthn
-                functionality with different implementation approaches.
-            </p>
+            <p>Private content requires WebAuthn authentication.</p>
+        </div>
+
+        <div>
+            <h2>Frontend Options</h2>
+            <ul>
+                <li><a href="/">JavaScript Frontend</a> (this page)</li>
+                <li><a href="/wasm.html">WASM Frontend</a></li>
+            </ul>
         </div>
     </body>
 </html>

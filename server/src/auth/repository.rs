@@ -22,7 +22,8 @@ impl<'a> AuthRepository<'a> {
             r#"
             INSERT INTO invite_codes (code)
             VALUES ($1)
-            RETURNING id, code, created_at, used_at, used_by_user_id, is_active
+            RETURNING id, code, created_at, used_at, used_by_user_id, is_active,
+                      code_type, link_for_user_id, link_expires_at
             "#,
             code
         )
@@ -36,6 +37,9 @@ impl<'a> AuthRepository<'a> {
             used_at: row.used_at,
             used_by_user_id: row.used_by_user_id,
             is_active: row.is_active,
+            code_type: row.code_type,
+            link_for_user_id: row.link_for_user_id,
+            link_expires_at: row.link_expires_at,
         })
     }
 
@@ -43,7 +47,8 @@ impl<'a> AuthRepository<'a> {
     pub async fn get_invite_code(&self, code: &str) -> Result<Option<InviteCode>, AuthError> {
         let row = sqlx::query!(
             r#"
-            SELECT id, code, created_at, used_at, used_by_user_id, is_active
+            SELECT id, code, created_at, used_at, used_by_user_id, is_active,
+                   code_type, link_for_user_id, link_expires_at
             FROM invite_codes
             WHERE code = $1
             "#,
@@ -59,6 +64,9 @@ impl<'a> AuthRepository<'a> {
             used_at: r.used_at,
             used_by_user_id: r.used_by_user_id,
             is_active: r.is_active,
+            code_type: r.code_type,
+            link_for_user_id: r.link_for_user_id,
+            link_expires_at: r.link_expires_at,
         }))
     }
 
@@ -67,7 +75,7 @@ impl<'a> AuthRepository<'a> {
         let result = sqlx::query!(
             r#"
             UPDATE invite_codes
-            SET used_at = NOW(), used_by_user_id = $2, is_active = FALSE
+            SET used_at = NOW(), used_by_user_id = $2
             WHERE code = $1 AND is_active = TRUE AND used_at IS NULL
             "#,
             code,
@@ -79,11 +87,77 @@ impl<'a> AuthRepository<'a> {
         Ok(result.rows_affected() > 0)
     }
 
+    /// Link a new credential to an existing user using an account link code
+    pub async fn link_credential_to_user(
+        &self,
+        account_link_code: &str,
+        credential: &webauthn_rs::prelude::Passkey,
+    ) -> Result<User, AuthError> {
+        // Get and validate the account link code
+        let invite_code = self
+            .get_invite_code(account_link_code)
+            .await?
+            .ok_or(AuthError::InvalidInviteCode)?;
+
+        if !invite_code.is_account_link_code() {
+            return Err(AuthError::InvalidInviteCode);
+        }
+
+        if !invite_code.is_valid_for_use() {
+            return Err(AuthError::InvalidInviteCode);
+        }
+
+        let target_user_id = invite_code
+            .get_target_user_id()
+            .ok_or(AuthError::InvalidInviteCode)?;
+
+        // Get the target user
+        let user = self
+            .get_user_by_id(target_user_id)
+            .await?
+            .ok_or(AuthError::UserNotFound)?;
+
+        // Save the new credential for this user
+        self.save_credential(target_user_id, credential).await?;
+
+        // Mark the account link code as used
+        self.use_invite_code(account_link_code, target_user_id)
+            .await?;
+
+        Ok(user)
+    }
+
+    /// Get a user by their ID
+    pub async fn get_user_by_id(&self, user_id: Uuid) -> Result<Option<User>, AuthError> {
+        let row = sqlx::query!(
+            r#"
+            SELECT id, username, role, created_at, invite_code_used
+            FROM users
+            WHERE id = $1
+            "#,
+            user_id
+        )
+        .fetch_optional(self.db.pool())
+        .await?;
+
+        Ok(row.map(|r| User {
+            id: r.id,
+            username: r.username,
+            role: match r.role.as_str() {
+                "admin" => UserRole::Admin,
+                _ => UserRole::Member,
+            },
+            created_at: r.created_at,
+            invite_code_used: r.invite_code_used,
+        }))
+    }
+
     /// List all invite codes, ordered by creation date
     pub async fn list_invite_codes(&self) -> Result<Vec<InviteCode>, AuthError> {
         let rows = sqlx::query!(
             r#"
-            SELECT id, code, created_at, used_at, used_by_user_id, is_active
+            SELECT id, code, created_at, used_at, used_by_user_id, is_active,
+                   code_type, link_for_user_id, link_expires_at
             FROM invite_codes
             ORDER BY created_at DESC
             "#,
@@ -100,6 +174,9 @@ impl<'a> AuthRepository<'a> {
                 used_at: r.used_at,
                 used_by_user_id: r.used_by_user_id,
                 is_active: r.is_active,
+                code_type: r.code_type,
+                link_for_user_id: r.link_for_user_id,
+                link_expires_at: r.link_expires_at,
             })
             .collect())
     }
@@ -165,36 +242,6 @@ impl<'a> AuthRepository<'a> {
             WHERE username = $1
             "#,
             username
-        )
-        .fetch_optional(self.db.pool())
-        .await?;
-
-        Ok(row.map(|r| {
-            let role = match r.role.as_str() {
-                "admin" => UserRole::Admin,
-                "member" => UserRole::Member,
-                _ => UserRole::Member, // Default fallback
-            };
-
-            User {
-                id: r.id,
-                username: r.username,
-                role,
-                created_at: r.created_at,
-                invite_code_used: r.invite_code_used,
-            }
-        }))
-    }
-
-    /// Get a user by their ID
-    pub async fn get_user_by_id(&self, user_id: Uuid) -> Result<Option<User>, AuthError> {
-        let row = sqlx::query!(
-            r#"
-            SELECT id, username, role, created_at, invite_code_used
-            FROM users
-            WHERE id = $1
-            "#,
-            user_id
         )
         .fetch_optional(self.db.pool())
         .await?;

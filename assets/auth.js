@@ -6,7 +6,7 @@ function register() {
     return;
   }
   if (inviteCode === "") {
-    alert("Please enter an invite code");
+    alert("Please enter an invite or account link code");
     return;
   }
 
@@ -61,9 +61,32 @@ function register() {
       }).then((response) => {
         const flash_message = document.getElementById("flash_message");
         if (response.ok) {
-          flash_message.innerHTML = "Successfully registered!";
+          response
+            .json()
+            .then((data) => {
+              // Use the message from the backend response
+              flash_message.innerHTML = data.message;
+              // Update auth status after successful registration
+              if (window.checkAuthStatus) {
+                window.checkAuthStatus();
+              }
+            })
+            .catch(() => {
+              flash_message.innerHTML = "Successfully registered!";
+              // Update auth status after successful registration
+              if (window.checkAuthStatus) {
+                window.checkAuthStatus();
+              }
+            });
         } else {
-          flash_message.innerHTML = "Error whilst registering!";
+          response
+            .text()
+            .then((errorMsg) => {
+              flash_message.innerHTML = `Registration failed: ${errorMsg}`;
+            })
+            .catch(() => {
+              flash_message.innerHTML = "Error whilst registering!";
+            });
         }
       });
     });
@@ -127,6 +150,10 @@ function login() {
         const flash_message = document.getElementById("flash_message");
         if (response.ok) {
           flash_message.innerHTML = "Successfully logged in!";
+          // Update auth status after successful login
+          if (window.checkAuthStatus) {
+            window.checkAuthStatus();
+          }
         } else {
           flash_message.innerHTML = "Error whilst logging in!";
         }
@@ -142,13 +169,16 @@ function logout() {
       const flash_message = document.getElementById("flash_message");
       if (response.ok) {
         flash_message.innerHTML = "Successfully logged out!";
+        // Update auth status after successful logout
+        if (window.checkAuthStatus) {
+          window.checkAuthStatus();
+        }
       } else {
         flash_message.innerHTML = "Error whilst logging out!";
       }
     })
     .catch((error) => {
       const flash_message = document.getElementById("flash_message");
-      flash_message.innerHTML = "Network error during logout!";
-      console.error("Logout error:", error);
+      flash_message.innerHTML = "Error whilst logging out: " + error;
     });
 }

@@ -28,7 +28,6 @@ pub struct AppState {
     // Session store for tower-sessions
     pub session_store: SessionStore,
     // Application configuration
-    #[allow(dead_code)]
     pub config: AppConfig,
 }
 

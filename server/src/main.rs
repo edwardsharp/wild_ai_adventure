@@ -1,7 +1,7 @@
 use axum::{extract::Extension, middleware as axum_middleware};
 use clap::Parser;
 
-use std::net::SocketAddr;
+use std::net::ToSocketAddrs;
 use tower_sessions::{
     cookie::{time::Duration, SameSite},
     Expiry, SessionManagerLayer,
@@ -40,13 +40,15 @@ struct ServerArgs {
 
 impl ServerArgs {
     fn validate(&self) -> Result<(), String> {
-        let using_explicit_config = self.config != "assets/config/config.jsonc";
+        // Only prevent mixing --host/--port with CUSTOM config files
+        // Using --host/--port with default config is fine (just overrides those values)
+        let using_custom_config = self.config != "assets/config/config.jsonc";
         let using_host_port = self.host.is_some() || self.port.is_some();
 
-        if using_explicit_config && using_host_port {
+        if using_custom_config && using_host_port {
             return Err(
-                "Cannot use --host/--port arguments together with --config. \
-                Please either use configuration files OR command line host/port arguments."
+                "Cannot use --host/--port arguments together with custom --config files. \
+                When using a custom config file, host and port must be specified in the config file."
                     .to_string(),
             );
         }
@@ -184,16 +186,22 @@ async fn main() {
         .merge(build_assets_fallback_service(&config))
         .layer(session_layer);
 
-    // Parse server address from config
-    let host = config
-        .server
-        .host
-        .parse::<std::net::IpAddr>()
+    // Parse server address from config (supports both hostnames and IP addresses)
+    let addr_str = format!("{}:{}", config.server.host, config.server.port);
+    let addr = addr_str
+        .to_socket_addrs()
+        .and_then(|mut addrs| {
+            addrs.next().ok_or_else(|| {
+                std::io::Error::new(std::io::ErrorKind::InvalidInput, "No valid address")
+            })
+        })
         .unwrap_or_else(|_| {
-            eprintln!("❌ Invalid server host: {}", config.server.host);
+            eprintln!(
+                "❌ Invalid server host:port combination: {}:{}",
+                config.server.host, config.server.port
+            );
             std::process::exit(1);
         });
-    let addr = SocketAddr::from((host, config.server.port));
 
     info!("🌐 Server listening on {}", addr);
     info!("🔗 WebAuthn RP ID: {}", config.webauthn.rp_id);

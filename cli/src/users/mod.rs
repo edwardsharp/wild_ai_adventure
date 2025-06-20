@@ -11,6 +11,7 @@ use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
 use server::auth::{AuthRepository, UserRole};
 use server::database::DatabaseConnection;
+use sqlx::Row;
 
 #[derive(Subcommand, Clone)]
 pub enum UserCommands {
@@ -49,14 +50,14 @@ pub enum UserCommands {
         #[arg(value_parser = parse_role)]
         role: UserRole,
     },
-    /// Generate recovery code for existing user
-    GenerateRecovery {
-        /// Username to generate recovery code for
+    /// Generate account link code for existing user
+    GenerateAccountLink {
+        /// Username to generate account link code for
         username: String,
-        /// Recovery code length (default: 12)
+        /// Account link code length (default: 12)
         #[arg(short, long, default_value = "12")]
         length: usize,
-        /// Recovery code expiry in hours (default: 24)
+        /// Account link code expiry in hours (default: 24)
         #[arg(short, long, default_value = "24")]
         expires_hours: u32,
     },
@@ -94,11 +95,11 @@ impl UserCommands {
             UserCommands::UpdateUserRole { username, role } => {
                 Self::update_user_role(db, username, *role).await
             }
-            UserCommands::GenerateRecovery {
+            UserCommands::GenerateAccountLink {
                 username,
                 length,
                 expires_hours,
-            } => Self::generate_recovery_code(db, username, *length, *expires_hours).await,
+            } => Self::generate_account_link_code(db, username, *length, *expires_hours).await,
         }
     }
 
@@ -324,7 +325,7 @@ impl UserCommands {
         Ok(())
     }
 
-    async fn generate_recovery_code(
+    async fn generate_account_link_code(
         db: &DatabaseConnection,
         username: &str,
         length: usize,
@@ -333,7 +334,7 @@ impl UserCommands {
         let auth_repo = AuthRepository::new(db);
 
         // Check if user exists
-        let user = match auth_repo.get_user_by_username(username).await? {
+        let _user = match auth_repo.get_user_by_username(username).await? {
             Some(user) => user,
             None => {
                 eprintln!("❌ User '{}' not found", username);
@@ -341,36 +342,35 @@ impl UserCommands {
             }
         };
 
-        // Generate recovery code
+        // Generate account link code
         let code = Self::generate_code(length);
         let expires_at =
             time::OffsetDateTime::now_utc() + time::Duration::hours(expires_hours as i64);
 
-        // TODO: Uncomment after migration runs
-        // Use existing invite code insertion logic but with recovery fields
-        /*
-        let result = sqlx::query!(
+        // Use existing invite code insertion logic but with account link fields
+        let result = sqlx::query(
             r#"
-            INSERT INTO invite_codes (code, code_type, recovery_for_user_id, recovery_expires_at, is_active)
-            VALUES ($1, 'recovery', $2, $3, true)
+            INSERT INTO invite_codes (code, code_type, link_for_user_id, link_expires_at, is_active)
+            VALUES ($1, 'account-link', $2, $3, true)
             RETURNING id, code
             "#,
-            code,
-            user.id,
-            expires_at
         )
+        .bind(&code)
+        .bind(_user.id)
+        .bind(expires_at)
         .fetch_one(db.pool())
         .await;
 
         match result {
             Ok(record) => {
-                println!("✓ Generated recovery code for user '{}':", username);
-                println!("  Code: {}", record.code);
+                let code: String = record.get("code");
+                println!("✓ Generated account link code for user '{}':", username);
+                println!("  Code: {}", code);
                 println!("  Expires: {} hours from now", expires_hours);
                 println!();
                 println!("💡 User can now register a new passkey using:");
                 println!("  1. Their existing username: {}", username);
-                println!("  2. This recovery code: {}", record.code);
+                println!("  2. This account link code: {}", code);
                 println!("  3. The new passkey will be linked to their existing account");
                 println!();
                 println!("⚠️  Security notes:");
@@ -379,14 +379,10 @@ impl UserCommands {
                 println!("  • Share this code securely with the user");
             }
             Err(e) => {
-                eprintln!("❌ Failed to generate recovery code: {}", e);
+                eprintln!("❌ Failed to generate account link code: {}", e);
                 return Err(e.into());
             }
         }
-        */
-
-        println!("🚧 Recovery code generation temporarily disabled - migration needed first");
-        println!("Run migration to add recovery support to invite_codes table");
 
         Ok(())
     }

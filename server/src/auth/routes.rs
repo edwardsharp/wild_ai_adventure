@@ -2,9 +2,15 @@
 //!
 //! This module contains all authentication and registration related routes.
 
-use axum::{routing::post, Router};
+use axum::{
+    routing::{get, post},
+    Router,
+};
 
-use super::{finish_authentication, finish_register, logout, start_authentication, start_register};
+use super::{
+    auth_status, finish_authentication, finish_register, logout, start_authentication,
+    start_register,
+};
 use crate::config::AppConfig;
 
 /// Build authentication and registration routes
@@ -12,7 +18,8 @@ pub fn build_auth_routes(config: &AppConfig) -> Router {
     let mut auth_routes = Router::new()
         .route("/login_start/{username}", post(start_authentication))
         .route("/login_finish", post(finish_authentication))
-        .route("/logout", post(logout));
+        .route("/logout", post(logout))
+        .route("/auth/status", get(auth_status));
 
     // Add registration routes if enabled in config
     if config.features.registration_enabled {

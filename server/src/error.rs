@@ -20,6 +20,8 @@ pub enum WebauthnError {
     UserAlreadyExists,
     #[error("Database Error")]
     DatabaseError,
+    #[error("Bad Request")]
+    BadRequest,
     #[error("Deserialising Session failed: {0}")]
     InvalidSessionState(#[from] tower_sessions::session::Error),
     #[error("Database operation failed: {0}")]
@@ -48,6 +50,7 @@ impl IntoResponse for WebauthnError {
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Database operation failed",
             ),
+            WebauthnError::BadRequest => (StatusCode::BAD_REQUEST, "Bad Request"),
         };
 
         // its often easiest to implement `IntoResponse` by calling other implementations

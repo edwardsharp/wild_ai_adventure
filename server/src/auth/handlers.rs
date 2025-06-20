@@ -6,7 +6,7 @@ use axum::{
     http::StatusCode,
     response::IntoResponse,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tower_sessions::Session;
 
 /*
@@ -20,6 +20,13 @@ use webauthn_rs::prelude::*;
 #[derive(Deserialize)]
 pub struct RegisterStartQuery {
     invite_code: Option<String>,
+}
+
+#[derive(Serialize)]
+pub struct RegistrationResponse {
+    success: bool,
+    operation_type: String,
+    message: String,
 }
 
 // 2. The first step a client (user) will carry out is requesting a credential to be
@@ -80,10 +87,10 @@ pub async fn start_register(
             .map_err(|_| WebauthnError::DatabaseError)?;
 
         match invite_code {
-            Some(code) if code.is_active && code.used_at.is_none() => Some(code),
+            Some(code) if code.is_valid_for_use() => Some(code),
             Some(_) => {
                 warn!(
-                    "Invite code {} is not active or already used",
+                    "Invite code {} is not valid for use (inactive, used, or expired)",
                     invite_code_str
                 );
                 return Err(WebauthnError::InvalidInviteCode);
@@ -103,10 +110,10 @@ pub async fn start_register(
                 .map_err(|_| WebauthnError::DatabaseError)?;
 
             match invite_code {
-                Some(code) if code.is_active && code.used_at.is_none() => Some(code),
+                Some(code) if code.is_valid_for_use() => Some(code),
                 Some(_) => {
                     warn!(
-                        "Invite code {} is not active or already used",
+                        "Invite code {} is not valid for use (inactive, used, or expired)",
                         invite_code_str
                     );
                     return Err(WebauthnError::InvalidInviteCode);
@@ -121,24 +128,69 @@ pub async fn start_register(
         }
     };
 
-    // Check if username already exists
-    if auth_repo
-        .get_user_by_username(&username)
-        .await
-        .map_err(|_| WebauthnError::DatabaseError)?
-        .is_some()
-    {
-        return Err(WebauthnError::UserAlreadyExists);
-    }
+    // Determine if this is account linking or new user registration
+    let (user_unique_id, is_account_linking) = if let Some(ref code) = invite_code {
+        if code.is_account_link_code() {
+            // Account linking: validate username matches target user
+            let target_user_id = code
+                .get_target_user_id()
+                .ok_or(WebauthnError::InvalidInviteCode)?;
 
-    // Since a user's username could change at anytime, we need to bind to a unique id.
-    // We use uuid's for this purpose, and you should generate these randomly.
-    let user_unique_id = Uuid::new_v4();
+            let target_user = auth_repo
+                .get_user_by_id(target_user_id)
+                .await
+                .map_err(|_| WebauthnError::DatabaseError)?
+                .ok_or(WebauthnError::UserNotFound)?;
+
+            if target_user.username != username {
+                warn!(
+                    "Account link code {} is for user '{}' but registration attempted for '{}'",
+                    code.code, target_user.username, username
+                );
+                return Err(WebauthnError::InvalidInviteCode);
+            }
+
+            info!(
+                "Starting account link registration for existing user: {}",
+                username
+            );
+            (target_user_id, true)
+        } else {
+            // Regular invite code: check username doesn't exist
+            if auth_repo
+                .get_user_by_username(&username)
+                .await
+                .map_err(|_| WebauthnError::DatabaseError)?
+                .is_some()
+            {
+                return Err(WebauthnError::UserAlreadyExists);
+            }
+
+            info!("Starting new user registration for: {}", username);
+            (Uuid::new_v4(), false)
+        }
+    } else {
+        // No invite code: check username doesn't exist
+        if auth_repo
+            .get_user_by_username(&username)
+            .await
+            .map_err(|_| WebauthnError::DatabaseError)?
+            .is_some()
+        {
+            return Err(WebauthnError::UserAlreadyExists);
+        }
+
+        info!(
+            "Starting new user registration without invite code for: {}",
+            username
+        );
+        (Uuid::new_v4(), false)
+    };
 
     // Remove any previous registrations that may have occurred from the session.
     let _ = session.remove_value("reg_state").await;
 
-    // Get existing credentials for this user (should be empty for new users, but good to check)
+    // Get existing credentials for this user
     let exclude_credentials = auth_repo
         .get_user_credentials(user_unique_id)
         .await
@@ -165,6 +217,7 @@ pub async fn start_register(
                         user_unique_id,
                         reg_state,
                         invite_code.as_ref().map(|c| c.code.clone()),
+                        is_account_linking,
                     ),
                 )
                 .await
@@ -189,15 +242,20 @@ pub async fn finish_register(
     session: Session,
     Json(reg): Json<RegisterPublicKeyCredential>,
 ) -> Result<impl IntoResponse, WebauthnError> {
-    let (username, _user_unique_id, reg_state, invite_code): (
+    let (username, _user_unique_id, reg_state, invite_code, is_account_linking): (
         String,
         Uuid,
         PasskeyRegistration,
         Option<String>,
+        bool,
     ) = match session.get("reg_state").await? {
-        Some((username, user_unique_id, reg_state, invite_code)) => {
-            (username, user_unique_id, reg_state, invite_code)
-        }
+        Some((username, user_unique_id, reg_state, invite_code, is_account_linking)) => (
+            username,
+            user_unique_id,
+            reg_state,
+            invite_code,
+            is_account_linking,
+        ),
         None => {
             error!("Failed to get session");
             return Err(WebauthnError::CorruptSession);
@@ -206,77 +264,116 @@ pub async fn finish_register(
 
     let _ = session.remove_value("reg_state").await;
 
-    let res = match app_state
+    match app_state
         .webauthn
         .finish_passkey_registration(&reg, &reg_state)
     {
         Ok(sk) => {
-            // Create the user in the database
             let auth_repo = AuthRepository::new(&app_state.database);
 
-            // Check if this is the first user (make them admin)
-            let is_first_user = match auth_repo.list_users().await {
-                Ok(users) => users.is_empty(),
-                Err(_) => false,
-            };
+            if is_account_linking {
+                // Account linking: add credential to existing user
+                match invite_code {
+                    Some(ref code) => {
+                        match auth_repo.link_credential_to_user(code, &sk).await {
+                            Ok(user) => {
+                                // Set user_id in session to automatically log in the user
+                                session
+                                    .insert("user_id", user.id)
+                                    .await
+                                    .expect("Failed to insert user_id into session");
 
-            let role = if is_first_user {
-                UserRole::Admin
-            } else {
-                UserRole::Member
-            };
-
-            match auth_repo
-                .create_user_with_role(&username, invite_code.as_deref(), role)
-                .await
-            {
-                Ok(user) => {
-                    // Save the credential
-                    if let Err(e) = auth_repo.save_credential(user.id, &sk).await {
-                        error!("Failed to save credential: {:?}", e);
-                        return Err(WebauthnError::DatabaseError);
-                    }
-
-                    // Mark the invite code as used (if one was provided)
-                    if let Some(ref code) = invite_code {
-                        if let Err(e) = auth_repo.use_invite_code(code, user.id).await {
-                            error!("Failed to mark invite code as used: {:?}", e);
-                            // Don't fail the registration for this, but log it
+                                info!(
+                                    "New credential linked to existing user {} using account link code {} and automatically logged in",
+                                    username, code
+                                );
+                                Ok(Json(RegistrationResponse {
+                                    success: true,
+                                    operation_type: "account_link".to_string(),
+                                    message:
+                                        "Successfully added new passkey to your existing account!"
+                                            .to_string(),
+                                }))
+                            }
+                            Err(e) => {
+                                error!("Failed to link credential to user: {:?}", e);
+                                Err(WebauthnError::DatabaseError)
+                            }
                         }
                     }
-
-                    // Set user_id in session to automatically log in the user
-                    session
-                        .insert("user_id", user.id)
-                        .await
-                        .expect("Failed to insert user_id into session");
-
-                    if let Some(ref code) = invite_code {
-                        info!(
-                            "User {} registered successfully with invite code {} (role: {:?}) and automatically logged in",
-                            username, code, user.role
-                        );
-                    } else {
-                        info!(
-                            "User {} registered successfully without invite code (role: {:?}) and automatically logged in",
-                            username, user.role
-                        );
+                    None => {
+                        error!("Account linking attempted without invite code");
+                        Err(WebauthnError::CorruptSession)
                     }
-                    StatusCode::OK
                 }
-                Err(e) => {
-                    error!("Failed to create user: {:?}", e);
-                    return Err(WebauthnError::DatabaseError);
+            } else {
+                // New user registration
+                // Check if this is the first user (make them admin)
+                let is_first_user = match auth_repo.list_users().await {
+                    Ok(users) => users.is_empty(),
+                    Err(_) => false,
+                };
+
+                let role = if is_first_user {
+                    UserRole::Admin
+                } else {
+                    UserRole::Member
+                };
+
+                match auth_repo
+                    .create_user_with_role(&username, invite_code.as_deref(), role)
+                    .await
+                {
+                    Ok(user) => {
+                        // Save the credential
+                        if let Err(e) = auth_repo.save_credential(user.id, &sk).await {
+                            error!("Failed to save credential: {:?}", e);
+                            return Err(WebauthnError::DatabaseError);
+                        }
+
+                        // Mark the invite code as used (if one was provided)
+                        if let Some(ref code) = invite_code {
+                            if let Err(e) = auth_repo.use_invite_code(code, user.id).await {
+                                error!("Failed to mark invite code as used: {:?}", e);
+                                // Don't fail the registration for this, but log it
+                            }
+                        }
+
+                        // Set user_id in session to automatically log in the user
+                        session
+                            .insert("user_id", user.id)
+                            .await
+                            .expect("Failed to insert user_id into session");
+
+                        if let Some(ref code) = invite_code {
+                            info!(
+                                "User {} registered successfully with invite code {} (role: {:?}) and automatically logged in",
+                                username, code, user.role
+                            );
+                        } else {
+                            info!(
+                                "User {} registered successfully without invite code (role: {:?}) and automatically logged in",
+                                username, user.role
+                            );
+                        }
+                        Ok(Json(RegistrationResponse {
+                            success: true,
+                            operation_type: "new_registration".to_string(),
+                            message: "Successfully registered new account!".to_string(),
+                        }))
+                    }
+                    Err(e) => {
+                        error!("Failed to create user: {:?}", e);
+                        Err(WebauthnError::DatabaseError)
+                    }
                 }
             }
         }
         Err(e) => {
             error!("finish_passkey_registration -> {:?}", e);
-            StatusCode::BAD_REQUEST
+            Err(WebauthnError::BadRequest)
         }
-    };
-
-    Ok(res)
+    }
 }
 
 // 4. Now that our public key has been registered, we can authenticate a user and verify
@@ -371,6 +468,18 @@ pub async fn logout(session: Session) -> Result<impl IntoResponse, WebauthnError
 
     info!("User logged out successfully");
     Ok(StatusCode::OK)
+}
+
+/// Check authentication status
+pub async fn auth_status(session: Session) -> Result<impl IntoResponse, WebauthnError> {
+    let user_id: Option<Uuid> = session.get("user_id").await?;
+
+    let response = serde_json::json!({
+        "authenticated": user_id.is_some(),
+        "user_id": user_id
+    });
+
+    Ok(Json(response))
 }
 
 pub async fn finish_authentication(

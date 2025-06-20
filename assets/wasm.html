@@ -3,7 +3,8 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>WebAuthn-rs Tutorial</title>
+        <title>WebAuthn Server - WASM</title>
+        <link rel="stylesheet" href="/minimal.css" />
 
         <script type="module">
             import init, { run_app } from "/wasm/wasm_tutorial.js";
@@ -15,27 +16,12 @@
         </script>
     </head>
     <body>
-        <div style="padding: 20px; font-family: Arial, sans-serif">
-            <h1>WebAuthn Server - WASM Frontend</h1>
-            <p>Welcome to the WebAssembly-powered WebAuthn frontend!</p>
+        <h1>WebAuthn Server - WASM</h1>
+        <p>WebAssembly-powered WebAuthn frontend</p>
 
-            <div
-                style="
-                    margin: 20px 0;
-                    padding: 15px;
-                    background-color: #f0f8ff;
-                    border-radius: 5px;
-                "
-            >
-                <p>
-                    <strong>Note:</strong> This frontend uses WebAssembly for
-                    the client-side logic.
-                </p>
-                <p>
-                    If you prefer the JavaScript version,
-                    <a href="/">click here</a>.
-                </p>
-            </div>
+        <div>
+            <p>This frontend uses WebAssembly for client-side logic.</p>
+            <p>For the JavaScript version, <a href="/">click here</a>.</p>
         </div>
     </body>
 </html>

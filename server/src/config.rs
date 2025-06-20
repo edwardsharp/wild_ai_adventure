@@ -711,12 +711,10 @@ impl AppConfig {
         let config: AppConfig = json5::from_str(&content)
             .map_err(|e| ConfigError::ParseError(format!("JSON5 parse error: {}", e)))?;
 
-        config.validate()?;
         Ok(config)
     }
 
     /// Load configuration with secrets from separate files
-    #[allow(dead_code)]
     pub fn from_files<P: AsRef<Path>>(
         config_path: P,
         secrets_path: Option<P>,
@@ -743,11 +741,13 @@ impl AppConfig {
             config.apply_secrets(secrets);
         }
 
+        // Validate configuration after applying secrets
+        config.validate()?;
+
         Ok((config, secrets))
     }
 
     /// Apply secrets to configuration
-    #[allow(dead_code)]
     fn apply_secrets(&mut self, secrets: &SecretsConfig) {
         // Apply database password
         self.database.password = Some(secrets.database.password.clone());
@@ -925,6 +925,15 @@ impl AppConfig {
         }
 
         // Validate database configuration
+        if self
+            .database
+            .password
+            .as_ref()
+            .map_or(true, |p| p.is_empty())
+        {
+            errors.push("Database password cannot be empty".to_string());
+        }
+
         if self.database.host.is_empty() {
             errors.push("Database host cannot be empty".to_string());
         }
@@ -1029,7 +1038,6 @@ impl AppConfig {
     }
 
     /// Generate environment variables needed for Docker/SQLx
-    #[allow(dead_code)]
     pub fn to_env_vars(&self) -> HashMap<String, String> {
         let mut env_vars = HashMap::new();
 
@@ -1054,7 +1062,6 @@ impl AppConfig {
     }
 
     /// Generate JSON Schema for IDE support
-    #[allow(dead_code)]
     pub fn generate_schema() -> Result<String, ConfigError> {
         let schema = schemars::schema_for!(AppConfig);
         serde_json::to_string_pretty(&schema)
@@ -1062,7 +1069,6 @@ impl AppConfig {
     }
 
     /// Write a pretty-printed JSONC configuration to a file
-    #[allow(dead_code)]
     pub fn write_to_file<P: AsRef<Path>>(&self, path: P) -> Result<(), ConfigError> {
         let content = self.to_jsonc_string()?;
         std::fs::write(path, content)?;
@@ -1153,7 +1159,6 @@ impl SecretsConfig {
     }
 
     /// Load secrets from a JSONC file
-    #[allow(dead_code)]
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, ConfigError> {
         let path = path.as_ref();
 
@@ -1169,7 +1174,6 @@ impl SecretsConfig {
     }
 
     /// Get environment variables map (for backward compatibility)
-    #[allow(dead_code)]
     pub fn to_env_vars(&self) -> HashMap<String, String> {
         let mut env_vars = HashMap::new();
 

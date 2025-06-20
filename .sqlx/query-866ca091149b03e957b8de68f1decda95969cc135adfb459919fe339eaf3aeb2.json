@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT id, code, created_at, used_at, used_by_user_id, is_active\n            FROM invite_codes\n            WHERE code = $1\n            ",
+  "query": "\n            INSERT INTO invite_codes (code)\n            VALUES ($1)\n            RETURNING id, code, created_at, used_at, used_by_user_id, is_active,\n                      code_type, link_for_user_id, link_expires_at\n            ",
   "describe": {
     "columns": [
       {
@@ -32,11 +32,26 @@
         "ordinal": 5,
         "name": "is_active",
         "type_info": "Bool"
+      },
+      {
+        "ordinal": 6,
+        "name": "code_type",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 7,
+        "name": "link_for_user_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 8,
+        "name": "link_expires_at",
+        "type_info": "Timestamptz"
       }
     ],
     "parameters": {
       "Left": [
-        "Text"
+        "Varchar"
       ]
     },
     "nullable": [
@@ -45,8 +60,11 @@
       false,
       true,
       true,
-      false
+      false,
+      false,
+      true,
+      true
     ]
   },
-  "hash": "1f3b56bca1b5fff5084754622aa32e3945ce3ce1546112fbb7748aa55de2ef4d"
+  "hash": "866ca091149b03e957b8de68f1decda95969cc135adfb459919fe339eaf3aeb2"
 }
