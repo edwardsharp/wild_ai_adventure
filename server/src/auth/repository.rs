@@ -1,50 +1,24 @@
-use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
-use sqlx::{PgPool, Row};
+use super::models::{AuthError, InviteCode, User};
+use crate::database::DatabaseConnection;
+use sqlx::Row;
 use uuid::Uuid;
 use webauthn_rs::prelude::Passkey;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct InviteCode {
-    pub id: Uuid,
-    pub code: String,
-    pub created_at: DateTime<Utc>,
-    pub used_at: Option<DateTime<Utc>>,
-    pub used_by_user_id: Option<Uuid>,
-    pub is_active: bool,
+/// Repository for authentication-related database operations
+pub struct AuthRepository<'a> {
+    db: &'a DatabaseConnection,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct User {
-    pub id: Uuid,
-    pub username: String,
-    pub created_at: DateTime<Utc>,
-    pub invite_code_used: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WebauthnCredential {
-    pub id: Uuid,
-    pub user_id: Uuid,
-    pub credential_id: Vec<u8>,
-    pub credential_data: String,
-    pub created_at: DateTime<Utc>,
-    pub last_used_at: Option<DateTime<Utc>>,
-}
-
-#[derive(Clone)]
-pub struct Database {
-    pool: PgPool,
-}
-
-impl Database {
-    pub fn new(pool: PgPool) -> Self {
-        Self { pool }
+impl<'a> AuthRepository<'a> {
+    /// Create a new AuthRepository
+    pub fn new(db: &'a DatabaseConnection) -> Self {
+        Self { db }
     }
 
-    // Invite code operations
-    #[allow(dead_code)]
-    pub async fn create_invite_code(&self, code: &str) -> Result<InviteCode, sqlx::Error> {
+    // ========== Invite Code Operations ==========
+
+    /// Create a new invite code
+    pub async fn create_invite_code(&self, code: &str) -> Result<InviteCode, AuthError> {
         let row = sqlx::query(
             r#"
             INSERT INTO invite_codes (code)
@@ -53,7 +27,7 @@ impl Database {
             "#,
         )
         .bind(code)
-        .fetch_one(&self.pool)
+        .fetch_one(self.db.pool())
         .await?;
 
         Ok(InviteCode {
@@ -66,7 +40,8 @@ impl Database {
         })
     }
 
-    pub async fn get_invite_code(&self, code: &str) -> Result<Option<InviteCode>, sqlx::Error> {
+    /// Get an invite code by its code string
+    pub async fn get_invite_code(&self, code: &str) -> Result<Option<InviteCode>, AuthError> {
         let row = sqlx::query(
             r#"
             SELECT id, code, created_at, used_at, used_by_user_id, is_active
@@ -75,7 +50,7 @@ impl Database {
             "#,
         )
         .bind(code)
-        .fetch_optional(&self.pool)
+        .fetch_optional(self.db.pool())
         .await?;
 
         Ok(row.map(|r| InviteCode {
@@ -88,7 +63,8 @@ impl Database {
         }))
     }
 
-    pub async fn use_invite_code(&self, code: &str, user_id: Uuid) -> Result<bool, sqlx::Error> {
+    /// Mark an invite code as used by a user
+    pub async fn use_invite_code(&self, code: &str, user_id: Uuid) -> Result<bool, AuthError> {
         let result = sqlx::query(
             r#"
             UPDATE invite_codes
@@ -98,14 +74,14 @@ impl Database {
         )
         .bind(code)
         .bind(user_id)
-        .execute(&self.pool)
+        .execute(self.db.pool())
         .await?;
 
         Ok(result.rows_affected() > 0)
     }
 
-    #[allow(dead_code)]
-    pub async fn list_invite_codes(&self) -> Result<Vec<InviteCode>, sqlx::Error> {
+    /// List all invite codes, ordered by creation date
+    pub async fn list_invite_codes(&self) -> Result<Vec<InviteCode>, AuthError> {
         let rows = sqlx::query(
             r#"
             SELECT id, code, created_at, used_at, used_by_user_id, is_active
@@ -113,7 +89,7 @@ impl Database {
             ORDER BY created_at DESC
             "#,
         )
-        .fetch_all(&self.pool)
+        .fetch_all(self.db.pool())
         .await?;
 
         Ok(rows
@@ -129,12 +105,14 @@ impl Database {
             .collect())
     }
 
-    // User operations
+    // ========== User Operations ==========
+
+    /// Create a new user account
     pub async fn create_user(
         &self,
         username: &str,
         invite_code: Option<&str>,
-    ) -> Result<User, sqlx::Error> {
+    ) -> Result<User, AuthError> {
         let row = sqlx::query(
             r#"
             INSERT INTO users (username, invite_code_used)
@@ -144,7 +122,7 @@ impl Database {
         )
         .bind(username)
         .bind(invite_code)
-        .fetch_one(&self.pool)
+        .fetch_one(self.db.pool())
         .await?;
 
         Ok(User {
@@ -155,7 +133,8 @@ impl Database {
         })
     }
 
-    pub async fn get_user_by_username(&self, username: &str) -> Result<Option<User>, sqlx::Error> {
+    /// Get a user by their username
+    pub async fn get_user_by_username(&self, username: &str) -> Result<Option<User>, AuthError> {
         let row = sqlx::query(
             r#"
             SELECT id, username, created_at, invite_code_used
@@ -164,7 +143,7 @@ impl Database {
             "#,
         )
         .bind(username)
-        .fetch_optional(&self.pool)
+        .fetch_optional(self.db.pool())
         .await?;
 
         Ok(row.map(|r| User {
@@ -175,8 +154,8 @@ impl Database {
         }))
     }
 
-    #[allow(dead_code)]
-    pub async fn get_user_by_id(&self, user_id: Uuid) -> Result<Option<User>, sqlx::Error> {
+    /// Get a user by their ID
+    pub async fn get_user_by_id(&self, user_id: Uuid) -> Result<Option<User>, AuthError> {
         let row = sqlx::query(
             r#"
             SELECT id, username, created_at, invite_code_used
@@ -185,7 +164,7 @@ impl Database {
             "#,
         )
         .bind(user_id)
-        .fetch_optional(&self.pool)
+        .fetch_optional(self.db.pool())
         .await?;
 
         Ok(row.map(|r| User {
@@ -196,15 +175,12 @@ impl Database {
         }))
     }
 
-    // WebAuthn credential operations
-    pub async fn save_credential(
-        &self,
-        user_id: Uuid,
-        passkey: &Passkey,
-    ) -> Result<(), sqlx::Error> {
+    // ========== WebAuthn Credential Operations ==========
+
+    /// Save a WebAuthn credential for a user
+    pub async fn save_credential(&self, user_id: Uuid, passkey: &Passkey) -> Result<(), AuthError> {
         let credential_id = passkey.cred_id().as_ref().to_vec();
-        let credential_data =
-            serde_json::to_string(passkey).map_err(|e| sqlx::Error::Encode(Box::new(e)))?;
+        let credential_data = serde_json::to_string(passkey)?;
 
         sqlx::query(
             r#"
@@ -217,13 +193,14 @@ impl Database {
         .bind(user_id)
         .bind(credential_id)
         .bind(credential_data)
-        .execute(&self.pool)
+        .execute(self.db.pool())
         .await?;
 
         Ok(())
     }
 
-    pub async fn get_user_credentials(&self, user_id: Uuid) -> Result<Vec<Passkey>, sqlx::Error> {
+    /// Get all WebAuthn credentials for a user
+    pub async fn get_user_credentials(&self, user_id: Uuid) -> Result<Vec<Passkey>, AuthError> {
         let rows = sqlx::query(
             r#"
             SELECT credential_data
@@ -232,7 +209,7 @@ impl Database {
             "#,
         )
         .bind(user_id)
-        .fetch_all(&self.pool)
+        .fetch_all(self.db.pool())
         .await?;
 
         let mut credentials = Vec::new();
@@ -249,14 +226,14 @@ impl Database {
         Ok(credentials)
     }
 
+    /// Update an existing WebAuthn credential
     pub async fn update_credential(
         &self,
         user_id: Uuid,
         passkey: &Passkey,
-    ) -> Result<(), sqlx::Error> {
+    ) -> Result<(), AuthError> {
         let credential_id = passkey.cred_id().as_ref().to_vec();
-        let credential_data =
-            serde_json::to_string(passkey).map_err(|e| sqlx::Error::Encode(Box::new(e)))?;
+        let credential_data = serde_json::to_string(passkey)?;
 
         sqlx::query(
             r#"
@@ -268,35 +245,8 @@ impl Database {
         .bind(user_id)
         .bind(credential_id)
         .bind(credential_data)
-        .execute(&self.pool)
+        .execute(self.db.pool())
         .await?;
-
-        Ok(())
-    }
-
-    // Utility method to check migration status
-    pub async fn migrate(&self) -> Result<(), sqlx::Error> {
-        // Check if base tables exist
-        let base_tables_exist = sqlx::query_scalar::<_, bool>(
-            "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'invite_codes')"
-        )
-        .fetch_one(&self.pool)
-        .await?;
-
-        if !base_tables_exist {
-            tracing::warn!("Base tables don't exist. Please run migrations using sqlx-cli or apply the migration files manually.");
-        }
-
-        // Check if analytics table exists
-        let analytics_table_exists = sqlx::query_scalar::<_, bool>(
-            "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'request_analytics')"
-        )
-        .fetch_one(&self.pool)
-        .await?;
-
-        if !analytics_table_exists {
-            tracing::warn!("Analytics table doesn't exist. Please run migration 003_analytics.sql");
-        }
 
         Ok(())
     }

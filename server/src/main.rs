@@ -20,9 +20,7 @@ use tower_sessions::{
 
 // The handlers that process the data can be found in the auth.rs file
 // This file contains the wasm client loading code and the axum routing
-use webauthn_server::api::{
-    get_analytics, get_metrics, get_prometheus_metrics, get_user_activity, health_check,
-};
+use webauthn_server::api::{get_metrics, get_prometheus_metrics, health_check};
 use webauthn_server::auth::{
     finish_authentication, finish_register, logout, start_authentication, start_register,
 };
@@ -121,8 +119,9 @@ async fn main() {
             "/private",
             tower_http::services::ServeDir::new(&config.static_files.private_directory),
         )
-        .route("/api/analytics", get(get_analytics))
-        .route("/api/user/activity", get(get_user_activity))
+        // TODO: Re-enable these routes after analytics migration is complete
+        // .route("/api/analytics", get(get_analytics))
+        // .route("/api/user/activity", get(get_user_activity))
         .layer(axum_middleware::from_fn(require_authentication));
 
     // Create public routes

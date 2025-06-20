@@ -1,5 +1,5 @@
 use crate::config::{AppConfig, StorageBackend};
-use crate::database::Database;
+use crate::database::DatabaseConnection;
 use crate::storage::{AnalyticsService, SessionStore};
 
 use std::sync::Arc;
@@ -22,7 +22,7 @@ pub struct AppState {
     // lifetimes.
     pub webauthn: Arc<Webauthn>,
     // Database connection for persistent storage
-    pub database: Database,
+    pub database: DatabaseConnection,
     // Analytics service for request tracking
     pub analytics: AnalyticsService,
     // Session store for tower-sessions
@@ -64,7 +64,7 @@ impl AppState {
             .connect(&database_url)
             .await?;
 
-        let database = Database::new(pool.clone());
+        let database = DatabaseConnection::new(pool.clone());
 
         // Create analytics service based on storage configuration
         let analytics = match config.storage.analytics {

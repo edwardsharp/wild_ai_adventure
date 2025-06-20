@@ -2,8 +2,9 @@ use clap::{Parser, Subcommand};
 use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
 use sqlx::PgPool;
+use webauthn_server::auth::AuthRepository;
 use webauthn_server::config::{AppConfig, ConfigError, SecretsConfig, StorageBackend};
-use webauthn_server::database::Database;
+use webauthn_server::database::DatabaseConnection;
 use webauthn_server::storage::AnalyticsService;
 
 use std::path::PathBuf;
@@ -145,7 +146,7 @@ impl Cli {
             .unwrap_or_else(|| config.database_url());
 
         let pool = PgPool::connect(&database_url).await?;
-        let db = Database::new(pool.clone());
+        let db = DatabaseConnection::new(pool.clone());
 
         // Run migrations
         db.migrate().await?;
@@ -176,7 +177,8 @@ impl Cli {
                         .collect::<String>()
                         .to_uppercase();
 
-                    match db.create_invite_code(&code).await {
+                    let auth_repo = AuthRepository::new(&db);
+                    match auth_repo.create_invite_code(&code).await {
                         Ok(invite_code) => {
                             println!(
                                 "Generated invite code {}/{}: {}",
@@ -193,7 +195,11 @@ impl Cli {
                 println!("Done! Generated {} invite code(s).", count);
             }
             Commands::ListInvites { active_only } => {
-                let invite_codes = db.list_invite_codes().await?;
+                let auth_repo = AuthRepository::new(&db);
+                let invite_codes = auth_repo
+                    .list_invite_codes()
+                    .await
+                    .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)?;
 
                 let filtered_codes: Vec<_> = if active_only {
                     invite_codes
@@ -237,7 +243,11 @@ impl Cli {
                 }
             }
             Commands::Stats => {
-                let invite_codes = db.list_invite_codes().await?;
+                let auth_repo = AuthRepository::new(&db);
+                let invite_codes = auth_repo
+                    .list_invite_codes()
+                    .await
+                    .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)?;
 
                 let total_codes = invite_codes.len();
                 let active_codes = invite_codes.iter().filter(|code| code.is_active).count();

@@ -1,3 +1,4 @@
+use crate::auth::AuthRepository;
 use crate::error::WebauthnError;
 use crate::startup::AppState;
 use axum::{
@@ -64,10 +65,11 @@ pub async fn start_register(
     info!("Start register for username: {}", username);
 
     // Validate invite code first
-    let invite_code = app_state
-        .database
+    let auth_repo = AuthRepository::new(&app_state.database);
+    let invite_code = auth_repo
         .get_invite_code(&params.invite_code)
-        .await?;
+        .await
+        .map_err(|_| WebauthnError::DatabaseError)?;
     let invite_code = match invite_code {
         Some(code) if code.is_active && code.used_at.is_none() => code,
         Some(_) => {
@@ -84,10 +86,10 @@ pub async fn start_register(
     };
 
     // Check if username already exists
-    if app_state
-        .database
+    if auth_repo
         .get_user_by_username(&username)
-        .await?
+        .await
+        .map_err(|_| WebauthnError::DatabaseError)?
         .is_some()
     {
         return Err(WebauthnError::UserAlreadyExists);
@@ -101,10 +103,10 @@ pub async fn start_register(
     let _ = session.remove_value("reg_state").await;
 
     // Get existing credentials for this user (should be empty for new users, but good to check)
-    let exclude_credentials = app_state
-        .database
+    let exclude_credentials = auth_repo
         .get_user_credentials(user_unique_id)
-        .await?
+        .await
+        .map_err(|_| WebauthnError::DatabaseError)?
         .iter()
         .map(|sk| sk.cred_id().clone())
         .collect();
@@ -169,24 +171,17 @@ pub async fn finish_register(
     {
         Ok(sk) => {
             // Create the user in the database
-            match app_state
-                .database
-                .create_user(&username, Some(&invite_code))
-                .await
-            {
+            let auth_repo = AuthRepository::new(&app_state.database);
+            match auth_repo.create_user(&username, Some(&invite_code)).await {
                 Ok(user) => {
                     // Save the credential
-                    if let Err(e) = app_state.database.save_credential(user.id, &sk).await {
+                    if let Err(e) = auth_repo.save_credential(user.id, &sk).await {
                         error!("Failed to save credential: {:?}", e);
                         return Err(WebauthnError::DatabaseError);
                     }
 
                     // Mark the invite code as used
-                    if let Err(e) = app_state
-                        .database
-                        .use_invite_code(&invite_code, user.id)
-                        .await
-                    {
+                    if let Err(e) = auth_repo.use_invite_code(&invite_code, user.id).await {
                         error!("Failed to mark invite code as used: {:?}", e);
                         // Don't fail the registration for this, but log it
                     }
@@ -252,14 +247,18 @@ pub async fn start_authentication(
     let _ = session.remove_value("auth_state").await;
 
     // Look up the user by username
-    let user = app_state
-        .database
+    let auth_repo = AuthRepository::new(&app_state.database);
+    let user = auth_repo
         .get_user_by_username(&username)
-        .await?
+        .await
+        .map_err(|_| WebauthnError::DatabaseError)?
         .ok_or(WebauthnError::UserNotFound)?;
 
     // Get the user's credentials
-    let allow_credentials = app_state.database.get_user_credentials(user.id).await?;
+    let allow_credentials = auth_repo
+        .get_user_credentials(user.id)
+        .await
+        .map_err(|_| WebauthnError::DatabaseError)?;
 
     if allow_credentials.is_empty() {
         return Err(WebauthnError::UserHasNoCredentials);
@@ -320,10 +319,11 @@ pub async fn finish_authentication(
     {
         Ok(auth_result) => {
             // Get the user's current credentials
-            let mut credentials = app_state
-                .database
+            let auth_repo = AuthRepository::new(&app_state.database);
+            let mut credentials = auth_repo
                 .get_user_credentials(user_unique_id)
-                .await?;
+                .await
+                .map_err(|_| WebauthnError::DatabaseError)?;
 
             if credentials.is_empty() {
                 return Err(WebauthnError::UserHasNoCredentials);
@@ -333,11 +333,7 @@ pub async fn finish_authentication(
             for sk in credentials.iter_mut() {
                 sk.update_credential(&auth_result);
                 // Save the updated credential back to the database
-                if let Err(e) = app_state
-                    .database
-                    .update_credential(user_unique_id, sk)
-                    .await
-                {
+                if let Err(e) = auth_repo.update_credential(user_unique_id, sk).await {
                     error!("Failed to update credential: {:?}", e);
                     // Don't fail authentication for this, but log it
                 }

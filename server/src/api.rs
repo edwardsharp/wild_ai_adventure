@@ -1,4 +1,9 @@
-use crate::analytics::AnalyticsService;
+// API endpoints module
+//
+// This module contains API endpoints that provide analytics and user data.
+// Some endpoints are temporarily commented out while we migrate to the new
+// modular analytics structure.
+
 use crate::error::WebauthnError;
 use axum::{
     extract::{Extension, Query},
@@ -26,14 +31,6 @@ fn default_limit() -> i64 {
     10
 }
 
-/// Analytics response structure
-#[derive(Serialize)]
-pub struct AnalyticsResponse {
-    pub stats: crate::analytics::AnalyticsStats,
-    pub top_paths: Vec<crate::analytics::PathStats>,
-    pub time_period_hours: i32,
-}
-
 /// User activity query parameters
 #[derive(Deserialize)]
 pub struct UserActivityQuery {
@@ -45,165 +42,39 @@ fn default_activity_limit() -> i64 {
     20
 }
 
-/// User activity response
-#[derive(Serialize)]
-pub struct UserActivityResponse {
-    pub user_id: Uuid,
-    pub requests: Vec<crate::analytics::RequestAnalytics>,
-    pub total_shown: usize,
-}
-
-/// Get analytics data (requires authentication)
-pub async fn get_analytics(
-    session: Session,
-    Query(params): Query<AnalyticsQuery>,
-    Extension(analytics): Extension<AnalyticsService>,
-) -> Result<impl IntoResponse, WebauthnError> {
-    // Check if user is authenticated
-    let _user_id = session
-        .get::<Uuid>("user_id")
-        .await?
-        .ok_or(WebauthnError::CorruptSession)?;
-
-    // Get analytics stats
-    let stats = analytics.get_stats(params.hours).await?;
-    let top_paths = analytics.get_top_paths(params.hours, params.limit).await?;
-
-    let response = AnalyticsResponse {
-        stats,
-        top_paths,
-        time_period_hours: params.hours,
-    };
-
-    Ok(Json(response))
-}
-
-/// Get current user's activity (requires authentication)
-pub async fn get_user_activity(
-    session: Session,
-    Query(params): Query<UserActivityQuery>,
-    Extension(analytics): Extension<AnalyticsService>,
-) -> Result<impl IntoResponse, WebauthnError> {
-    // Check if user is authenticated and get their ID
-    let user_id = session
-        .get::<Uuid>("user_id")
-        .await?
-        .ok_or(WebauthnError::CorruptSession)?;
-
-    // Get user's request history
-    let requests = analytics.get_user_requests(user_id, params.limit).await?;
-    let total_shown = requests.len();
-
-    let response = UserActivityResponse {
-        user_id,
-        requests,
-        total_shown,
-    };
-
-    Ok(Json(response))
-}
-
-/// Health check endpoint that includes basic analytics
-pub async fn health_check(
-    Extension(analytics): Extension<AnalyticsService>,
-) -> Result<impl IntoResponse, WebauthnError> {
-    // Get basic stats for the last hour
-    let stats = analytics.get_stats(1).await?;
-
+/// Simple health check endpoint
+pub async fn health_check() -> Result<impl IntoResponse, WebauthnError> {
     let health_response = serde_json::json!({
         "status": "healthy",
         "timestamp": chrono::Utc::now(),
-        "analytics": {
-            "requests_last_hour": stats.total_requests,
-            "errors_last_hour": stats.error_count,
-            "avg_response_time_ms": stats.avg_duration_ms.unwrap_or(0.0)
-        }
+        "message": "WebAuthn server is running"
     });
 
     Ok(Json(health_response))
 }
 
-/// Get system metrics (public endpoint with basic info)
-pub async fn get_metrics(
-    Extension(analytics): Extension<AnalyticsService>,
-) -> Result<impl IntoResponse, WebauthnError> {
-    // Get stats for different time periods
-    let last_hour = analytics.get_stats(1).await?;
-    let last_24h = analytics.get_stats(24).await?;
-    let last_week = analytics.get_stats(168).await?; // 7 * 24 hours
-
+/// Simple metrics endpoint
+pub async fn get_metrics() -> Result<impl IntoResponse, WebauthnError> {
     let metrics = serde_json::json!({
         "system": {
             "name": "WebAuthn Demo",
             "version": "1.0.0",
-            "uptime": "Available via process metrics"
+            "status": "running"
         },
-        "requests": {
-            "last_hour": {
-                "total": last_hour.total_requests,
-                "success_rate": if last_hour.total_requests > 0 {
-                    (last_hour.success_count as f64 / last_hour.total_requests as f64) * 100.0
-                } else { 0.0 },
-                "avg_duration_ms": last_hour.avg_duration_ms.unwrap_or(0.0)
-            },
-            "last_24h": {
-                "total": last_24h.total_requests,
-                "success_rate": if last_24h.total_requests > 0 {
-                    (last_24h.success_count as f64 / last_24h.total_requests as f64) * 100.0
-                } else { 0.0 },
-                "avg_duration_ms": last_24h.avg_duration_ms.unwrap_or(0.0),
-                "unique_users": last_24h.unique_users
-            },
-            "last_week": {
-                "total": last_week.total_requests,
-                "success_rate": if last_week.total_requests > 0 {
-                    (last_week.success_count as f64 / last_week.total_requests as f64) * 100.0
-                } else { 0.0 },
-                "avg_duration_ms": last_week.avg_duration_ms.unwrap_or(0.0),
-                "unique_users": last_week.unique_users
-            }
-        }
+        "note": "Detailed metrics will be available after analytics migration is complete"
     });
 
     Ok(Json(metrics))
 }
 
-/// Prometheus-style metrics endpoint
-pub async fn get_prometheus_metrics(
-    Extension(analytics): Extension<AnalyticsService>,
-) -> Result<impl IntoResponse, WebauthnError> {
-    let stats_1h = analytics.get_stats(1).await?;
-    let stats_24h = analytics.get_stats(24).await?;
+/// Prometheus-style metrics endpoint (simplified)
+pub async fn get_prometheus_metrics() -> Result<impl IntoResponse, WebauthnError> {
+    let metrics = r#"# HELP webauthn_status Server status
+# TYPE webauthn_status gauge
+webauthn_status{service="webauthn"} 1
 
-    // Simple Prometheus-style metrics format
-    let metrics = format!(
-        r#"# HELP webauthn_requests_total Total number of HTTP requests
-# TYPE webauthn_requests_total counter
-webauthn_requests_total{{period="1h"}} {}
-webauthn_requests_total{{period="24h"}} {}
-
-# HELP webauthn_request_duration_ms Average request duration in milliseconds
-# TYPE webauthn_request_duration_ms gauge
-webauthn_request_duration_ms{{period="1h"}} {}
-webauthn_request_duration_ms{{period="24h"}} {}
-
-# HELP webauthn_errors_total Total number of error responses
-# TYPE webauthn_errors_total counter
-webauthn_errors_total{{period="1h"}} {}
-webauthn_errors_total{{period="24h"}} {}
-
-# HELP webauthn_unique_users Total number of unique users
-# TYPE webauthn_unique_users gauge
-webauthn_unique_users{{period="24h"}} {}
-"#,
-        stats_1h.total_requests,
-        stats_24h.total_requests,
-        stats_1h.avg_duration_ms.unwrap_or(0.0),
-        stats_24h.avg_duration_ms.unwrap_or(0.0),
-        stats_1h.error_count,
-        stats_24h.error_count,
-        stats_24h.unique_users
-    );
+# Note: Detailed metrics will be available after analytics migration
+"#;
 
     Ok((
         StatusCode::OK,
@@ -211,6 +82,56 @@ webauthn_unique_users{{period="24h"}} {}
         metrics,
     ))
 }
+
+// TODO: Uncomment and update these endpoints once analytics migration is complete
+//
+// /// Analytics response structure
+// #[derive(Serialize)]
+// pub struct AnalyticsResponse {
+//     pub stats: RequestMetrics,
+//     pub top_paths: Vec<PathMetric>,
+//     pub time_period_hours: i32,
+// }
+//
+// /// User activity response
+// #[derive(Serialize)]
+// pub struct UserActivityResponse {
+//     pub user_id: Uuid,
+//     pub requests: Vec<RequestAnalytics>,
+//     pub total_shown: usize,
+// }
+//
+// /// Get analytics data (requires authentication)
+// pub async fn get_analytics(
+//     session: Session,
+//     Query(params): Query<AnalyticsQuery>,
+//     Extension(analytics): Extension<AnalyticsService<'_>>,
+// ) -> Result<impl IntoResponse, WebauthnError> {
+//     // Check if user is authenticated
+//     let _user_id = session
+//         .get::<Uuid>("user_id")
+//         .await?
+//         .ok_or(WebauthnError::CorruptSession)?;
+//
+//     // TODO: Implement with new analytics service
+//     todo!("Update to use new analytics service")
+// }
+//
+// /// Get current user's activity (requires authentication)
+// pub async fn get_user_activity(
+//     session: Session,
+//     Query(params): Query<UserActivityQuery>,
+//     Extension(analytics): Extension<AnalyticsService<'_>>,
+// ) -> Result<impl IntoResponse, WebauthnError> {
+//     // Check if user is authenticated and get their ID
+//     let user_id = session
+//         .get::<Uuid>("user_id")
+//         .await?
+//         .ok_or(WebauthnError::CorruptSession)?;
+//
+//     // TODO: Implement with new analytics service
+//     todo!("Update to use new analytics service")
+// }
 
 #[cfg(test)]
 mod tests {
