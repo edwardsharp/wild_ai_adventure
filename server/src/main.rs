@@ -51,7 +51,8 @@ async fn main() {
 
     // Load configuration and secrets
     let config_path = std::env::var("CONFIG_PATH").unwrap_or_else(|_| "config.jsonc".to_string());
-    let secrets_path = "config.secrets.jsonc".to_string();
+    let secrets_path =
+        std::env::var("SECRETS_PATH").unwrap_or_else(|_| "config.secrets.jsonc".to_string());
 
     let config = if std::path::Path::new(&config_path).exists() {
         let secrets_path_opt = if std::path::Path::new(&secrets_path).exists() {
@@ -121,8 +122,7 @@ async fn main() {
     let analytics_service = app_state.analytics.clone();
 
     // Create admin-only routes that require admin role
-    let admin_routes = Router::new()
-        .route("/api/analytics", get(health_check)) // Placeholder until analytics migration complete
+    let admin_routes = Router::new() // Placeholder until analytics migration complete
         .route("/api/admin/metrics", get(get_metrics))
         .layer(axum_middleware::from_fn(require_admin))
         .layer(axum_middleware::from_fn(require_authentication));
@@ -137,10 +137,12 @@ async fn main() {
         .layer(axum_middleware::from_fn(require_authentication));
 
     // Create public routes
-    let mut public_routes = Router::new().nest_service(
-        "/public",
-        tower_http::services::ServeDir::new(&config.static_files.public_directory),
-    );
+    let mut public_routes = Router::new()
+        .nest_service(
+            "/public",
+            tower_http::services::ServeDir::new(&config.static_files.public_directory),
+        )
+        .route("/health", get(health_check));
 
     // Add metrics endpoints if enabled
     if config.analytics.metrics.enabled {

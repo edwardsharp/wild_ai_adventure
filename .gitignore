@@ -2,7 +2,7 @@
 .env.local
 .DS_Store
 
-# Configuration files that might contain secrets
+# configuration files that might contain secrets
 config.local.jsonc
 config.production.jsonc
 config.secrets.jsonc
@@ -12,8 +12,8 @@ config.secrets.*.jsonc
 # EXCEPT example files (safe to commit)
 !config.secrets.example.jsonc
 
-
-# Logs
 logs/
 *.log
 target/
+node_modules/
+/generated/

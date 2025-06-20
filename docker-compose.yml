@@ -1,19 +1,26 @@
 services:
-  postgres:
+  webauthn-dev-postgres:
     image: postgres:latest
-    container_name: postgres
+    container_name: webauthn-dev-db
     ports:
       - "5432:5432"
     volumes:
-      - progresDB:/var/lib/postgresql/data
+      - webauthn_dev_postgres_data:/var/lib/postgresql/data
     env_file:
       - ./.env
-  pgAdmin:
+    networks:
+      - webauthn-dev-network
+  webauthn-dev-pgadmin:
     image: dpage/pgadmin4
-    container_name: pgAdmin
+    container_name: webauthn-dev-pgadmin
     env_file:
       - ./.env
     ports:
       - "5050:80"
+    networks:
+      - webauthn-dev-network
 volumes:
-  progresDB:
+  webauthn_dev_postgres_data:
+networks:
+  webauthn-dev-network:
+    driver: bridge

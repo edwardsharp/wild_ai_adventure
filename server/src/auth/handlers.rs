@@ -19,7 +19,7 @@ use webauthn_rs::prelude::*;
 
 #[derive(Deserialize)]
 pub struct RegisterStartQuery {
-    invite_code: String,
+    invite_code: Option<String>,
 }
 
 // 2. The first step a client (user) will carry out is requesting a credential to be
@@ -64,24 +64,60 @@ pub async fn start_register(
 ) -> Result<impl IntoResponse, WebauthnError> {
     info!("Start register for username: {}", username);
 
-    // Validate invite code first
     let auth_repo = AuthRepository::new(&app_state.database);
-    let invite_code = auth_repo
-        .get_invite_code(&params.invite_code)
-        .await
-        .map_err(|_| WebauthnError::DatabaseError)?;
-    let invite_code = match invite_code {
-        Some(code) if code.is_active && code.used_at.is_none() => code,
-        Some(_) => {
-            warn!(
-                "Invite code {} is not active or already used",
-                params.invite_code
-            );
-            return Err(WebauthnError::InvalidInviteCode);
+
+    // Check if invite codes are required and validate accordingly
+    let invite_code = if app_state.config.features.invite_codes_required {
+        // Invite codes are required
+        let invite_code_str = params
+            .invite_code
+            .as_ref()
+            .ok_or(WebauthnError::InvalidInviteCode)?;
+
+        let invite_code = auth_repo
+            .get_invite_code(invite_code_str)
+            .await
+            .map_err(|_| WebauthnError::DatabaseError)?;
+
+        match invite_code {
+            Some(code) if code.is_active && code.used_at.is_none() => Some(code),
+            Some(_) => {
+                warn!(
+                    "Invite code {} is not active or already used",
+                    invite_code_str
+                );
+                return Err(WebauthnError::InvalidInviteCode);
+            }
+            None => {
+                warn!("Invite code {} not found", invite_code_str);
+                return Err(WebauthnError::InvalidInviteCode);
+            }
         }
-        None => {
-            warn!("Invite code {} not found", params.invite_code);
-            return Err(WebauthnError::InvalidInviteCode);
+    } else {
+        // Invite codes are not required
+        if let Some(invite_code_str) = &params.invite_code {
+            // If an invite code is provided, validate it
+            let invite_code = auth_repo
+                .get_invite_code(invite_code_str)
+                .await
+                .map_err(|_| WebauthnError::DatabaseError)?;
+
+            match invite_code {
+                Some(code) if code.is_active && code.used_at.is_none() => Some(code),
+                Some(_) => {
+                    warn!(
+                        "Invite code {} is not active or already used",
+                        invite_code_str
+                    );
+                    return Err(WebauthnError::InvalidInviteCode);
+                }
+                None => {
+                    warn!("Invite code {} not found", invite_code_str);
+                    return Err(WebauthnError::InvalidInviteCode);
+                }
+            }
+        } else {
+            None
         }
     };
 
@@ -124,7 +160,12 @@ pub async fn start_register(
             session
                 .insert(
                     "reg_state",
-                    (username, user_unique_id, reg_state, invite_code.code),
+                    (
+                        username,
+                        user_unique_id,
+                        reg_state,
+                        invite_code.as_ref().map(|c| c.code.clone()),
+                    ),
                 )
                 .await
                 .expect("Failed to insert");
@@ -152,7 +193,7 @@ pub async fn finish_register(
         String,
         Uuid,
         PasskeyRegistration,
-        String,
+        Option<String>,
     ) = match session.get("reg_state").await? {
         Some((username, user_unique_id, reg_state, invite_code)) => {
             (username, user_unique_id, reg_state, invite_code)
@@ -186,7 +227,7 @@ pub async fn finish_register(
             };
 
             match auth_repo
-                .create_user_with_role(&username, Some(&invite_code), role)
+                .create_user_with_role(&username, invite_code.as_deref(), role)
                 .await
             {
                 Ok(user) => {
@@ -196,10 +237,12 @@ pub async fn finish_register(
                         return Err(WebauthnError::DatabaseError);
                     }
 
-                    // Mark the invite code as used
-                    if let Err(e) = auth_repo.use_invite_code(&invite_code, user.id).await {
-                        error!("Failed to mark invite code as used: {:?}", e);
-                        // Don't fail the registration for this, but log it
+                    // Mark the invite code as used (if one was provided)
+                    if let Some(ref code) = invite_code {
+                        if let Err(e) = auth_repo.use_invite_code(code, user.id).await {
+                            error!("Failed to mark invite code as used: {:?}", e);
+                            // Don't fail the registration for this, but log it
+                        }
                     }
 
                     // Set user_id in session to automatically log in the user
@@ -208,10 +251,17 @@ pub async fn finish_register(
                         .await
                         .expect("Failed to insert user_id into session");
 
-                    info!(
-                        "User {} registered successfully with invite code {} (role: {:?}) and automatically logged in",
-                        username, invite_code, user.role
-                    );
+                    if let Some(ref code) = invite_code {
+                        info!(
+                            "User {} registered successfully with invite code {} (role: {:?}) and automatically logged in",
+                            username, code, user.role
+                        );
+                    } else {
+                        info!(
+                            "User {} registered successfully without invite code (role: {:?}) and automatically logged in",
+                            username, user.role
+                        );
+                    }
                     StatusCode::OK
                 }
                 Err(e) => {

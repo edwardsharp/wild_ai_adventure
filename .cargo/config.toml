@@ -1,0 +1,27 @@
+# Cargo configuration for the axum_tutorial project
+# This file sets project-specific cargo settings
+
+[env]
+# Use SQLx offline mode by default for compilation
+# This avoids needing a database connection during builds
+# Override with SQLX_OFFLINE=false when you want online mode
+SQLX_OFFLINE = "true"
+
+[build]
+# Number of parallel jobs, defaults to # of CPUs
+# jobs = 1
+
+[target.x86_64-unknown-linux-gnu]
+# Linux-specific settings if needed
+
+[target.aarch64-apple-darwin]
+# macOS ARM-specific settings if needed
+
+[target.x86_64-apple-darwin]
+# macOS Intel-specific settings if needed
+
+# You can override SQLX_OFFLINE in your editor by setting it to false
+# For example, in VS Code settings.json:
+# "rust-analyzer.cargo.extraEnv": {
+#   "SQLX_OFFLINE": "false"
+# }
