@@ -20,6 +20,7 @@ sqlx = { version = "0.8", features = [
     "uuid",
     "chrono",
     "json",
+    "bigdecimal",
 ] }
 thiserror = "1.0"
 tokio = { version = "1.0", features = ["full"] }
