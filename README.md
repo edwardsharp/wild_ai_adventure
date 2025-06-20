@@ -28,6 +28,13 @@ This demonstrates using Axum as the backend for a WebAuthn authentication system
 - **Request Analytics**: Built-in analytics and metrics collection
 - **Flexible Architecture**: Easy deployment and customization
 
+## Documentation
+
+- **[Setup Guide](docs/setup.md)** - Detailed setup instructions
+- **[Testing Guide](docs/testing.md)** - Testing procedures and coverage
+- **[Role Management](docs/roles.md)** - User roles and permissions system
+- **[Development Prompts](docs/prompts.md)** - AI prompts used to build this project
+
 ## Prerequisites
 
 - Rust (latest stable)
