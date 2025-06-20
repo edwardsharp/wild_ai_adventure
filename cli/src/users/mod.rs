@@ -23,6 +23,9 @@ pub enum UserCommands {
         /// Length of the invite code
         #[arg(short, long)]
         length: Option<usize>,
+        /// Custom invite code(s) to create (comma-separated)
+        #[arg(long)]
+        custom: Option<String>,
     },
     /// List all invite codes
     ListInvites {
@@ -82,8 +85,20 @@ impl UserCommands {
         default_length: usize,
     ) -> Result<(), Box<dyn std::error::Error>> {
         match self {
-            UserCommands::GenerateInvite { count, length } => {
-                Self::generate_invite(db, *count, *length, default_count, default_length).await
+            UserCommands::GenerateInvite {
+                count,
+                length,
+                custom,
+            } => {
+                Self::generate_invite(
+                    db,
+                    *count,
+                    *length,
+                    custom.as_deref(),
+                    default_count,
+                    default_length,
+                )
+                .await
             }
             UserCommands::ListInvites { active_only } => Self::list_invites(db, *active_only).await,
             UserCommands::Stats => Self::show_stats(db).await,
@@ -107,9 +122,45 @@ impl UserCommands {
         db: &DatabaseConnection,
         count: Option<u32>,
         length: Option<usize>,
+        custom: Option<&str>,
         default_count: u32,
         default_length: usize,
     ) -> Result<(), Box<dyn std::error::Error>> {
+        let auth_repo = AuthRepository::new(db);
+
+        // Handle custom codes if provided
+        if let Some(custom_codes) = custom {
+            let codes: Vec<&str> = custom_codes.split(',').map(|s| s.trim()).collect();
+            println!("Creating {} custom invite code(s)...", codes.len());
+            println!();
+
+            for (i, code) in codes.iter().enumerate() {
+                if code.is_empty() {
+                    eprintln!("Skipping empty code at position {}", i + 1);
+                    continue;
+                }
+
+                match auth_repo.create_invite_code(code).await {
+                    Ok(invite_code) => {
+                        println!(
+                            "Created custom invite code {}/{}: {}",
+                            i + 1,
+                            codes.len(),
+                            invite_code.code
+                        );
+                    }
+                    Err(e) => {
+                        eprintln!("Failed to create custom invite code '{}': {}", code, e);
+                    }
+                }
+            }
+
+            println!();
+            println!("Done! Created {} custom invite code(s).", codes.len());
+            return Ok(());
+        }
+
+        // Handle generated codes (existing logic)
         let count = count.unwrap_or(default_count);
         let length = length.unwrap_or(default_length);
 
@@ -122,7 +173,6 @@ impl UserCommands {
         for i in 1..=count {
             let code = Self::generate_code(length);
 
-            let auth_repo = AuthRepository::new(db);
             match auth_repo.create_invite_code(&code).await {
                 Ok(invite_code) => {
                     println!(

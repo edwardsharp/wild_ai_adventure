@@ -925,13 +925,11 @@ impl AppConfig {
         }
 
         // Validate database configuration
-        if self
-            .database
-            .password
-            .as_ref()
-            .map_or(true, |p| p.is_empty())
-        {
-            errors.push("Database password cannot be empty".to_string());
+        // Allow None password in default config, but validate if it's explicitly set to empty
+        if let Some(password) = &self.database.password {
+            if password.is_empty() {
+                errors.push("Database password cannot be empty".to_string());
+            }
         }
 
         if self.database.host.is_empty() {

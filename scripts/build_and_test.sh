@@ -332,43 +332,22 @@ run_integration_tests() {
 generate_test_invite_codes() {
     log "Generating test invite codes..."
 
-    # Create test data directory if it doesn't exist
-    mkdir -p generated/ts-client/test-data
+    # Use the existing clientlib setup script to generate test codes
+    # But configure it to use the test database
+    cd clientlib
+    TEST_DB_URL=$TEST_DB_URL CLI_CONFIG="assets/config/config.test.jsonc" CLI_SECRETS="assets/config/config.secrets.test.jsonc" node setup-test-codes.js
+    cd ..
 
-    # Generate invite codes using the CLI and capture output
-    local invite_output=$(DATABASE_URL=$TEST_DB_URL cargo run --release --bin cli --config "assets/config/config.test.jsonc" --secrets "assets/config/config.secrets.test.jsonc" users generate-invite --count 5 --length 8 2>/dev/null)
-
-    # Extract invite codes from output and save to file
-    echo "$invite_output" | grep "Generated invite code" | sed 's/.*: //' > generated/ts-client/test-data/invite-codes.txt
-
-    # Also create a JSON file with structured test data
-    local codes_json="["
-    local first=true
-    while IFS= read -r code; do
-        if [ "$first" = true ]; then
-            first=false
-        else
-            codes_json+=","
-        fi
-        codes_json+="\"$code\""
-    done < generated/ts-client/test-data/invite-codes.txt
-    codes_json+="]"
-
-    echo "$codes_json" > generated/ts-client/test-data/invite-codes.json
-
-    local code_count=$(wc -l < generated/ts-client/test-data/invite-codes.txt | tr -d ' ')
-    success "Generated $code_count test invite codes"
+    success "Test invite codes generated using clientlib setup"
 }
 
 run_typescript_tests() {
-    if [ ! -d "generated/ts-client" ]; then
-        warn "TypeScript client not found. Skipping TypeScript tests."
+    if [ ! -d "clientlib" ]; then
+        warn "Clientlib not found. Skipping TypeScript tests."
         return 0
     fi
 
     log "Running TypeScript integration tests..."
-
-    cd generated/ts-client
 
     # Start the Rust server in background for testing
     export DATABASE_URL=$TEST_DB_URL
@@ -378,13 +357,10 @@ run_typescript_tests() {
     cleanup
 
     # Generate test invite codes before starting server
-    cd ../..
     generate_test_invite_codes
-    cd generated/ts-client
 
     # Start server in background with test configuration and database
-    # Run from project root so server can find assets directory
-    (cd ../.. && DATABASE_URL=$TEST_DB_URL cargo llvm-cov run --bin server --no-report -- --config "assets/config/config.test.jsonc" --secrets "assets/config/config.secrets.test.jsonc"; true) &
+    (DATABASE_URL=$TEST_DB_URL cargo llvm-cov run --bin server --no-report -- --config "assets/config/config.test.jsonc" --secrets "assets/config/config.secrets.test.jsonc"; true) &
     SERVER_PID=$!
 
     log "Started server with PID: $SERVER_PID"
@@ -406,9 +382,24 @@ run_typescript_tests() {
     done
     echo ""
 
-    # Run TypeScript tests
+    # Move to clientlib directory and run tests
+    cd clientlib
+
+    # Install dependencies if needed
+    if [ ! -d "node_modules" ]; then
+        log "Installing clientlib dependencies..."
+        npm install
+    fi
+
+    # Run TypeScript tests (unit and integration)
     export API_BASE_URL="http://localhost:$API_PORT"
-    npm test
+    log "Running unit tests..."
+    npm run test:unit
+    log "Running integration tests..."
+    npm run test:integration
+
+    # Return to original directory
+    cd ..
 
     # Explicitly stop the server and suppress exit code
     if [ ! -z "$SERVER_PID" ] && kill -0 "$SERVER_PID" 2>/dev/null; then
@@ -425,9 +416,6 @@ run_typescript_tests() {
         log "Server process stopped"
         SERVER_PID=""  # Clear the PID so cleanup doesn't try again
     fi
-
-    # Return to original directory
-    cd ../..
 
     success "TypeScript tests completed"
     return 0
@@ -644,11 +632,11 @@ clean_project() {
     # don't clean Rust artifacts right now.
     # cargo clean
 
-    # Clean TypeScript client
-    if [ -d "generated/ts-client" ]; then
-        cd generated/ts-client
-        rm -rf node_modules dist
-        cd ../..
+    # Clean clientlib
+    if [ -d "clientlib" ]; then
+        cd clientlib
+        rm -rf node_modules dist coverage
+        cd ..
     fi
 
     # Clean coverage reports
@@ -723,7 +711,8 @@ main() {
             ;;
         "generate")
             check_dependencies
-            generate_client
+            # generate_client  # Skip legacy client generation
+            log "Client generation skipped - using new clientlib structure"
             ;;
         "clean")
             clean_project

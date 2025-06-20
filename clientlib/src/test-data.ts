@@ -1,5 +1,5 @@
-import * as fs from "fs";
-import * as path from "path";
+import * as fs from 'fs';
+import * as path from 'path';
 
 export interface TestInviteCode {
   code: string;
@@ -13,7 +13,7 @@ export class TestDataManager {
   private testDataPath: string;
 
   private constructor() {
-    this.testDataPath = path.join(__dirname, "..", "test-data");
+    this.testDataPath = path.join(__dirname, '..', 'test-data');
   }
 
   public static getInstance(): TestDataManager {
@@ -28,11 +28,11 @@ export class TestDataManager {
    */
   public loadInviteCodes(): void {
     try {
-      const codesFilePath = path.join(this.testDataPath, "invite-codes.json");
+      const codesFilePath = path.join(this.testDataPath, 'invite-codes.json');
 
       if (fs.existsSync(codesFilePath)) {
         const rawCodes = JSON.parse(
-          fs.readFileSync(codesFilePath, "utf8"),
+          fs.readFileSync(codesFilePath, 'utf8')
         ) as string[];
         this.inviteCodes = rawCodes.map((code) => ({
           code,
@@ -40,12 +40,12 @@ export class TestDataManager {
         }));
       } else {
         console.warn(
-          "No invite codes file found, tests may fail if invite codes are required",
+          'No invite codes file found, tests may fail if invite codes are required'
         );
         this.inviteCodes = [];
       }
     } catch (error) {
-      console.error("Failed to load invite codes:", error);
+      console.error('Failed to load invite codes:', error);
       this.inviteCodes = [];
     }
   }
@@ -67,7 +67,7 @@ export class TestDataManager {
    */
   public getInviteCodeByIndex(index: number): string | null {
     if (index >= 0 && index < this.inviteCodes.length) {
-      return this.inviteCodes[index].code;
+      return this.inviteCodes[index]?.code || null;
     }
     return null;
   }
@@ -117,13 +117,13 @@ export class TestDataManager {
   /**
    * Generate test user data
    */
-  public generateTestUser(suffix: string = ""): {
+  public generateTestUser(suffix: string = ''): {
     username: string;
-    display_name: string;
+    displayName: string;
   } {
     return {
       username: `testuser${suffix}`,
-      display_name: `Test User${suffix}`,
+      displayName: `Test User${suffix}`,
     };
   }
 
@@ -141,7 +141,7 @@ export class TestDataManager {
    */
   public createUniqueTestUser(): {
     username: string;
-    display_name: string;
+    displayName: string;
     suffix: string;
   } {
     const suffix = `_${this.randomString()}`;
@@ -150,7 +150,48 @@ export class TestDataManager {
       suffix,
     };
   }
+
+  /**
+   * Generate mock WebAuthn credential for testing
+   */
+  public generateMockCredential() {
+    return {
+      id: this.randomString(32),
+      rawId: this.randomString(32),
+      response: {
+        attestationObject: this.randomString(64),
+        clientDataJSON: this.randomString(128),
+      },
+      type: 'public-key' as const,
+    };
+  }
+
+  /**
+   * Generate mock WebAuthn assertion for testing
+   */
+  public generateMockAssertion() {
+    return {
+      id: this.randomString(32),
+      rawId: this.randomString(32),
+      response: {
+        authenticatorData: this.randomString(64),
+        clientDataJSON: this.randomString(128),
+        signature: this.randomString(64),
+        userHandle: this.randomString(16),
+      },
+      type: 'public-key' as const,
+    };
+  }
 }
 
 // Export singleton instance for easy use
 export const testData = TestDataManager.getInstance();
+
+// Convenience exports
+export const {
+  generateTestUser,
+  randomString,
+  createUniqueTestUser,
+  generateMockCredential,
+  generateMockAssertion,
+} = testData;
