@@ -2954,6 +2954,7 @@ dependencies = [
  "config",
  "dotenvy",
  "json5",
+ "num-traits",
  "schemars",
  "serde",
  "serde_json",

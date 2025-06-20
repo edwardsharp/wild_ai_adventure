@@ -2,7 +2,7 @@ use super::models::{
     AnalyticsError, PathMetric, RequestAnalytics, RequestMetrics, TimeSeriesPoint,
 };
 use crate::database::DatabaseConnection;
-use sqlx::Row;
+use num_traits::ToPrimitive;
 use time::OffsetDateTime;
 use uuid::Uuid;
 
@@ -19,7 +19,7 @@ impl<'a> AnalyticsRepository<'a> {
 
     /// Record a new request analytics entry
     pub async fn record_request(&self, analytics: &RequestAnalytics) -> Result<(), AnalyticsError> {
-        sqlx::query(
+        sqlx::query!(
             r#"
             INSERT INTO request_analytics (
                 request_id, timestamp, user_id, method, path, status_code,
@@ -28,21 +28,21 @@ impl<'a> AnalyticsRepository<'a> {
             )
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
             "#,
+            analytics.request_id,
+            analytics.timestamp,
+            analytics.user_id,
+            analytics.method,
+            analytics.path,
+            analytics.status_code,
+            analytics.duration_ms,
+            analytics.user_agent,
+            analytics.ip_address,
+            analytics.request_data,
+            analytics.response_size,
+            analytics.error_message,
+            analytics.trace_id,
+            analytics.span_id
         )
-        .bind(&analytics.request_id)
-        .bind(analytics.timestamp)
-        .bind(analytics.user_id)
-        .bind(&analytics.method)
-        .bind(&analytics.path)
-        .bind(analytics.status_code)
-        .bind(analytics.duration_ms)
-        .bind(&analytics.user_agent)
-        .bind(&analytics.ip_address)
-        .bind(&analytics.request_data)
-        .bind(analytics.response_size)
-        .bind(&analytics.error_message)
-        .bind(&analytics.trace_id)
-        .bind(&analytics.span_id)
         .execute(self.db.pool())
         .await?;
 
@@ -55,7 +55,7 @@ impl<'a> AnalyticsRepository<'a> {
         from: OffsetDateTime,
         to: OffsetDateTime,
     ) -> Result<Vec<RequestAnalytics>, AnalyticsError> {
-        let rows = sqlx::query(
+        let rows = sqlx::query!(
             r#"
             SELECT id, request_id, timestamp, user_id, method, path, status_code,
                    duration_ms, user_agent, ip_address, request_data, response_size,
@@ -64,30 +64,30 @@ impl<'a> AnalyticsRepository<'a> {
             WHERE timestamp >= $1 AND timestamp <= $2
             ORDER BY timestamp DESC
             "#,
+            from,
+            to
         )
-        .bind(from)
-        .bind(to)
         .fetch_all(self.db.pool())
         .await?;
 
         Ok(rows
             .into_iter()
             .map(|r| RequestAnalytics {
-                id: r.get("id"),
-                request_id: r.get("request_id"),
-                timestamp: r.get("timestamp"),
-                user_id: r.get("user_id"),
-                method: r.get("method"),
-                path: r.get("path"),
-                status_code: r.get("status_code"),
-                duration_ms: r.get("duration_ms"),
-                user_agent: r.get("user_agent"),
-                ip_address: r.get("ip_address"),
-                request_data: r.get("request_data"),
-                response_size: r.get("response_size"),
-                error_message: r.get("error_message"),
-                trace_id: r.get("trace_id"),
-                span_id: r.get("span_id"),
+                id: r.id,
+                request_id: r.request_id,
+                timestamp: r.timestamp,
+                user_id: r.user_id,
+                method: r.method,
+                path: r.path,
+                status_code: r.status_code,
+                duration_ms: r.duration_ms,
+                user_agent: r.user_agent,
+                ip_address: r.ip_address,
+                request_data: r.request_data,
+                response_size: r.response_size,
+                error_message: r.error_message,
+                trace_id: r.trace_id,
+                span_id: r.span_id,
             })
             .collect())
     }
@@ -99,7 +99,7 @@ impl<'a> AnalyticsRepository<'a> {
         from: OffsetDateTime,
         to: OffsetDateTime,
     ) -> Result<Vec<RequestAnalytics>, AnalyticsError> {
-        let rows = sqlx::query(
+        let rows = sqlx::query!(
             r#"
             SELECT id, request_id, timestamp, user_id, method, path, status_code,
                    duration_ms, user_agent, ip_address, request_data, response_size,
@@ -108,31 +108,31 @@ impl<'a> AnalyticsRepository<'a> {
             WHERE user_id = $1 AND timestamp >= $2 AND timestamp <= $3
             ORDER BY timestamp DESC
             "#,
+            user_id,
+            from,
+            to
         )
-        .bind(user_id)
-        .bind(from)
-        .bind(to)
         .fetch_all(self.db.pool())
         .await?;
 
         Ok(rows
             .into_iter()
             .map(|r| RequestAnalytics {
-                id: r.get("id"),
-                request_id: r.get("request_id"),
-                timestamp: r.get("timestamp"),
-                user_id: r.get("user_id"),
-                method: r.get("method"),
-                path: r.get("path"),
-                status_code: r.get("status_code"),
-                duration_ms: r.get("duration_ms"),
-                user_agent: r.get("user_agent"),
-                ip_address: r.get("ip_address"),
-                request_data: r.get("request_data"),
-                response_size: r.get("response_size"),
-                error_message: r.get("error_message"),
-                trace_id: r.get("trace_id"),
-                span_id: r.get("span_id"),
+                id: r.id,
+                request_id: r.request_id,
+                timestamp: r.timestamp,
+                user_id: r.user_id,
+                method: r.method,
+                path: r.path,
+                status_code: r.status_code,
+                duration_ms: r.duration_ms,
+                user_agent: r.user_agent,
+                ip_address: r.ip_address,
+                request_data: r.request_data,
+                response_size: r.response_size,
+                error_message: r.error_message,
+                trace_id: r.trace_id,
+                span_id: r.span_id,
             })
             .collect())
     }
@@ -144,7 +144,7 @@ impl<'a> AnalyticsRepository<'a> {
         to: OffsetDateTime,
     ) -> Result<RequestMetrics, AnalyticsError> {
         // Get total requests and unique users
-        let summary_row = sqlx::query(
+        let summary_row = sqlx::query!(
             r#"
             SELECT
                 COUNT(*) as total_requests,
@@ -154,14 +154,14 @@ impl<'a> AnalyticsRepository<'a> {
             FROM request_analytics
             WHERE timestamp >= $1 AND timestamp <= $2
             "#,
+            from,
+            to
         )
-        .bind(from)
-        .bind(to)
         .fetch_one(self.db.pool())
         .await?;
 
         // Get most active paths
-        let path_rows = sqlx::query(
+        let path_rows = sqlx::query!(
             r#"
             SELECT
                 path,
@@ -174,31 +174,30 @@ impl<'a> AnalyticsRepository<'a> {
             ORDER BY request_count DESC
             LIMIT 10
             "#,
+            from,
+            to
         )
-        .bind(from)
-        .bind(to)
         .fetch_all(self.db.pool())
         .await?;
 
         let most_active_paths = path_rows
             .into_iter()
             .map(|r| PathMetric {
-                path: r.get("path"),
-                request_count: r.get("request_count"),
-                average_response_time: r.get::<Option<f64>, _>("avg_response_time").unwrap_or(0.0),
-                error_count: r.get("error_count"),
+                path: r.path,
+                request_count: r.request_count.unwrap_or(0),
+                average_response_time: r.avg_response_time.and_then(|d| d.to_f64()).unwrap_or(0.0),
+                error_count: r.error_count.unwrap_or(0),
             })
             .collect();
 
         Ok(RequestMetrics {
-            total_requests: summary_row.get("total_requests"),
-            unique_users: summary_row.get("unique_users"),
+            total_requests: summary_row.total_requests.unwrap_or(0),
+            unique_users: summary_row.unique_users.unwrap_or(0),
             average_response_time: summary_row
-                .get::<Option<f64>, _>("avg_response_time")
+                .avg_response_time
+                .and_then(|d| d.to_f64())
                 .unwrap_or(0.0),
-            error_rate: summary_row
-                .get::<Option<f64>, _>("error_rate")
-                .unwrap_or(0.0),
+            error_rate: summary_row.error_rate.unwrap_or(0.0),
             most_active_paths,
         })
     }
@@ -210,7 +209,7 @@ impl<'a> AnalyticsRepository<'a> {
         to: OffsetDateTime,
         interval_minutes: i32,
     ) -> Result<Vec<TimeSeriesPoint>, AnalyticsError> {
-        let rows = sqlx::query(
+        let rows = sqlx::query!(
             r#"
             SELECT
                 DATE_TRUNC('minute', timestamp) +
@@ -221,18 +220,18 @@ impl<'a> AnalyticsRepository<'a> {
             GROUP BY time_bucket
             ORDER BY time_bucket
             "#,
+            from,
+            to,
+            interval_minutes
         )
-        .bind(from)
-        .bind(to)
-        .bind(interval_minutes)
         .fetch_all(self.db.pool())
         .await?;
 
         Ok(rows
             .into_iter()
             .map(|r| TimeSeriesPoint {
-                timestamp: r.get("time_bucket"),
-                value: r.get::<i64, _>("request_count") as f64,
+                timestamp: r.time_bucket.unwrap(),
+                value: r.request_count.unwrap_or(0) as f64,
                 label: None,
             })
             .collect())
@@ -245,7 +244,7 @@ impl<'a> AnalyticsRepository<'a> {
         to: OffsetDateTime,
         interval_minutes: i32,
     ) -> Result<Vec<TimeSeriesPoint>, AnalyticsError> {
-        let rows = sqlx::query(
+        let rows = sqlx::query!(
             r#"
             SELECT
                 DATE_TRUNC('minute', timestamp) +
@@ -256,18 +255,18 @@ impl<'a> AnalyticsRepository<'a> {
             GROUP BY time_bucket
             ORDER BY time_bucket
             "#,
+            from,
+            to,
+            interval_minutes
         )
-        .bind(from)
-        .bind(to)
-        .bind(interval_minutes)
         .fetch_all(self.db.pool())
         .await?;
 
         Ok(rows
             .into_iter()
             .map(|r| TimeSeriesPoint {
-                timestamp: r.get("time_bucket"),
-                value: r.get::<Option<f64>, _>("error_rate").unwrap_or(0.0),
+                timestamp: r.time_bucket.unwrap(),
+                value: r.error_rate.unwrap_or(0.0),
                 label: None,
             })
             .collect())
@@ -278,13 +277,13 @@ impl<'a> AnalyticsRepository<'a> {
         &self,
         older_than: OffsetDateTime,
     ) -> Result<u64, AnalyticsError> {
-        let result = sqlx::query(
+        let result = sqlx::query!(
             r#"
             DELETE FROM request_analytics
             WHERE timestamp < $1
             "#,
+            older_than
         )
-        .bind(older_than)
         .execute(self.db.pool())
         .await?;
 

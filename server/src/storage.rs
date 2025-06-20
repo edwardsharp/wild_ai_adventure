@@ -1,6 +1,7 @@
+use num_traits::ToPrimitive;
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
-use sqlx::{PgPool, Row};
+use sqlx::PgPool;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use time::OffsetDateTime;
@@ -222,7 +223,7 @@ impl PostgresAnalyticsStore {
         &self,
         analytics: RequestAnalytics,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        sqlx::query(
+        sqlx::query!(
             r#"
             INSERT INTO request_analytics
             (id, request_id, timestamp, user_id, method, path, status_code,
@@ -230,22 +231,22 @@ impl PostgresAnalyticsStore {
              error_message, trace_id, span_id)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
             "#,
+            analytics.id,
+            analytics.request_id,
+            analytics.timestamp,
+            analytics.user_id,
+            analytics.method,
+            analytics.path,
+            analytics.status_code as i32,
+            analytics.duration_ms as i32,
+            analytics.user_agent,
+            analytics.ip_address,
+            analytics.request_data,
+            analytics.response_size,
+            analytics.error_message,
+            analytics.trace_id,
+            analytics.span_id
         )
-        .bind(&analytics.id)
-        .bind(&analytics.request_id)
-        .bind(&analytics.timestamp)
-        .bind(&analytics.user_id)
-        .bind(&analytics.method)
-        .bind(&analytics.path)
-        .bind(analytics.status_code as i32)
-        .bind(analytics.duration_ms)
-        .bind(&analytics.user_agent)
-        .bind(&analytics.ip_address)
-        .bind(&analytics.request_data)
-        .bind(analytics.response_size)
-        .bind(&analytics.error_message)
-        .bind(&analytics.trace_id)
-        .bind(&analytics.span_id)
         .execute(&self.pool)
         .await?;
 
@@ -257,7 +258,7 @@ impl PostgresAnalyticsStore {
         user_id: Uuid,
         limit: i64,
     ) -> Result<Vec<RequestAnalytics>, Box<dyn std::error::Error>> {
-        let rows = sqlx::query(
+        let rows = sqlx::query!(
             r#"
             SELECT id, request_id, timestamp, user_id, method, path, status_code,
                    duration_ms, user_agent, ip_address, request_data, response_size,
@@ -267,32 +268,32 @@ impl PostgresAnalyticsStore {
             ORDER BY timestamp DESC
             LIMIT $2
             "#,
+            user_id,
+            limit
         )
-        .bind(user_id)
-        .bind(limit)
         .fetch_all(&self.pool)
         .await?;
 
-        let mut results = Vec::new();
-        for row in rows {
-            results.push(RequestAnalytics {
-                id: row.get("id"),
-                request_id: row.get("request_id"),
-                timestamp: row.get("timestamp"),
-                user_id: row.get("user_id"),
-                method: row.get("method"),
-                path: row.get("path"),
-                status_code: row.get::<i32, _>("status_code") as u16,
-                duration_ms: row.get("duration_ms"),
-                user_agent: row.get("user_agent"),
-                ip_address: row.get("ip_address"),
-                request_data: row.get("request_data"),
-                response_size: row.get("response_size"),
-                error_message: row.get("error_message"),
-                trace_id: row.get("trace_id"),
-                span_id: row.get("span_id"),
-            });
-        }
+        let results = rows
+            .into_iter()
+            .map(|row| RequestAnalytics {
+                id: row.id,
+                request_id: row.request_id,
+                timestamp: row.timestamp,
+                user_id: row.user_id,
+                method: row.method,
+                path: row.path,
+                status_code: row.status_code as u16,
+                duration_ms: row.duration_ms.unwrap_or(0) as i64,
+                user_agent: row.user_agent,
+                ip_address: row.ip_address.unwrap_or_default(),
+                request_data: row.request_data,
+                response_size: row.response_size,
+                error_message: row.error_message,
+                trace_id: row.trace_id,
+                span_id: row.span_id,
+            })
+            .collect();
 
         Ok(results)
     }
@@ -301,7 +302,7 @@ impl PostgresAnalyticsStore {
         &self,
         hours: i32,
     ) -> Result<AnalyticsStats, Box<dyn std::error::Error>> {
-        let row = sqlx::query(
+        let row = sqlx::query!(
             r#"
             SELECT
                 COUNT(*) as total_requests,
@@ -310,19 +311,19 @@ impl PostgresAnalyticsStore {
                 COUNT(*) FILTER (WHERE status_code >= 400) as error_count,
                 COUNT(*) FILTER (WHERE status_code < 400) as success_count
             FROM request_analytics
-            WHERE timestamp >= NOW() - INTERVAL '%hours hours'
+            WHERE timestamp >= NOW() - INTERVAL '1 hour' * $1
             "#,
+            hours as f64
         )
-        .bind(hours)
         .fetch_one(&self.pool)
         .await?;
 
         Ok(AnalyticsStats {
-            total_requests: row.get("total_requests"),
-            unique_users: row.get("unique_users"),
-            avg_duration_ms: row.get::<Option<f64>, _>("avg_duration_ms").unwrap_or(0.0),
-            error_count: row.get("error_count"),
-            success_count: row.get("success_count"),
+            total_requests: row.total_requests.unwrap_or(0),
+            unique_users: row.unique_users.unwrap_or(0),
+            avg_duration_ms: row.avg_duration_ms.and_then(|d| d.to_f64()).unwrap_or(0.0),
+            error_count: row.error_count.unwrap_or(0),
+            success_count: row.success_count.unwrap_or(0),
         })
     }
 
@@ -331,41 +332,41 @@ impl PostgresAnalyticsStore {
         hours: i32,
         limit: i64,
     ) -> Result<Vec<PathStats>, Box<dyn std::error::Error>> {
-        let rows = sqlx::query(
+        let rows = sqlx::query!(
             r#"
             SELECT
                 path,
                 COUNT(*) as request_count,
                 AVG(duration_ms) as avg_duration_ms
             FROM request_analytics
-            WHERE timestamp >= NOW() - INTERVAL '%hours hours'
+            WHERE timestamp >= NOW() - INTERVAL '1 hour' * $1
             GROUP BY path
             ORDER BY request_count DESC
             LIMIT $2
             "#,
+            hours as f64,
+            limit
         )
-        .bind(hours)
-        .bind(limit)
         .fetch_all(&self.pool)
         .await?;
 
-        let mut results = Vec::new();
-        for row in rows {
-            results.push(PathStats {
-                path: row.get("path"),
-                request_count: row.get("request_count"),
-                avg_duration_ms: row.get::<Option<f64>, _>("avg_duration_ms").unwrap_or(0.0),
-            });
-        }
+        let results = rows
+            .into_iter()
+            .map(|row| PathStats {
+                path: row.path,
+                request_count: row.request_count.unwrap_or(0),
+                avg_duration_ms: row.avg_duration_ms.and_then(|d| d.to_f64()).unwrap_or(0.0),
+            })
+            .collect();
 
         Ok(results)
     }
 
     pub async fn cleanup_old_data(&self, days: i32) -> Result<u64, Box<dyn std::error::Error>> {
-        let result = sqlx::query(
+        let result = sqlx::query!(
             "DELETE FROM request_analytics WHERE timestamp < NOW() - INTERVAL '1 day' * $1",
+            days as f64
         )
-        .bind(days)
         .execute(&self.pool)
         .await?;
 
