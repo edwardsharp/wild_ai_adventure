@@ -15,7 +15,7 @@
     "name": "WebAuthn Demo",
     "version": "1.0.0",
     "environment": "development",
-    "description": "WebAuthn authentication server with invite codes",
+    "description": "WebAuthn authentication server with invite codes"
   },
   "database": {
     "host": "localhost",
@@ -26,12 +26,12 @@
       "max_connections": 10,
       "min_connections": 1,
       "connect_timeout_seconds": 30,
-      "idle_timeout_seconds": 600,
+      "idle_timeout_seconds": 600
     },
     "migrations": {
       "auto_run": true,
-      "path": "migrations",
-    },
+      "path": "migrations"
+    }
   },
   "webauthn": {
     "rp_id": "localhost",
@@ -39,7 +39,7 @@
     "rp_origin": "http://localhost:8080",
     "require_resident_key": false,
     "user_verification": "preferred",
-    "timeout_ms": 60000,
+    "timeout_ms": 60000
   },
   "server": {
     "host": "0.0.0.0",
@@ -50,13 +50,13 @@
       "enabled": false,
       "allowed_origins": ["http://localhost:8080"],
       "allowed_methods": ["GET", "POST", "OPTIONS"],
-      "allowed_headers": ["Content-Type", "Authorization"],
+      "allowed_headers": ["Content-Type", "Authorization"]
     },
     "tls": {
       "enabled": false,
       "cert_file": null,
-      "key_file": null,
-    },
+      "key_file": null
+    }
   },
   "sessions": {
     "name": "webauthnrs",
@@ -64,7 +64,7 @@
     "secure": false,
     "same_site": "strict",
     "http_only": true,
-    "store_type": "memory",
+    "store_type": "memory"
   },
   "invite_codes": {
     "default_length": 8,
@@ -72,7 +72,7 @@
     "max_batch_size": 100,
     "expiry_days": 0,
     "single_use": true,
-    "case_sensitive": false,
+    "case_sensitive": false
   },
   "logging": {
     "level": "info",
@@ -82,8 +82,8 @@
       "log_auth_attempts": true,
       "log_private_access": true,
       "log_failed_invites": true,
-      "log_request_analytics": true,
-    },
+      "log_request_analytics": true
+    }
   },
   "analytics": {
     "enabled": true,
@@ -94,8 +94,8 @@
       "enabled": false,
       "prometheus_endpoint": "/metrics",
       "health_endpoint": "/health",
-      "require_auth": false,
-    },
+      "require_auth": false
+    }
   },
   // Static file serving configuration
   "static_files": {
@@ -105,14 +105,14 @@
     "cache": {
       "enabled": true,
       "max_age_seconds": 3600,
-      "etags": true,
-    },
+      "etags": true
+    }
   },
   // Storage backend configuration
   "storage": {
     "analytics": "memory",
     "sessions": "memory",
-    "cache": "memory",
+    "cache": "memory"
   },
   "development": {
     "hot_reload": false,
@@ -120,7 +120,7 @@
     "auto_generate_invites": true,
     "auto_invite_count": 3,
     "seed_data": false,
-    "test_users": [],
+    "test_users": []
   },
   "production": {
     "require_https": true,
@@ -128,14 +128,14 @@
     "rate_limiting": {
       "enabled": false,
       "requests_per_minute": 60,
-      "burst": 10,
+      "burst": 10
     },
     "security": {
       "hsts_max_age": 31536000,
       "csp": null,
       "frame_options": "DENY",
-      "content_type_options": "nosniff",
-    },
+      "content_type_options": "nosniff"
+    }
   },
   // Feature flags - enable/disable functionality
   "features": {
@@ -145,6 +145,6 @@
     "admin_cli_enabled": true,
     "analytics_enabled": true,
     "public_static_files": true,
-    "private_static_files": true,
-  },
+    "private_static_files": true
+  }
 }

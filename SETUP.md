@@ -5,12 +5,14 @@ This guide will help you set up PostgreSQL and test the invite code functionalit
 ## 1. Install and Start PostgreSQL
 
 ### macOS (using Homebrew)
+
 ```bash
 brew install postgresql@15
 brew services start postgresql@15
 ```
 
 ### Ubuntu/Debian
+
 ```bash
 sudo apt update
 sudo apt install postgresql postgresql-contrib
@@ -19,6 +21,7 @@ sudo systemctl enable postgresql
 ```
 
 ### Windows
+
 Download and install from: https://www.postgresql.org/download/windows/
 
 ## 2. Create Database and User
@@ -55,6 +58,7 @@ cargo run --bin webauthn-admin -- stats
 ```
 
 If successful, you should see:
+
 ```
 Invite Code Statistics:
   Total codes: 0
@@ -99,16 +103,20 @@ cargo run
 ## Troubleshooting
 
 ### Error: "password authentication failed"
+
 - Check your username and password in the .env file
 - Ensure the PostgreSQL user was created correctly
 
 ### Error: "database does not exist"
+
 - Make sure you created the database: `CREATE DATABASE webauthn_db;`
 
 ### Error: "connection refused"
+
 - Ensure PostgreSQL is running: `brew services start postgresql@15` (macOS) or `sudo systemctl start postgresql` (Linux)
 
 ### Error: "relative URL without a base"
+
 - This was a bug that has been fixed. Update to the latest version of the code.
 
 ## Quick Test Sequence

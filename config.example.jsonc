@@ -15,7 +15,7 @@
     "name": "WebAuthn Demo", // Display name for your application
     "version": "1.0.0", // Application version
     "environment": "development", // Environment: development, staging, production
-    "description": "WebAuthn authentication server with invite codes", // Optional description
+    "description": "WebAuthn authentication server with invite codes" // Optional description
   },
 
   // Database connection and pool settings
@@ -32,14 +32,14 @@
       "max_connections": 10, // Maximum concurrent database connections
       "min_connections": 1, // Minimum connections to maintain in pool
       "connect_timeout_seconds": 30, // Timeout when establishing new connections
-      "idle_timeout_seconds": 600, // How long idle connections can remain in pool (10 min)
+      "idle_timeout_seconds": 600 // How long idle connections can remain in pool (10 min)
     },
 
     // Database migration settings
     "migrations": {
       "auto_run": true, // Automatically run migrations on startup
-      "path": "migrations", // Directory containing migration files
-    },
+      "path": "migrations" // Directory containing migration files
+    }
   },
 
   // WebAuthn/FIDO2 authentication configuration
@@ -49,7 +49,7 @@
     "rp_origin": "http://localhost:8080", // Complete origin URL (must match actual server URL)
     "require_resident_key": false, // Require credentials to be stored on device (more secure but less compatible)
     "user_verification": "preferred", // User verification: "required", "preferred", or "discouraged"
-    "timeout_ms": 60000, // Timeout for WebAuthn operations in milliseconds (60 seconds)
+    "timeout_ms": 60000 // Timeout for WebAuthn operations in milliseconds (60 seconds)
   },
 
   // HTTP server configuration
@@ -64,15 +64,15 @@
       "enabled": false, // Enable CORS headers (needed if frontend is on different domain)
       "allowed_origins": ["http://localhost:8080"], // Domains allowed to make requests
       "allowed_methods": ["GET", "POST", "OPTIONS"], // HTTP methods allowed
-      "allowed_headers": ["Content-Type", "Authorization"], // Headers allowed in requests
+      "allowed_headers": ["Content-Type", "Authorization"] // Headers allowed in requests
     },
 
     // TLS/SSL configuration (for HTTPS)
     "tls": {
       "enabled": false, // Enable HTTPS (required for production WebAuthn)
       "cert_file": null, // Path to TLS certificate file (.pem)
-      "key_file": null, // Path to TLS private key file (.pem)
-    },
+      "key_file": null // Path to TLS private key file (.pem)
+    }
   },
 
   // Session management settings
@@ -82,7 +82,7 @@
     "secure": false, // Use secure cookies (set true for HTTPS)
     "same_site": "strict", // SameSite attribute: "strict", "lax", or "none"
     "http_only": true, // Prevent JavaScript access to session cookies
-    "store_type": "memory", // Session storage: "memory" or "postgres" (future)
+    "store_type": "memory" // Session storage: "memory" or "postgres" (future)
   },
 
   // Invite code system configuration
@@ -92,7 +92,7 @@
     "max_batch_size": 100, // Maximum codes that can be generated in one batch
     "expiry_days": 0, // Days until codes expire (0 = never expire)
     "single_use": true, // Whether codes can only be used once
-    "case_sensitive": false, // Whether invite codes are case-sensitive
+    "case_sensitive": false // Whether invite codes are case-sensitive
   },
 
   // Logging and tracing configuration
@@ -114,8 +114,8 @@
       "log_auth_attempts": true, // Log all authentication attempts (success and failure)
       "log_private_access": true, // Log access to private/protected content
       "log_failed_invites": true, // Log failed invite code attempts
-      "log_request_analytics": true, // Log all HTTP requests for analytics
-    },
+      "log_request_analytics": true // Log all HTTP requests for analytics
+    }
   },
 
   // Analytics and metrics configuration
@@ -130,8 +130,8 @@
       "enabled": false, // Enable metrics HTTP endpoints
       "prometheus_endpoint": "/metrics", // Prometheus-format metrics endpoint
       "health_endpoint": "/health", // Health check endpoint
-      "require_auth": false, // Require authentication to access metrics
-    },
+      "require_auth": false // Require authentication to access metrics
+    }
   },
 
   // Static file serving configuration
@@ -144,8 +144,8 @@
     "cache": {
       "enabled": true, // Enable HTTP caching headers
       "max_age_seconds": 3600, // How long browsers should cache files (1 hour)
-      "etags": true, // Enable ETag headers for conditional requests
-    },
+      "etags": true // Enable ETag headers for conditional requests
+    }
   },
 
   // Storage backend configuration
@@ -157,8 +157,7 @@
     "sessions": "memory", // "memory" for in-memory storage, "postgres" for PostgreSQL database
 
     // Cache storage: for future caching features
-    "cache": "memory", // "memory" for in-memory storage, "postgres" for PostgreSQL database
-
+    "cache": "memory" // "memory" for in-memory storage, "postgres" for PostgreSQL database
     // Notes on storage backends:
     // - "memory": Fast, good for development/testing, data lost on restart
     // - "postgres": Persistent, good for production, requires database setup
@@ -174,7 +173,7 @@
     "auto_generate_invites": true, // Automatically generate invite codes on startup
     "auto_invite_count": 3, // Number of invite codes to auto-generate
     "seed_data": false, // Create test data on startup (future feature)
-    "test_users": [], // Test users to create automatically (future feature)
+    "test_users": [] // Test users to create automatically (future feature)
   },
 
   // Production deployment settings (enforced when environment = "production")
@@ -186,7 +185,7 @@
     "rate_limiting": {
       "enabled": false, // Enable rate limiting per IP address
       "requests_per_minute": 60, // Maximum requests per minute per IP
-      "burst": 10, // Burst allowance above the rate limit
+      "burst": 10 // Burst allowance above the rate limit
     },
 
     // Additional security configuration
@@ -194,8 +193,8 @@
       "hsts_max_age": 31536000, // HTTP Strict Transport Security max age (1 year)
       "csp": null, // Content Security Policy header (null = default)
       "frame_options": "DENY", // X-Frame-Options header (prevent clickjacking)
-      "content_type_options": "nosniff", // X-Content-Type-Options header
-    },
+      "content_type_options": "nosniff" // X-Content-Type-Options header
+    }
   },
 
   // Feature flags - enable/disable functionality
@@ -206,6 +205,6 @@
     "admin_cli_enabled": true, // Enable CLI administration tools
     "analytics_enabled": true, // Enable request analytics collection
     "public_static_files": true, // Enable serving of public static files
-    "private_static_files": true, // Enable serving of private static files (with auth)
-  },
+    "private_static_files": true // Enable serving of private static files (with auth)
+  }
 }

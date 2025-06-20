@@ -235,6 +235,6 @@ async fn main() {
     axum::serve(listener, app).await.unwrap();
 }
 
-async fn handler_404() -> impl IntoResponse {
-    (StatusCode::NOT_FOUND, "nothing to see here")
-}
+// async fn handler_404() -> impl IntoResponse {
+//     (StatusCode::NOT_FOUND, "nothing to see here")
+// }

@@ -33,7 +33,7 @@ This demonstrates using Axum as the backend for a WebAuthn authentication system
    ```bash
    # Generate default configuration file
    cargo run --bin webauthn-admin config init
-   
+
    # Generate JSON Schema for editor support
    cargo run --bin webauthn-admin config schema
    ```
@@ -43,10 +43,10 @@ This demonstrates using Axum as the backend for a WebAuthn authentication system
    # Edit the configuration file (supports comments!)
    # Your editor should provide autocomplete and validation
    edit config.jsonc
-   
+
    # Generate .env file for Docker/SQLx compatibility
    cargo run --bin webauthn-admin config generate-env
-   
+
    # Set your database password
    export DATABASE_PASSWORD="your_secure_password"
    ```
@@ -76,16 +76,16 @@ This demonstrates using Axum as the backend for a WebAuthn authentication system
    ```bash
    # Initialize default configuration
    cargo run --bin webauthn-admin config init
-   
+
    # Generate JSON Schema for your editor
    cargo run --bin webauthn-admin config schema
-   
+
    # Edit configuration to match your setup
    edit config.jsonc
-   
+
    # Validate your configuration
    cargo run --bin webauthn-admin config validate
-   
+
    # Generate .env file for compatibility
    cargo run --bin webauthn-admin config generate-env
    ```
@@ -100,7 +100,7 @@ This demonstrates using Axum as the backend for a WebAuthn authentication system
    ```bash
    # Generate invite codes (uses config defaults)
    cargo run --bin webauthn-admin generate-invite
-   
+
    # Override defaults
    cargo run --bin webauthn-admin generate-invite --count 5 --length 12
    ```
@@ -169,6 +169,7 @@ cargo run --bin webauthn-admin config generate-env
 For the best experience, configure your editor to use the JSON Schema:
 
 **VS Code**: Add to settings.json:
+
 ```json
 {
   "json.schemas": [
@@ -185,6 +186,7 @@ For the best experience, configure your editor to use the JSON Schema:
 ### Key Configuration Sections
 
 **Main Configuration (`config.jsonc`):**
+
 - **`app`**: Application metadata and environment
 - **`database`**: Database connection and pool settings (password comes from secrets)
 - **`webauthn`**: WebAuthn/FIDO2 configuration
@@ -199,6 +201,7 @@ For the best experience, configure your editor to use the JSON Schema:
 - **`features`**: Feature flags
 
 **Secrets Configuration (`config.secrets.jsonc`):**
+
 - **`database`**: Database password and optional URL override
 - **`app`**: Session secrets and API keys
 - **`external`**: Third-party service credentials
@@ -317,6 +320,7 @@ The server primarily uses `config.jsonc` + `config.secrets.jsonc` for configurat
 - `RUST_LOG`: Logging level (overrides config)
 
 **Secrets Priority Order:**
+
 1. `config.secrets.jsonc` file (preferred)
 2. Environment variables (fallback)
 3. Generated `.env` file (Docker/tooling compatibility)
@@ -338,10 +342,10 @@ Migrations are automatically run when the server starts (configurable via `datab
    ```bash
    # Create config and secrets together
    cargo run --bin webauthn-admin config init --with-secrets
-   
+
    # Edit your actual secrets (use strong passwords!)
    edit config.secrets.jsonc
-   
+
    # Set proper file permissions
    chmod 600 config.secrets.jsonc
    ```
@@ -350,10 +354,10 @@ Migrations are automatically run when the server starts (configurable via `datab
    ```bash
    # Edit main configuration (with schema validation)
    edit config.jsonc
-   
+
    # Validate everything
    cargo run --bin webauthn-admin config validate
-   
+
    # Start development server (secrets-aware)
    ./start_dev.sh
    ```
@@ -368,7 +372,7 @@ Migrations are automatically run when the server starts (configurable via `datab
    ```bash
    # Check configuration validity
    cargo run --bin webauthn-admin config validate
-   
+
    # Show current configuration
    cargo run --bin webauthn-admin config show
    ```
@@ -421,6 +425,7 @@ RUST_LOG=debug cargo run
 ```
 
 Check analytics for request patterns:
+
 ```bash
 cargo run --bin webauthn-admin analytics --hours 1
 ```
@@ -458,7 +463,7 @@ cargo run --bin webauthn-admin analytics --hours 1
      },
      "sessions": {
        "secure": true,
-       "store_type": "postgres"  // Future feature
+       "store_type": "postgres" // Future feature
      },
      "production": {
        "require_https": true,
@@ -499,6 +504,7 @@ cargo run --bin webauthn-admin analytics --hours 1
 ### Monitoring
 
 Enable metrics collection:
+
 ```jsonc
 {
   "analytics": {
@@ -512,6 +518,7 @@ Enable metrics collection:
 ```
 
 Monitor via CLI:
+
 ```bash
 # Regular health checks (automatically finds secrets file)
 cargo run --bin webauthn-admin --config config.production.jsonc analytics
