@@ -54,9 +54,8 @@ impl Cli {
                 let (config, db) = self.setup_database().await?;
                 user_command
                     .handle(
-                        &db,
-                        config.invite_codes.default_count,
-                        config.invite_codes.default_length,
+                        &db, 5,  // default count
+                        32, // default length
                     )
                     .await
             }

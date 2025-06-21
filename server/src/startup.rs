@@ -48,6 +48,7 @@ impl AppState {
         let webauthn = Arc::new(builder.build()?);
 
         // Connect to the database using config
+        println!("ZOMG DB URL: {}", &config.database_url());
         let database_url = config.database_url();
 
         // Configure connection pool

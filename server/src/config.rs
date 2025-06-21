@@ -91,6 +91,9 @@ pub struct DatabaseConfig {
     /// Database user
     #[serde(default = "default_db_user")]
     pub user: String,
+    /// Database password
+    #[serde(default = "default_db_password")]
+    pub password: String,
     /// Connection pool configuration
     pub pool: DatabasePoolConfig,
     /// Database migration settings
@@ -293,6 +296,9 @@ fn default_db_name() -> String {
 fn default_db_user() -> String {
     "postgres".to_string()
 }
+fn default_db_password() -> String {
+    "postgres".to_string()
+}
 
 fn default_pool_max_connections() -> u32 {
     10
@@ -414,6 +420,7 @@ impl AppConfig {
                 port: default_db_port(),
                 name: default_db_name(),
                 user: default_db_user(),
+                password: default_db_password(),
                 pool: DatabasePoolConfig {
                     max_connections: default_pool_max_connections(),
                     min_connections: default_pool_min_connections(),
@@ -544,8 +551,12 @@ impl AppConfig {
     /// Get the complete database URL
     pub fn database_url(&self) -> String {
         format!(
-            "postgresql://{}@{}:{}/{}",
-            self.database.user, self.database.host, self.database.port, self.database.name
+            "postgresql://{}:{}@{}:{}/{}",
+            self.database.user,
+            self.database.password,
+            self.database.host,
+            self.database.port,
+            self.database.name
         )
     }
 }
@@ -563,6 +574,7 @@ impl Default for AppConfig {
                 host: default_db_host(),
                 port: default_db_port(),
                 name: default_db_name(),
+                password: default_db_password(),
                 user: default_db_user(),
                 pool: DatabasePoolConfig {
                     max_connections: default_pool_max_connections(),

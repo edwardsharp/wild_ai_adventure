@@ -1,0 +1,659 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>WebSocket Demo - Axum Tutorial</title>
+        <style>
+            body {
+                font-family:
+                    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                    sans-serif;
+                max-width: 1200px;
+                margin: 0 auto;
+                padding: 20px;
+                background: #f8fafc;
+            }
+
+            .header {
+                background: white;
+                padding: 20px;
+                border-radius: 12px;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+                margin-bottom: 20px;
+            }
+
+            .header h1 {
+                margin: 0 0 10px 0;
+                color: #1e293b;
+            }
+
+            .header p {
+                margin: 0;
+                color: #64748b;
+            }
+
+            .demo-section {
+                background: white;
+                padding: 20px;
+                border-radius: 12px;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+                margin-bottom: 20px;
+            }
+
+            .demo-section h2 {
+                margin: 0 0 15px 0;
+                color: #1e293b;
+                font-size: 18px;
+            }
+
+            .controls {
+                display: flex;
+                gap: 10px;
+                margin-bottom: 15px;
+                flex-wrap: wrap;
+            }
+
+            button {
+                padding: 8px 16px;
+                border: 1px solid #d1d5db;
+                border-radius: 6px;
+                background: white;
+                color: #374151;
+                font-size: 14px;
+                cursor: pointer;
+                transition: all 0.2s;
+            }
+
+            button:hover {
+                background: #f3f4f6;
+                border-color: #9ca3af;
+            }
+
+            button:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+            }
+
+            button.primary {
+                background: #3b82f6;
+                color: white;
+                border-color: #3b82f6;
+            }
+
+            button.primary:hover:not(:disabled) {
+                background: #2563eb;
+                border-color: #2563eb;
+            }
+
+            button.danger {
+                background: #ef4444;
+                color: white;
+                border-color: #ef4444;
+            }
+
+            button.danger:hover:not(:disabled) {
+                background: #dc2626;
+                border-color: #dc2626;
+            }
+
+            .status-bar {
+                display: flex;
+                align-items: center;
+                gap: 15px;
+                padding: 12px;
+                background: #f8fafc;
+                border-radius: 8px;
+                margin-bottom: 15px;
+            }
+
+            .status-indicator {
+                width: 12px;
+                height: 12px;
+                border-radius: 50%;
+                border: 1px solid rgba(0, 0, 0, 0.1);
+            }
+
+            .status-indicator.disconnected {
+                background-color: #ef4444;
+            }
+
+            .status-indicator.connecting {
+                background-color: #f59e0b;
+                animation: pulse 1.5s infinite;
+            }
+
+            .status-indicator.connected {
+                background-color: #10b981;
+            }
+
+            .status-indicator.error {
+                background-color: #dc2626;
+                animation: blink 1s infinite;
+            }
+
+            @keyframes pulse {
+                0%,
+                100% {
+                    opacity: 1;
+                    transform: scale(1);
+                }
+                50% {
+                    opacity: 0.7;
+                    transform: scale(1.1);
+                }
+            }
+
+            @keyframes blink {
+                0%,
+                50% {
+                    opacity: 1;
+                }
+                51%,
+                100% {
+                    opacity: 0.3;
+                }
+            }
+
+            .log-container {
+                background: #1e293b;
+                color: #f1f5f9;
+                padding: 15px;
+                border-radius: 8px;
+                font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
+                font-size: 12px;
+                max-height: 400px;
+                overflow-y: auto;
+                white-space: pre-wrap;
+                word-break: break-all;
+                margin-bottom: 15px;
+            }
+
+            .media-blobs {
+                max-height: 300px;
+                overflow-y: auto;
+            }
+
+            .media-blob {
+                padding: 12px;
+                border: 1px solid #e5e7eb;
+                border-radius: 6px;
+                margin-bottom: 8px;
+                background: #f9fafb;
+            }
+
+            .media-blob-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 8px;
+            }
+
+            .media-blob-id {
+                font-family: monospace;
+                font-size: 11px;
+                color: #6b7280;
+            }
+
+            .media-blob-info {
+                font-size: 13px;
+                color: #374151;
+                font-weight: 500;
+            }
+
+            .media-blob-meta {
+                font-size: 11px;
+                color: #6b7280;
+                line-height: 1.4;
+            }
+
+            .input-group {
+                display: flex;
+                gap: 8px;
+                margin-bottom: 10px;
+            }
+
+            input[type="text"],
+            input[type="number"] {
+                padding: 6px 10px;
+                border: 1px solid #d1d5db;
+                border-radius: 4px;
+                font-size: 14px;
+            }
+
+            .error-message {
+                background: #fef2f2;
+                border: 1px solid #fecaca;
+                color: #dc2626;
+                padding: 10px;
+                border-radius: 6px;
+                margin-bottom: 15px;
+                font-size: 14px;
+            }
+
+            .empty-state {
+                text-align: center;
+                color: #6b7280;
+                font-style: italic;
+                padding: 20px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h1>WebSocket Demo</h1>
+            <p>
+                Test WebSocket connectivity and media blob functionality with
+                the Axum tutorial server.
+            </p>
+        </div>
+
+        <div class="demo-section">
+            <h2>Connection</h2>
+            <div class="input-group">
+                <input
+                    type="text"
+                    id="websocket-url"
+                    placeholder="WebSocket URL"
+                    value="ws://localhost:8080/ws"
+                />
+                <button id="connect-btn" class="primary">Connect</button>
+                <button id="disconnect-btn" class="danger" disabled>
+                    Disconnect
+                </button>
+            </div>
+            <div class="status-bar">
+                <div
+                    id="status-indicator"
+                    class="status-indicator disconnected"
+                ></div>
+                <span id="status-text">Disconnected</span>
+                <span
+                    id="user-count"
+                    style="color: #6b7280; font-size: 12px"
+                ></span>
+            </div>
+            <div id="error-container"></div>
+        </div>
+
+        <div class="demo-section">
+            <h2>Actions</h2>
+            <div class="controls">
+                <button id="ping-btn" disabled>Send Ping</button>
+                <button id="get-media-blobs-btn" disabled>
+                    Get Media Blobs
+                </button>
+                <button id="mock-upload-btn" disabled>Mock Upload</button>
+                <button id="clear-log-btn">Clear Log</button>
+            </div>
+        </div>
+
+        <div class="demo-section">
+            <h2>Debug Log</h2>
+            <div id="debug-log" class="log-container">
+                Waiting for connection...
+            </div>
+        </div>
+
+        <div class="demo-section">
+            <h2>Media Blobs (<span id="blob-count">0</span>)</h2>
+            <div id="media-blobs-container" class="media-blobs">
+                <div class="empty-state">No media blobs received yet.</div>
+            </div>
+        </div>
+
+        <script type="module">
+            // Simple WebSocket client implementation for demo
+            class DemoWebSocketClient {
+                constructor() {
+                    this.socket = null;
+                    this.status = "disconnected";
+                    this.debugLog = [];
+                    this.mediaBlobs = [];
+                    this.userCount = 0;
+                    this.connectionId = "";
+
+                    this.bindElements();
+                    this.bindEvents();
+                }
+
+                bindElements() {
+                    this.urlInput = document.getElementById("websocket-url");
+                    this.connectBtn = document.getElementById("connect-btn");
+                    this.disconnectBtn =
+                        document.getElementById("disconnect-btn");
+                    this.statusIndicator =
+                        document.getElementById("status-indicator");
+                    this.statusText = document.getElementById("status-text");
+                    this.userCountEl = document.getElementById("user-count");
+                    this.errorContainer =
+                        document.getElementById("error-container");
+                    this.debugLogEl = document.getElementById("debug-log");
+                    this.mediaBlobsContainer = document.getElementById(
+                        "media-blobs-container",
+                    );
+                    this.blobCountEl = document.getElementById("blob-count");
+
+                    // Action buttons
+                    this.pingBtn = document.getElementById("ping-btn");
+                    this.getMediaBlobsBtn = document.getElementById(
+                        "get-media-blobs-btn",
+                    );
+                    this.mockUploadBtn =
+                        document.getElementById("mock-upload-btn");
+                    this.clearLogBtn = document.getElementById("clear-log-btn");
+                }
+
+                bindEvents() {
+                    this.connectBtn.addEventListener("click", () =>
+                        this.connect(),
+                    );
+                    this.disconnectBtn.addEventListener("click", () =>
+                        this.disconnect(),
+                    );
+                    this.pingBtn.addEventListener("click", () => this.ping());
+                    this.getMediaBlobsBtn.addEventListener("click", () =>
+                        this.getMediaBlobs(),
+                    );
+                    this.mockUploadBtn.addEventListener("click", () =>
+                        this.mockUpload(),
+                    );
+                    this.clearLogBtn.addEventListener("click", () =>
+                        this.clearLog(),
+                    );
+                }
+
+                log(message, data = null) {
+                    const timestamp = new Date().toLocaleTimeString();
+                    const logEntry = data
+                        ? `[${timestamp}] ${message}: ${JSON.stringify(data, null, 2)}`
+                        : `[${timestamp}] ${message}`;
+
+                    this.debugLog.push(logEntry);
+                    this.updateDebugLog();
+                    console.log("[WebSocketDemo]", message, data);
+                }
+
+                updateDebugLog() {
+                    // Keep last 50 entries
+                    if (this.debugLog.length > 50) {
+                        this.debugLog = this.debugLog.slice(-50);
+                    }
+                    this.debugLogEl.textContent = this.debugLog.join("\n");
+                    this.debugLogEl.scrollTop = this.debugLogEl.scrollHeight;
+                }
+
+                clearLog() {
+                    this.debugLog = [];
+                    this.updateDebugLog();
+                }
+
+                setStatus(status) {
+                    this.status = status;
+                    this.statusIndicator.className = `status-indicator ${status}`;
+
+                    const statusMap = {
+                        disconnected: "Disconnected",
+                        connecting: "Connecting...",
+                        connected: "Connected",
+                        error: "Connection Error",
+                    };
+
+                    this.statusText.textContent =
+                        statusMap[status] || "Unknown";
+                    this.updateButtons();
+                    this.log(`Status changed to: ${status}`);
+                }
+
+                updateButtons() {
+                    const connected = this.status === "connected";
+                    this.connectBtn.disabled = connected;
+                    this.disconnectBtn.disabled = !connected;
+                    this.pingBtn.disabled = !connected;
+                    this.getMediaBlobsBtn.disabled = !connected;
+                    this.mockUploadBtn.disabled = !connected;
+                }
+
+                setError(message) {
+                    this.errorContainer.innerHTML = `<div class="error-message">${message}</div>`;
+                    this.log(`Error: ${message}`);
+                }
+
+                clearError() {
+                    this.errorContainer.innerHTML = "";
+                }
+
+                connect() {
+                    const url = this.urlInput.value.trim();
+                    if (!url) {
+                        this.setError("Please enter a WebSocket URL");
+                        return;
+                    }
+
+                    this.clearError();
+                    this.setStatus("connecting");
+                    this.log(`Connecting to ${url}`);
+
+                    try {
+                        this.socket = new WebSocket(url);
+                        this.setupSocketListeners();
+                    } catch (error) {
+                        this.setError(`Connection failed: ${error.message}`);
+                        this.setStatus("error");
+                    }
+                }
+
+                disconnect() {
+                    this.log("Disconnecting...");
+                    if (this.socket) {
+                        this.socket.close(1000, "User disconnect");
+                    }
+                }
+
+                setupSocketListeners() {
+                    this.socket.onopen = () => {
+                        this.log("Connected successfully");
+                        this.setStatus("connected");
+                        this.clearError();
+                    };
+
+                    this.socket.onclose = (event) => {
+                        this.log("Connection closed", {
+                            code: event.code,
+                            reason: event.reason,
+                        });
+                        this.setStatus("disconnected");
+                        this.socket = null;
+                    };
+
+                    this.socket.onerror = (error) => {
+                        this.log("Socket error", error);
+                        this.setStatus("error");
+                        this.setError("WebSocket connection error");
+                    };
+
+                    this.socket.onmessage = (event) => {
+                        this.handleMessage(event.data);
+                    };
+                }
+
+                handleMessage(rawMessage) {
+                    this.log("Received message", rawMessage);
+
+                    try {
+                        const response = JSON.parse(rawMessage);
+
+                        switch (response.type) {
+                            case "Welcome":
+                                this.log("Welcome received", response.data);
+                                this.connectionId =
+                                    response.data?.connection_id || "";
+                                break;
+
+                            case "Pong":
+                                this.log("Pong received");
+                                break;
+
+                            case "MediaBlobs":
+                                this.log("Media blobs received", response.data);
+                                this.mediaBlobs = response.data?.blobs || [];
+                                this.updateMediaBlobs();
+                                break;
+
+                            case "MediaBlob":
+                                this.log(
+                                    "Single media blob received",
+                                    response.data,
+                                );
+                                break;
+
+                            case "Error":
+                                this.log(
+                                    "Error message received",
+                                    response.data,
+                                );
+                                this.setError(
+                                    response.data?.message || "Server error",
+                                );
+                                break;
+
+                            case "ConnectionStatus":
+                                this.log(
+                                    "Connection status update",
+                                    response.data,
+                                );
+                                this.userCount = response.data?.user_count || 0;
+                                this.updateUserCount();
+                                break;
+
+                            default:
+                                this.log("Unknown message type", response);
+                        }
+                    } catch (error) {
+                        this.log("Message parse error", {
+                            error: error.toString(),
+                            rawMessage,
+                        });
+                        this.setError(`Parse error: ${error.message}`);
+                    }
+                }
+
+                updateUserCount() {
+                    if (this.userCount > 0) {
+                        this.userCountEl.textContent = `(${this.userCount} user${this.userCount !== 1 ? "s" : ""} online)`;
+                    } else {
+                        this.userCountEl.textContent = "";
+                    }
+                }
+
+                updateMediaBlobs() {
+                    this.blobCountEl.textContent = this.mediaBlobs.length;
+
+                    if (this.mediaBlobs.length === 0) {
+                        this.mediaBlobsContainer.innerHTML =
+                            '<div class="empty-state">No media blobs received yet.</div>';
+                        return;
+                    }
+
+                    const html = this.mediaBlobs
+                        .map(
+                            (blob) => `
+                    <div class="media-blob">
+                        <div class="media-blob-header">
+                            <div class="media-blob-id">${blob.id}</div>
+                            <div class="media-blob-info">
+                                ${blob.mime || "Unknown type"} • ${this.formatFileSize(blob.size)}
+                            </div>
+                        </div>
+                        <div class="media-blob-meta">
+                            SHA256: ${blob.sha256}<br>
+                            Client: ${blob.source_client_id || "Unknown"}<br>
+                            Path: ${blob.local_path || "None"}<br>
+                            Created: ${new Date(blob.created_at).toLocaleString()}
+                            ${Object.keys(blob.metadata || {}).length > 0 ? `<br>Metadata: ${JSON.stringify(blob.metadata)}` : ""}
+                        </div>
+                    </div>
+                `,
+                        )
+                        .join("");
+
+                    this.mediaBlobsContainer.innerHTML = html;
+                }
+
+                formatFileSize(bytes) {
+                    if (!bytes) return "Unknown size";
+                    const units = ["B", "KB", "MB", "GB"];
+                    let size = bytes;
+                    let unitIndex = 0;
+
+                    while (size >= 1024 && unitIndex < units.length - 1) {
+                        size /= 1024;
+                        unitIndex++;
+                    }
+
+                    return `${size.toFixed(1)} ${units[unitIndex]}`;
+                }
+
+                sendMessage(message) {
+                    if (
+                        !this.socket ||
+                        this.socket.readyState !== WebSocket.OPEN
+                    ) {
+                        this.setError("Cannot send message: not connected");
+                        return false;
+                    }
+
+                    try {
+                        const json = JSON.stringify(message);
+                        this.socket.send(json);
+                        this.log("Sent message", message);
+                        return true;
+                    } catch (error) {
+                        this.setError(`Send error: ${error.message}`);
+                        return false;
+                    }
+                }
+
+                ping() {
+                    this.sendMessage({ type: "Ping" });
+                }
+
+                getMediaBlobs() {
+                    this.sendMessage({
+                        type: "GetMediaBlobs",
+                        data: { limit: 10, offset: 0 },
+                    });
+                }
+
+                mockUpload() {
+                    const mockBlob = {
+                        id: "00000000-0000-0000-0000-000000000000", // Will be generated by server
+                        sha256:
+                            "mock_" + Math.random().toString(36).substr(2, 9),
+                        size: Math.floor(Math.random() * 10000) + 1000,
+                        mime: "image/png",
+                        source_client_id: "demo-client",
+                        local_path: "/mock/path/image.png",
+                        metadata: {
+                            width: 800,
+                            height: 600,
+                            source: "demo",
+                        },
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString(),
+                    };
+
+                    this.sendMessage({
+                        type: "UploadMediaBlob",
+                        data: { blob: mockBlob },
+                    });
+                }
+            }
+
+            // Initialize demo when page loads
+            document.addEventListener("DOMContentLoaded", () => {
+                window.demoClient = new DemoWebSocketClient();
+            });
+        </script>
+    </body>
+</html>

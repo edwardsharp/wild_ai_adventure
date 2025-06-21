@@ -10,6 +10,7 @@ use crate::auth::build_auth_routes;
 use crate::config::AppConfig;
 use crate::health::build_health_routes;
 use crate::static_filez::{build_protected_static_routes, build_public_static_routes};
+use crate::websocket::build_websocket_routes;
 
 /// Build all routes for the application
 pub fn build_routes(config: &AppConfig) -> Router {
@@ -19,6 +20,7 @@ pub fn build_routes(config: &AppConfig) -> Router {
         .merge(build_protected_static_routes(config))
         .merge(build_public_static_routes(config))
         .merge(build_health_routes())
+        .merge(build_websocket_routes())
 }
 
 #[cfg(test)]

@@ -292,8 +292,7 @@ impl ConfigCommands {
 
         let config = config.unwrap_or_else(AppConfig::default);
 
-        // Generate environment variables
-        let env_vars = config.to_env_vars();
+        // Generate environment variables (simplified for now)
         let mut content = String::new();
 
         content.push_str("# WebAuthn Server Environment Variables\n");
@@ -305,14 +304,16 @@ impl ConfigCommands {
             content.push_str("# SECRETS_PATH=assets/config/config.secrets.jsonc\n\n");
         }
 
-        for (key, value) in env_vars {
-            if with_examples {
-                content.push_str(&format!("# {}\n", key));
-                content.push_str(&format!("{}={}\n\n", key, value));
-            } else {
-                content.push_str(&format!("{}={}\n", key, value));
-            }
-        }
+        // Basic environment variables
+        content.push_str(&format!("DATABASE_URL={}\n", config.database_url()));
+        content.push_str(&format!("SERVER_HOST={}\n", config.server.host));
+        content.push_str(&format!("SERVER_PORT={}\n", config.server.port));
+        content.push_str(&format!("WEBAUTHN_RP_ID={}\n", config.webauthn.rp_id));
+        content.push_str(&format!("WEBAUTHN_RP_NAME={}\n", config.webauthn.rp_name));
+        content.push_str(&format!(
+            "WEBAUTHN_RP_ORIGIN={}\n",
+            config.webauthn.rp_origin
+        ));
 
         std::fs::write(output, content)?;
         println!("✓ Generated .env file: {}", output.display());
@@ -357,7 +358,6 @@ impl ConfigCommands {
                     "storage" => serde_json::to_value(&config.storage)?,
                     "static_files" => serde_json::to_value(&config.static_files)?,
                     "development" => serde_json::to_value(&config.development)?,
-                    "invite_codes" => serde_json::to_value(&config.invite_codes)?,
                     _ => {
                         return Err(format!("Unknown section: {}", section).into());
                     }
@@ -382,7 +382,6 @@ impl ConfigCommands {
                     "storage" => println!("Storage: {:#?}", config.storage),
                     "static_files" => println!("Static Files: {:#?}", config.static_files),
                     "development" => println!("Development: {:#?}", config.development),
-                    "invite_codes" => println!("Invite Codes: {:#?}", config.invite_codes),
                     _ => {
                         return Err(format!("Unknown section: {}", section).into());
                     }

@@ -36,6 +36,34 @@ export { TestApiClient, testUtils, mockWebAuthn } from './test-helpers.js';
 export { TestDataManager, testData } from './test-data.js';
 export type { TestInviteCode } from './test-data.js';
 
+// WebSocket client and types
+export { WebSocketClient } from './websocket-client.js';
+export type {
+  WebSocketClientConfig,
+  WebSocketClientEvents,
+} from './websocket-client.js';
+
+// WebSocket message types and schemas
+export {
+  MediaBlobSchema,
+  WebSocketMessageSchema,
+  WebSocketResponseSchema,
+  ConnectionStatus,
+  createMessage,
+  parseWebSocketMessage,
+  parseWebSocketResponse,
+  safeParseWebSocketResponse,
+  isWelcomeMessage,
+  isMediaBlobsMessage,
+  isErrorMessage,
+  isConnectionStatusMessage,
+} from './websocket-types.js';
+export type {
+  MediaBlob,
+  WebSocketMessage,
+  WebSocketResponse,
+} from './websocket-types.js';
+
 // Zod schemas for external validation
 export {
   WebAuthnPublicKeyCredentialCreationOptionsSchema,

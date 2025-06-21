@@ -4,7 +4,8 @@ resolver = "2"
 
 [workspace.dependencies]
 async-trait = "0.1"
-axum = { version = "0.8" }
+axum = { version = "0.8", features = ["ws"] }
+futures-util = "0.3"
 time = { version = "0.3", features = ["serde", "macros", "formatting", "parsing"] }
 clap = { version = "4.4", features = ["derive", "env"] }
 config = "0.14"
