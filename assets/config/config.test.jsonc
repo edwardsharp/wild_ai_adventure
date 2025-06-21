@@ -13,9 +13,8 @@
   "database": {
     "host": "localhost",
     "port": 5433,
-    "database": "test_db",
-    "username": "postgres",
-    "password": "test_password_123",
+    "name": "test_db",
+    "user": "postgres",
     "pool": {
       "max_connections": 5,
       "min_connections": 1,
@@ -23,119 +22,51 @@
       "idle_timeout_seconds": 300
     },
     "migrations": {
-      "auto_run": true,
-      "path": "migrations"
+      "auto_run": true
     }
   },
   "webauthn": {
     "rp_id": "localhost",
     "rp_name": "WebAuthn Test",
-    "rp_origin": "http://localhost:8080",
-    "require_resident_key": false,
-    "user_verification": "preferred",
-    "timeout_ms": 30000
+    "rp_origin": "http://localhost:8080"
   },
   "server": {
     "host": "0.0.0.0",
-    "port": 8080,
-    "request_timeout_seconds": 10,
-    "max_request_size_bytes": 1048576,
-    "cors": {
-      "enabled": true,
-      "allowed_origins": ["http://localhost:8080", "http://localhost:3000"],
-      "allowed_methods": ["GET", "POST", "OPTIONS"],
-      "allowed_headers": ["Content-Type", "Authorization"]
-    },
-    "tls": {
-      "enabled": false,
-      "cert_file": null,
-      "key_file": null
-    }
+    "port": 8080
   },
   "sessions": {
-    "name": "webauthnrs_test",
     "max_age_seconds": 1800,
     "secure": false,
     "same_site": "strict",
-    "http_only": true,
-    "store_type": "postgres"
+    "http_only": true
   },
-  "invite_codes": {
-    "default_length": 8,
-    "default_count": 1,
-    "max_batch_size": 100,
-    "expiry_days": 0,
-    "single_use": true,
-    "case_sensitive": false
-  },
+
   "logging": {
-    "level": "debug",
-    "format": "pretty",
-    "file": null,
-    "security": {
-      "log_auth_attempts": true,
-      "log_private_access": false,
-      "log_failed_invites": false,
-      "log_request_analytics": false
-    }
+    "level": "debug"
   },
   "analytics": {
-    "enabled": false,
-    "retention_days": 1,
-    "detailed_logging": false,
-    "sample_rate": 0.1,
     "metrics": {
       "enabled": false,
       "prometheus_endpoint": "/metrics",
-      "health_endpoint": "/health",
-      "require_auth": false
+      "health_endpoint": "/health"
     }
   },
   "static_files": {
     "public_directory": "assets/public",
     "private_directory": "assets/private",
-    "assets_directory": "assets",
-    "cache": {
-      "enabled": false,
-      "max_age_seconds": 0,
-      "etags": false
-    }
+    "assets_directory": "assets"
   },
   "storage": {
     "analytics": "postgres",
-    "sessions": "postgres",
-    "cache": "memory"
+    "sessions": "postgres"
   },
   "development": {
-    "hot_reload": false,
-    "debug_middleware": true,
-    "auto_generate_invites": true,
-    "auto_invite_count": 1,
-    "seed_data": false,
-    "test_users": []
+    "auto_generate_invites": true
   },
-  "production": {
-    "require_https": false,
-    "security_headers": false,
-    "rate_limiting": {
-      "enabled": false,
-      "requests_per_minute": 1000,
-      "burst": 100
-    },
-    "security": {
-      "hsts_max_age": 0,
-      "csp": null,
-      "frame_options": "DENY",
-      "content_type_options": "nosniff"
-    }
-  },
+
   "features": {
     "registration_enabled": true,
     "invite_codes_required": true,
-    "multiple_credentials": true,
-    "admin_cli_enabled": true,
-    "analytics_enabled": false,
-    "public_static_files": true,
-    "private_static_files": false
+    "analytics_enabled": false
   }
 }

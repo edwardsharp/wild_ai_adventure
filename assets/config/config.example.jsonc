@@ -22,10 +22,8 @@
   "database": {
     "host": "localhost", // Database server hostname or IP
     "port": 5432, // Database server port (default PostgreSQL: 5432)
-    "database": "webauthn_db", // Database name to connect to
-    "username": "postgres", // Database username
-    // "url": null,                       // Optional: Override with complete DATABASE_URL
-    // Note: Password comes from secrets file or environment variables
+    "name": "webauthn_db", // Database name to connect to
+    "user": "postgres", // Database username
 
     // Connection pool configuration
     "pool": {
@@ -37,8 +35,7 @@
 
     // Database migration settings
     "migrations": {
-      "auto_run": true, // Automatically run migrations on startup
-      "path": "migrations" // Directory containing migration files
+      "auto_run": true // Automatically run migrations on startup
     }
   },
 
@@ -46,91 +43,45 @@
   "webauthn": {
     "rp_id": "localhost", // Relying Party ID - MUST match your domain (CANNOT CHANGE after deployment!)
     "rp_name": "WebAuthn Demo", // Human-readable name shown to users during authentication
-    "rp_origin": "http://localhost:8080", // Complete origin URL (must match actual server URL)
-    "require_resident_key": false, // Require credentials to be stored on device (more secure but less compatible)
-    "user_verification": "preferred", // User verification: "required", "preferred", or "discouraged"
-    "timeout_ms": 60000 // Timeout for WebAuthn operations in milliseconds (60 seconds)
+    "rp_origin": "http://localhost:8080" // Complete origin URL (must match actual server URL)
   },
 
   // HTTP server configuration
   "server": {
     "host": "0.0.0.0", // Interface to bind to (0.0.0.0 = all interfaces, 127.0.0.1 = localhost only)
-    "port": 8080, // Port to listen on
-    "request_timeout_seconds": 30, // Global request timeout
-    "max_request_size_bytes": 1048576, // Maximum request body size (1MB)
-
-    // Cross-Origin Resource Sharing (CORS) configuration
-    "cors": {
-      "enabled": false, // Enable CORS headers (needed if frontend is on different domain)
-      "allowed_origins": ["http://localhost:8080"], // Domains allowed to make requests
-      "allowed_methods": ["GET", "POST", "OPTIONS"], // HTTP methods allowed
-      "allowed_headers": ["Content-Type", "Authorization"] // Headers allowed in requests
-    },
-
-    // TLS/SSL configuration (for HTTPS)
-    "tls": {
-      "enabled": false, // Enable HTTPS (required for production WebAuthn)
-      "cert_file": null, // Path to TLS certificate file (.pem)
-      "key_file": null // Path to TLS private key file (.pem)
-    }
+    "port": 8080 // Port to listen on
   },
 
   // Session management settings
   "sessions": {
-    "name": "webauthnrs", // Session cookie name
     "max_age_seconds": 3600, // Session duration (1 hour)
     "secure": false, // Use secure cookies (set true for HTTPS)
     "same_site": "strict", // SameSite attribute: "strict", "lax", or "none"
-    "http_only": true, // Prevent JavaScript access to session cookies
-    "store_type": "memory" // Session storage: "memory" or "postgres" (future)
+    "http_only": true // Prevent JavaScript access to session cookies
   },
 
-  // Invite code system configuration
-  "invite_codes": {
-    "default_length": 8, // Default length for generated invite codes
-    "default_count": 1, // Default number of codes to generate at once
-    "max_batch_size": 100, // Maximum codes that can be generated in one batch
-    "expiry_days": 0, // Days until codes expire (0 = never expire)
-    "single_use": true, // Whether codes can only be used once
-    "case_sensitive": false // Whether invite codes are case-sensitive
-  },
+
 
   // Logging and tracing configuration
   "logging": {
     "level": "info", // Log level: "trace", "debug", "info", "warn", "error"
-    "format": "pretty", // Log format: "pretty", "json", "compact"
 
-    // Optional: log to file (null = console only)
-    "file": null,
-    // "file": {
-    //   "path": "logs/webauthn.log",      // Log file path
-    //   "rotate": true,                   // Enable log rotation
-    //   "max_size_mb": 100,               // Rotate when file reaches this size
-    //   "keep_files": 10                  // Number of rotated files to keep
-    // },
-
-    // Security event logging
-    "security": {
-      "log_auth_attempts": true, // Log all authentication attempts (success and failure)
-      "log_private_access": true, // Log access to private/protected content
-      "log_failed_invites": true, // Log failed invite code attempts
-      "log_request_analytics": true // Log all HTTP requests for analytics
+    // Optional: HTTP access logging
+    "access_log": {
+      "enabled": false, // Enable HTTP access logging to files
+      "file_path": "logs/access.log", // Access log file path
+      "format": "combined", // Format: "common", "combined", or "custom"
+      "also_log_to_tracing": false // Also send to main application logger
     }
   },
 
   // Analytics and metrics configuration
   "analytics": {
-    "enabled": true, // Enable request analytics collection
-    "retention_days": 30, // How long to keep analytics data in database
-    "detailed_logging": true, // Log detailed request information (paths, user agents, etc.)
-    "sample_rate": 1.0, // Sample rate for analytics (0.0 to 1.0, 1.0 = log all requests)
-
     // Metrics endpoints configuration
     "metrics": {
       "enabled": false, // Enable metrics HTTP endpoints
       "prometheus_endpoint": "/metrics", // Prometheus-format metrics endpoint
-      "health_endpoint": "/health", // Health check endpoint
-      "require_auth": false // Require authentication to access metrics
+      "health_endpoint": "/health" // Health check endpoint
     }
   },
 
@@ -138,14 +89,7 @@
   "static_files": {
     "public_directory": "assets/public", // Directory for public files (accessible to all)
     "private_directory": "assets/private", // Directory for private files (authentication required)
-    "assets_directory": "assets", // Main assets directory (contains both JS and WASM frontends)
-
-    // Cache control for static files
-    "cache": {
-      "enabled": true, // Enable HTTP caching headers
-      "max_age_seconds": 3600, // How long browsers should cache files (1 hour)
-      "etags": true // Enable ETag headers for conditional requests
-    }
+    "assets_directory": "assets" // Main assets directory (contains both JS and WASM frontends)
   },
 
   // Storage backend configuration
@@ -154,57 +98,20 @@
     "analytics": "memory", // "memory" for in-memory storage, "postgres" for PostgreSQL database
 
     // Session storage: where to store user session data
-    "sessions": "memory", // "memory" for in-memory storage, "postgres" for PostgreSQL database
-
-    // Cache storage: for future caching features
-    "cache": "memory" // "memory" for in-memory storage, "postgres" for PostgreSQL database
-    // Notes on storage backends:
-    // - "memory": Fast, good for development/testing, data lost on restart
-    // - "postgres": Persistent, good for production, requires database setup
-    // - Memory storage is recommended for development and quick demos
-    // - PostgreSQL storage is recommended for production deployments
-    // - You can mix backends (e.g., memory sessions + postgres analytics)
+    "sessions": "memory" // "memory" for in-memory storage, "postgres" for PostgreSQL database
   },
 
   // Development-specific settings (only active when environment = "development")
   "development": {
-    "hot_reload": false, // Enable hot reloading of assets (future feature)
-    "debug_middleware": true, // Enable additional debug logging in middleware
-    "auto_generate_invites": true, // Automatically generate invite codes on startup
-    "auto_invite_count": 3, // Number of invite codes to auto-generate
-    "seed_data": false, // Create test data on startup (future feature)
-    "test_users": [] // Test users to create automatically (future feature)
+    "auto_generate_invites": true // Automatically generate invite codes on startup
   },
 
-  // Production deployment settings (enforced when environment = "production")
-  "production": {
-    "require_https": true, // Require HTTPS for all requests in production
-    "security_headers": true, // Add security headers (HSTS, CSP, etc.)
 
-    // Rate limiting configuration
-    "rate_limiting": {
-      "enabled": false, // Enable rate limiting per IP address
-      "requests_per_minute": 60, // Maximum requests per minute per IP
-      "burst": 10 // Burst allowance above the rate limit
-    },
-
-    // Additional security configuration
-    "security": {
-      "hsts_max_age": 31536000, // HTTP Strict Transport Security max age (1 year)
-      "csp": null, // Content Security Policy header (null = default)
-      "frame_options": "DENY", // X-Frame-Options header (prevent clickjacking)
-      "content_type_options": "nosniff" // X-Content-Type-Options header
-    }
-  },
 
   // Feature flags - enable/disable functionality
   "features": {
     "registration_enabled": true, // Allow new user registration
     "invite_codes_required": true, // Require invite codes for user registration
-    "multiple_credentials": true, // Allow users to register multiple WebAuthn devices
-    "admin_cli_enabled": true, // Enable CLI administration tools
-    "analytics_enabled": true, // Enable request analytics collection
-    "public_static_files": true, // Enable serving of public static files
-    "private_static_files": true // Enable serving of private static files (with auth)
+    "analytics_enabled": true // Enable request analytics collection
   }
 }

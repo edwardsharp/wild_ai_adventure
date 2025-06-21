@@ -1,6 +1,5 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::path::Path;
 use thiserror::Error;
 
@@ -31,9 +30,6 @@ pub enum ConfigError {
     #[error("JSON Schema generation failed: {0}")]
     #[allow(dead_code)]
     SchemaError(String),
-    #[error("Secrets file not found: {0}")]
-    #[allow(dead_code)]
-    SecretsNotFound(String),
 }
 
 /// Main application configuration
@@ -50,8 +46,6 @@ pub struct AppConfig {
     pub server: ServerConfig,
     /// Session management settings
     pub sessions: SessionConfig,
-    /// Invite code system configuration
-    pub invite_codes: InviteCodeConfig,
     /// Logging and tracing configuration
     pub logging: LoggingConfig,
     /// Analytics and metrics configuration
@@ -62,8 +56,6 @@ pub struct AppConfig {
     pub storage: StorageConfig,
     /// Development-specific settings
     pub development: DevelopmentConfig,
-    /// Production deployment settings
-    pub production: ProductionConfig,
     /// Feature flags
     pub features: FeatureFlags,
 }
@@ -87,9 +79,6 @@ pub struct AppInfo {
 /// Database configuration
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct DatabaseConfig {
-    /// Database connection URL (will be generated from components or read from env)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub url: Option<String>,
     /// Database host
     #[serde(default = "default_db_host")]
     pub host: String,
@@ -98,16 +87,13 @@ pub struct DatabaseConfig {
     pub port: u16,
     /// Database name
     #[serde(default = "default_db_name")]
-    pub database: String,
-    /// Database username
+    pub name: String,
+    /// Database user
     #[serde(default = "default_db_user")]
-    pub username: String,
-    /// Database password (will be read from env var)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub password: Option<String>,
-    /// Connection pool settings
+    pub user: String,
+    /// Connection pool configuration
     pub pool: DatabasePoolConfig,
-    /// Migration settings
+    /// Database migration settings
     pub migrations: MigrationConfig,
 }
 
@@ -134,9 +120,6 @@ pub struct MigrationConfig {
     /// Automatically run migrations on startup
     #[serde(default = "default_auto_migrate")]
     pub auto_run: bool,
-    /// Migration directory path
-    #[serde(default = "default_migration_path")]
-    pub path: String,
 }
 
 /// WebAuthn configuration
@@ -151,15 +134,6 @@ pub struct WebAuthnConfig {
     /// Relying Party origin URL
     #[serde(default = "default_rp_origin")]
     pub rp_origin: String,
-    /// Require resident key (device-bound credentials)
-    #[serde(default)]
-    pub require_resident_key: bool,
-    /// User verification requirement
-    #[serde(default = "default_user_verification")]
-    pub user_verification: String,
-    /// Timeout for WebAuthn operations in milliseconds
-    #[serde(default = "default_webauthn_timeout")]
-    pub timeout_ms: u32,
 }
 
 /// HTTP server configuration
@@ -171,54 +145,11 @@ pub struct ServerConfig {
     /// Server port to bind to
     #[serde(default = "default_server_port")]
     pub port: u16,
-    /// Request timeout in seconds
-    #[serde(default = "default_request_timeout")]
-    pub request_timeout_seconds: u64,
-    /// Maximum request size in bytes
-    #[serde(default = "default_max_request_size")]
-    pub max_request_size_bytes: usize,
-    /// CORS configuration
-    pub cors: CorsConfig,
-    /// TLS configuration
-    pub tls: TlsConfig,
-}
-
-/// CORS configuration
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-pub struct CorsConfig {
-    /// Enable CORS
-    #[serde(default)]
-    pub enabled: bool,
-    /// Allowed origins
-    #[serde(default)]
-    pub allowed_origins: Vec<String>,
-    /// Allowed methods
-    #[serde(default = "default_cors_methods")]
-    pub allowed_methods: Vec<String>,
-    /// Allowed headers
-    #[serde(default)]
-    pub allowed_headers: Vec<String>,
-}
-
-/// TLS configuration
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-pub struct TlsConfig {
-    /// Enable TLS
-    #[serde(default)]
-    pub enabled: bool,
-    /// Certificate file path
-    pub cert_file: Option<String>,
-    /// Private key file path
-    pub key_file: Option<String>,
 }
 
 /// Session configuration
-/// Session management settings
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct SessionConfig {
-    /// Session cookie name
-    #[serde(default = "default_session_name")]
-    pub name: String,
     /// Session max age in seconds
     #[serde(default = "default_session_max_age")]
     pub max_age_seconds: i64,
@@ -233,60 +164,14 @@ pub struct SessionConfig {
     pub http_only: bool,
 }
 
-/// Invite code configuration
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-pub struct InviteCodeConfig {
-    /// Default length of generated invite codes
-    #[serde(default = "default_invite_code_length")]
-    pub default_length: usize,
-    /// Default number of codes to generate
-    #[serde(default = "default_invite_code_count")]
-    pub default_count: u32,
-    /// Maximum batch size for code generation
-    #[serde(default = "default_invite_max_batch")]
-    pub max_batch_size: u32,
-    /// Expiry days for invite codes (0 = no expiry)
-    #[serde(default)]
-    pub expiry_days: u32,
-    /// Single use enforcement
-    #[serde(default = "default_invite_single_use")]
-    pub single_use: bool,
-    /// Case sensitive codes
-    #[serde(default)]
-    pub case_sensitive: bool,
-}
-
 /// Logging configuration
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct LoggingConfig {
     /// Log level (trace, debug, info, warn, error)
     #[serde(default = "default_log_level")]
     pub level: String,
-    /// Log format (json, pretty, compact)
-    #[serde(default = "default_log_format")]
-    pub format: String,
-    /// Log to file
-    pub file: Option<LogFileConfig>,
-    /// Security event logging
-    pub security: SecurityLoggingConfig,
     /// HTTP access logging configuration
     pub access_log: Option<AccessLogConfig>,
-}
-
-/// Log file configuration
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-pub struct LogFileConfig {
-    /// Log file path
-    pub path: String,
-    /// Rotate logs
-    #[serde(default = "default_log_rotate")]
-    pub rotate: bool,
-    /// Max file size in MB before rotation
-    #[serde(default = "default_log_max_size")]
-    pub max_size_mb: u64,
-    /// Number of rotated files to keep
-    #[serde(default = "default_log_keep_files")]
-    pub keep_files: u32,
 }
 
 /// Access log configuration for HTTP requests
@@ -308,38 +193,9 @@ pub struct AccessLogConfig {
     pub also_log_to_tracing: bool,
 }
 
-/// Security logging configuration
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-pub struct SecurityLoggingConfig {
-    /// Log authentication attempts
-    #[serde(default = "default_true")]
-    pub log_auth_attempts: bool,
-    /// Log private content access
-    #[serde(default = "default_true")]
-    pub log_private_access: bool,
-    /// Log failed invite code attempts
-    #[serde(default = "default_true")]
-    pub log_failed_invites: bool,
-    /// Log all request analytics
-    #[serde(default = "default_true")]
-    pub log_analytics: bool,
-}
-
 /// Analytics configuration
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct AnalyticsConfig {
-    /// Enable analytics collection
-    #[serde(default = "default_true")]
-    pub enabled: bool,
-    /// Data retention period in days
-    #[serde(default = "default_analytics_retention")]
-    pub retention_days: u32,
-    /// Enable detailed request logging
-    #[serde(default = "default_true")]
-    pub detailed_logging: bool,
-    /// Sample rate for analytics (0.0 to 1.0)
-    #[serde(default = "default_analytics_sample_rate")]
-    pub sample_rate: f64,
     /// Metrics endpoints configuration
     pub metrics: MetricsConfig,
 }
@@ -356,9 +212,6 @@ pub struct MetricsConfig {
     /// Health check endpoint path
     #[serde(default = "default_health_path")]
     pub health_endpoint: String,
-    /// Require authentication for metrics
-    #[serde(default)]
-    pub require_auth: bool,
 }
 
 /// Static file serving configuration
@@ -373,90 +226,14 @@ pub struct StaticFilesConfig {
     /// Main assets directory (contains js, css, images, etc.)
     #[serde(default = "default_assets_dir")]
     pub assets_directory: String,
-    /// Cache control settings
-    pub cache: CacheConfig,
-}
-
-/// Static file cache configuration
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-pub struct CacheConfig {
-    /// Enable caching
-    #[serde(default = "default_true")]
-    pub enabled: bool,
-    /// Cache max age in seconds
-    #[serde(default = "default_cache_max_age")]
-    pub max_age_seconds: u32,
-    /// ETags enabled
-    #[serde(default = "default_true")]
-    pub etags: bool,
 }
 
 /// Development configuration
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct DevelopmentConfig {
-    /// Enable hot reloading
-    #[serde(default)]
-    pub hot_reload: bool,
-    /// Enable debug middleware
-    #[serde(default)]
-    pub debug_middleware: bool,
     /// Auto-generate invite codes on startup
     #[serde(default)]
     pub auto_generate_invites: bool,
-    /// Number of invite codes to auto-generate
-    #[serde(default = "default_dev_invite_count")]
-    pub auto_invite_count: u32,
-    /// Seed test data
-    #[serde(default)]
-    pub seed_data: bool,
-    /// Test users to create
-    #[serde(default)]
-    pub test_users: Vec<String>,
-}
-
-/// Production configuration
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-pub struct ProductionConfig {
-    /// Require HTTPS
-    #[serde(default)]
-    pub require_https: bool,
-    /// Enable security headers
-    #[serde(default = "default_true")]
-    pub security_headers: bool,
-    /// Rate limiting configuration
-    pub rate_limiting: RateLimitConfig,
-    /// Security settings
-    pub security: ProductionSecurityConfig,
-}
-
-/// Rate limiting configuration
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-pub struct RateLimitConfig {
-    /// Enable rate limiting
-    #[serde(default)]
-    pub enabled: bool,
-    /// Requests per minute per IP
-    #[serde(default = "default_rate_limit_rpm")]
-    pub requests_per_minute: u32,
-    /// Burst allowance
-    #[serde(default = "default_rate_limit_burst")]
-    pub burst: u32,
-}
-
-/// Production security configuration
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-pub struct ProductionSecurityConfig {
-    /// Strict transport security max age
-    #[serde(default = "default_hsts_max_age")]
-    pub hsts_max_age: u32,
-    /// Content security policy
-    pub csp: Option<String>,
-    /// X-Frame-Options header
-    #[serde(default = "default_frame_options")]
-    pub frame_options: String,
-    /// X-Content-Type-Options header
-    #[serde(default = "default_content_type_options")]
-    pub content_type_options: String,
 }
 
 /// Storage backend configuration
@@ -468,9 +245,6 @@ pub struct StorageConfig {
     /// Session storage backend
     #[serde(default)]
     pub sessions: StorageBackend,
-    /// Cache storage backend (future use)
-    #[serde(default)]
-    pub cache: StorageBackend,
 }
 
 impl Default for StorageConfig {
@@ -478,7 +252,6 @@ impl Default for StorageConfig {
         Self {
             analytics: StorageBackend::Memory,
             sessions: StorageBackend::Memory,
-            cache: StorageBackend::Memory,
         }
     }
 }
@@ -492,60 +265,9 @@ pub struct FeatureFlags {
     /// Require invite codes for registration
     #[serde(default = "default_true")]
     pub invite_codes_required: bool,
-    /// Allow multiple credentials per user
-    #[serde(default = "default_true")]
-    pub multiple_credentials: bool,
-    /// Enable CLI administration tools
-    #[serde(default = "default_true")]
-    pub admin_cli_enabled: bool,
     /// Enable analytics collection
     #[serde(default = "default_true")]
     pub analytics_enabled: bool,
-    /// Enable public static file serving
-    #[serde(default = "default_true")]
-    pub public_static_files: bool,
-    /// Enable private static file serving
-    #[serde(default = "default_true")]
-    pub private_static_files: bool,
-}
-
-/// Secrets configuration (separate file for sensitive data)
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct SecretsConfig {
-    /// Database secrets
-    pub database: DatabaseSecrets,
-    /// Application secrets
-    pub app: AppSecrets,
-    /// External service secrets
-    pub external: ExternalSecrets,
-}
-
-/// Database-related secrets
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-pub struct DatabaseSecrets {
-    /// Database password
-    pub password: String,
-    /// Optional: complete database URL override
-    pub url_override: Option<String>,
-}
-
-/// Application secrets
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-pub struct AppSecrets {
-    /// Secret key for sessions (future use)
-    pub session_secret: Option<String>,
-    /// API keys for external services
-    pub api_keys: HashMap<String, String>,
-}
-
-/// External service secrets
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-pub struct ExternalSecrets {
-    /// SMTP password for email notifications (future)
-    pub smtp_password: Option<String>,
-    /// Other service credentials
-    pub services: HashMap<String, String>,
 }
 
 // Default value functions
@@ -588,9 +310,6 @@ fn default_pool_idle_timeout() -> u64 {
 fn default_auto_migrate() -> bool {
     true
 }
-fn default_migration_path() -> String {
-    "migrations".to_string()
-}
 
 fn default_rp_id() -> String {
     "localhost".to_string()
@@ -601,12 +320,6 @@ fn default_rp_name() -> String {
 fn default_rp_origin() -> String {
     "http://localhost:8080".to_string()
 }
-fn default_user_verification() -> String {
-    "preferred".to_string()
-}
-fn default_webauthn_timeout() -> u32 {
-    60000
-}
 
 fn default_server_host() -> String {
     "0.0.0.0".to_string()
@@ -614,20 +327,7 @@ fn default_server_host() -> String {
 fn default_server_port() -> u16 {
     8080
 }
-fn default_request_timeout() -> u64 {
-    30
-}
-fn default_max_request_size() -> usize {
-    1_048_576
-}
 
-fn default_cors_methods() -> Vec<String> {
-    vec!["GET".to_string(), "POST".to_string(), "OPTIONS".to_string()]
-}
-
-fn default_session_name() -> String {
-    "webauthnrs".to_string()
-}
 fn default_session_max_age() -> i64 {
     3600
 }
@@ -638,33 +338,8 @@ fn default_session_http_only() -> bool {
     true
 }
 
-fn default_invite_code_length() -> usize {
-    8
-}
-fn default_invite_code_count() -> u32 {
-    1
-}
-fn default_invite_max_batch() -> u32 {
-    100
-}
-fn default_invite_single_use() -> bool {
-    true
-}
-
 fn default_log_level() -> String {
     "info".to_string()
-}
-fn default_log_format() -> String {
-    "pretty".to_string()
-}
-fn default_log_rotate() -> bool {
-    true
-}
-fn default_log_max_size() -> u64 {
-    100
-}
-fn default_log_keep_files() -> u32 {
-    10
 }
 
 fn default_access_log_path() -> String {
@@ -675,12 +350,6 @@ fn default_access_log_format() -> String {
     "combined".to_string()
 }
 
-fn default_analytics_retention() -> u32 {
-    30
-}
-fn default_analytics_sample_rate() -> f64 {
-    1.0
-}
 fn default_prometheus_path() -> String {
     "/metrics".to_string()
 }
@@ -696,31 +365,6 @@ fn default_private_dir() -> String {
 }
 fn default_assets_dir() -> String {
     "assets".to_string()
-}
-
-fn default_cache_max_age() -> u32 {
-    3600
-}
-
-fn default_dev_invite_count() -> u32 {
-    3
-}
-
-fn default_rate_limit_rpm() -> u32 {
-    60
-}
-fn default_rate_limit_burst() -> u32 {
-    10
-}
-
-fn default_hsts_max_age() -> u32 {
-    31536000
-}
-fn default_frame_options() -> String {
-    "DENY".to_string()
-}
-fn default_content_type_options() -> String {
-    "nosniff".to_string()
 }
 
 fn default_true() -> bool {
@@ -746,45 +390,14 @@ impl AppConfig {
     /// Load configuration with secrets from separate files
     pub fn from_files<P: AsRef<Path>>(
         config_path: P,
-        secrets_path: Option<P>,
-    ) -> Result<(Self, Option<SecretsConfig>), ConfigError> {
-        let mut config = Self::from_file(config_path)?;
+        _secrets_path: Option<P>,
+    ) -> Result<(Self, Option<()>), ConfigError> {
+        let config = Self::from_file(config_path)?;
 
-        let secrets = if let Some(secrets_path) = secrets_path {
-            let secrets_path = secrets_path.as_ref();
-            if secrets_path.exists() {
-                let secrets_content = std::fs::read_to_string(secrets_path)?;
-                let secrets: SecretsConfig = json5::from_str(&secrets_content).map_err(|e| {
-                    ConfigError::ParseError(format!("Secrets JSON5 parse error: {}", e))
-                })?;
-                Some(secrets)
-            } else {
-                None
-            }
-        } else {
-            None
-        };
-
-        // Apply secrets to config if available
-        if let Some(ref secrets) = secrets {
-            config.apply_secrets(secrets);
-        }
-
-        // Validate configuration after applying secrets
+        // Validate configuration
         config.validate()?;
 
-        Ok((config, secrets))
-    }
-
-    /// Apply secrets to configuration
-    fn apply_secrets(&mut self, secrets: &SecretsConfig) {
-        // Apply database password
-        self.database.password = Some(secrets.database.password.clone());
-
-        // Apply URL override if provided
-        if let Some(ref url_override) = secrets.database.url_override {
-            self.database.url = Some(url_override.clone());
-        }
+        Ok((config, None))
     }
 
     /// Generate a default configuration file
@@ -797,12 +410,10 @@ impl AppConfig {
                 description: Some("WebAuthn authentication server with invite codes".to_string()),
             },
             database: DatabaseConfig {
-                url: None,
                 host: default_db_host(),
                 port: default_db_port(),
-                database: default_db_name(),
-                username: default_db_user(),
-                password: None,
+                name: default_db_name(),
+                user: default_db_user(),
                 pool: DatabasePoolConfig {
                     max_connections: default_pool_max_connections(),
                     min_connections: default_pool_min_connections(),
@@ -811,115 +422,47 @@ impl AppConfig {
                 },
                 migrations: MigrationConfig {
                     auto_run: default_auto_migrate(),
-                    path: default_migration_path(),
                 },
             },
             webauthn: WebAuthnConfig {
                 rp_id: default_rp_id(),
                 rp_name: default_rp_name(),
                 rp_origin: default_rp_origin(),
-                require_resident_key: false,
-                user_verification: default_user_verification(),
-                timeout_ms: default_webauthn_timeout(),
             },
             server: ServerConfig {
                 host: default_server_host(),
                 port: default_server_port(),
-                request_timeout_seconds: default_request_timeout(),
-                max_request_size_bytes: default_max_request_size(),
-                cors: CorsConfig {
-                    enabled: false,
-                    allowed_origins: vec!["http://localhost:8080".to_string()],
-                    allowed_methods: default_cors_methods(),
-                    allowed_headers: vec!["Content-Type".to_string(), "Authorization".to_string()],
-                },
-                tls: TlsConfig {
-                    enabled: false,
-                    cert_file: None,
-                    key_file: None,
-                },
             },
             sessions: SessionConfig {
-                name: default_session_name(),
                 max_age_seconds: default_session_max_age(),
                 secure: false,
                 same_site: default_session_same_site(),
                 http_only: default_session_http_only(),
             },
-            invite_codes: InviteCodeConfig {
-                default_length: default_invite_code_length(),
-                default_count: default_invite_code_count(),
-                max_batch_size: default_invite_max_batch(),
-                expiry_days: 0,
-                single_use: default_invite_single_use(),
-                case_sensitive: false,
-            },
             logging: LoggingConfig {
                 level: default_log_level(),
-                format: default_log_format(),
-                file: None,
-                security: SecurityLoggingConfig {
-                    log_auth_attempts: true,
-                    log_private_access: true,
-                    log_failed_invites: true,
-                    log_analytics: true,
-                },
                 access_log: None,
             },
             analytics: AnalyticsConfig {
-                enabled: true,
-                retention_days: default_analytics_retention(),
-                detailed_logging: true,
-                sample_rate: default_analytics_sample_rate(),
                 metrics: MetricsConfig {
                     enabled: false,
                     prometheus_endpoint: default_prometheus_path(),
                     health_endpoint: default_health_path(),
-                    require_auth: false,
                 },
             },
             static_files: StaticFilesConfig {
                 public_directory: default_public_dir(),
                 private_directory: default_private_dir(),
                 assets_directory: default_assets_dir(),
-                cache: CacheConfig {
-                    enabled: true,
-                    max_age_seconds: default_cache_max_age(),
-                    etags: true,
-                },
             },
             storage: StorageConfig::default(),
             development: DevelopmentConfig {
-                hot_reload: false,
-                debug_middleware: true,
-                auto_generate_invites: true,
-                auto_invite_count: default_dev_invite_count(),
-                seed_data: false,
-                test_users: vec![],
-            },
-            production: ProductionConfig {
-                require_https: true,
-                security_headers: true,
-                rate_limiting: RateLimitConfig {
-                    enabled: false,
-                    requests_per_minute: default_rate_limit_rpm(),
-                    burst: default_rate_limit_burst(),
-                },
-                security: ProductionSecurityConfig {
-                    hsts_max_age: default_hsts_max_age(),
-                    csp: None,
-                    frame_options: default_frame_options(),
-                    content_type_options: default_content_type_options(),
-                },
+                auto_generate_invites: false,
             },
             features: FeatureFlags {
                 registration_enabled: true,
                 invite_codes_required: true,
-                multiple_credentials: true,
-                admin_cli_enabled: true,
                 analytics_enabled: true,
-                public_static_files: true,
-                private_static_files: true,
             },
         }
     }
@@ -944,29 +487,12 @@ impl AppConfig {
             errors.push("WebAuthn RP origin must be a valid HTTP/HTTPS URL".to_string());
         }
 
-        // Validate user verification setting
-        if !["required", "preferred", "discouraged"]
-            .contains(&self.webauthn.user_verification.as_str())
-        {
-            errors.push(
-                "WebAuthn user_verification must be 'required', 'preferred', or 'discouraged'"
-                    .to_string(),
-            );
-        }
-
         // Validate database configuration
-        // Allow None password in default config, but validate if it's explicitly set to empty
-        if let Some(password) = &self.database.password {
-            if password.is_empty() {
-                errors.push("Database password cannot be empty".to_string());
-            }
-        }
-
         if self.database.host.is_empty() {
             errors.push("Database host cannot be empty".to_string());
         }
 
-        if self.database.database.is_empty() {
+        if self.database.name.is_empty() {
             errors.push("Database name cannot be empty".to_string());
         }
 
@@ -1008,31 +534,6 @@ impl AppConfig {
             );
         }
 
-        // Validate invite code configuration
-        if self.invite_codes.default_length < 4 {
-            errors.push("Invite code length must be at least 4 characters".to_string());
-        }
-
-        if self.invite_codes.max_batch_size == 0 {
-            errors.push("Invite code max_batch_size cannot be 0".to_string());
-        }
-
-        // Validate analytics
-        if self.analytics.sample_rate < 0.0 || self.analytics.sample_rate > 1.0 {
-            errors.push("Analytics sample_rate must be between 0.0 and 1.0".to_string());
-        }
-
-        // Production-specific validations
-        if self.app.environment == "production" {
-            if !self.production.require_https && self.webauthn.rp_origin.starts_with("http://") {
-                errors.push("Production environment should use HTTPS for WebAuthn".to_string());
-            }
-
-            if !self.sessions.secure && self.production.require_https {
-                errors.push("Production environment should use secure session cookies".to_string());
-            }
-        }
-
         if !errors.is_empty() {
             return Err(ConfigError::ValidationError(errors.join("; ")));
         }
@@ -1040,215 +541,80 @@ impl AppConfig {
         Ok(())
     }
 
-    /// Get the complete database URL, building it from components if needed
+    /// Get the complete database URL
     pub fn database_url(&self) -> String {
-        if let Some(url) = &self.database.url {
-            url.clone()
-        } else {
-            // Use password from config, or fall back to environment variables
-            let password = self
-                .database
-                .password
-                .clone()
-                .or_else(|| std::env::var("DATABASE_PASSWORD").ok())
-                .or_else(|| std::env::var("POSTGRES_PASSWORD").ok())
-                .unwrap_or_else(|| "".to_string());
-
-            format!(
-                "postgresql://{}:{}@{}:{}/{}",
-                self.database.username,
-                password,
-                self.database.host,
-                self.database.port,
-                self.database.database
-            )
-        }
-    }
-
-    /// Generate environment variables needed for Docker/SQLx
-    pub fn to_env_vars(&self) -> HashMap<String, String> {
-        let mut env_vars = HashMap::new();
-
-        // Database URL for SQLx
-        env_vars.insert("DATABASE_URL".to_string(), self.database_url());
-
-        // Individual database components for Docker Compose
-        env_vars.insert("POSTGRES_HOST".to_string(), self.database.host.clone());
-        env_vars.insert("POSTGRES_PORT".to_string(), self.database.port.to_string());
-        env_vars.insert("POSTGRES_USER".to_string(), self.database.username.clone());
-        env_vars.insert("POSTGRES_DB".to_string(), self.database.database.clone());
-
-        // Logging
-        env_vars.insert("RUST_LOG".to_string(), self.logging.level.clone());
-
-        // App info
-        env_vars.insert("APP_NAME".to_string(), self.app.name.clone());
-        env_vars.insert("APP_VERSION".to_string(), self.app.version.clone());
-        env_vars.insert("APP_ENVIRONMENT".to_string(), self.app.environment.clone());
-
-        env_vars
-    }
-
-    /// Generate JSON Schema for IDE support
-    pub fn generate_schema() -> Result<String, ConfigError> {
-        let schema = schemars::schema_for!(AppConfig);
-        serde_json::to_string_pretty(&schema)
-            .map_err(|e| ConfigError::SchemaError(format!("JSON serialization error: {}", e)))
-    }
-
-    /// Write a pretty-printed JSONC configuration to a file
-    pub fn write_to_file<P: AsRef<Path>>(&self, path: P) -> Result<(), ConfigError> {
-        let content = self.to_jsonc_string()?;
-        std::fs::write(path, content)?;
-        Ok(())
-    }
-
-    /// Convert to a JSONC string with helpful comments
-    pub fn to_jsonc_string(&self) -> Result<String, ConfigError> {
-        let json = serde_json::to_string_pretty(self)
-            .map_err(|e| ConfigError::ParseError(format!("JSON serialization error: {}", e)))?;
-
-        // Add header comment
-        let header = r#"// WebAuthn Server Configuration
-//
-// This file configures all aspects of the WebAuthn authentication server.
-// For JSON Schema support in your editor, save this as config.jsonc and
-// configure your editor to use the generated schema file.
-//
-// To generate environment variables for Docker/SQLx:
-//   cargo run --bin cli config generate-env
-//
-// To validate this configuration:
-//   cargo run --bin cli config validate
-//
-"#;
-
-        Ok(format!("{}{}", header, json))
+        format!(
+            "postgresql://{}@{}:{}/{}",
+            self.database.user, self.database.host, self.database.port, self.database.name
+        )
     }
 }
 
 impl Default for AppConfig {
     fn default() -> Self {
-        Self::generate_default()
-    }
-}
-
-impl SecretsConfig {
-    /// Generate a default secrets configuration
-    pub fn generate_default() -> Self {
         Self {
-            database: DatabaseSecrets {
-                password: "change_me_secure_password".to_string(),
-                url_override: None,
+            app: AppInfo {
+                name: default_app_name(),
+                version: default_app_version(),
+                environment: default_environment(),
+                description: None,
             },
-            app: AppSecrets {
-                session_secret: Some("change_me_session_secret_32_chars_min".to_string()),
-                api_keys: HashMap::new(),
+            database: DatabaseConfig {
+                host: default_db_host(),
+                port: default_db_port(),
+                name: default_db_name(),
+                user: default_db_user(),
+                pool: DatabasePoolConfig {
+                    max_connections: default_pool_max_connections(),
+                    min_connections: default_pool_min_connections(),
+                    connect_timeout_seconds: default_pool_connect_timeout(),
+                    idle_timeout_seconds: default_pool_idle_timeout(),
+                },
+                migrations: MigrationConfig {
+                    auto_run: default_auto_migrate(),
+                },
             },
-            external: ExternalSecrets {
-                smtp_password: None,
-                services: HashMap::new(),
+            webauthn: WebAuthnConfig {
+                rp_id: default_rp_id(),
+                rp_name: default_rp_name(),
+                rp_origin: default_rp_origin(),
+            },
+            server: ServerConfig {
+                host: default_server_host(),
+                port: default_server_port(),
+            },
+            sessions: SessionConfig {
+                max_age_seconds: default_session_max_age(),
+                secure: false,
+                same_site: default_session_same_site(),
+                http_only: default_session_http_only(),
+            },
+            logging: LoggingConfig {
+                level: default_log_level(),
+                access_log: None,
+            },
+            analytics: AnalyticsConfig {
+                metrics: MetricsConfig {
+                    enabled: false,
+                    prometheus_endpoint: default_prometheus_path(),
+                    health_endpoint: default_health_path(),
+                },
+            },
+            static_files: StaticFilesConfig {
+                public_directory: default_public_dir(),
+                private_directory: default_private_dir(),
+                assets_directory: default_assets_dir(),
+            },
+            storage: StorageConfig::default(),
+            development: DevelopmentConfig {
+                auto_generate_invites: false,
+            },
+            features: FeatureFlags {
+                registration_enabled: true,
+                invite_codes_required: true,
+                analytics_enabled: true,
             },
         }
-    }
-
-    /// Write a pretty-printed JSONC secrets file
-    #[allow(dead_code)]
-    pub fn write_to_file<P: AsRef<Path>>(&self, path: P) -> Result<(), ConfigError> {
-        let content = self.to_jsonc_string()?;
-        std::fs::write(path, content)?;
-        Ok(())
-    }
-
-    /// Convert to a JSONC string with helpful comments
-    #[allow(dead_code)]
-    pub fn to_jsonc_string(&self) -> Result<String, ConfigError> {
-        let json = serde_json::to_string_pretty(self)
-            .map_err(|e| ConfigError::ParseError(format!("JSON serialization error: {}", e)))?;
-
-        // Add header comment
-        let header = r#"// WebAuthn Server Secrets Configuration
-//
-// ⚠️  SECURITY WARNING ⚠️
-// This file contains sensitive information!
-//
-// Security Guidelines:
-// - Never commit this file to version control
-// - Use strong, unique passwords
-// - Rotate secrets regularly
-// - Restrict file permissions (chmod 600)
-// - Keep separate secrets files for different environments
-//
-// This file should be in your .gitignore!
-//
-"#;
-
-        Ok(format!("{}{}", header, json))
-    }
-
-    /// Load secrets from a JSONC file
-    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, ConfigError> {
-        let path = path.as_ref();
-
-        if !path.exists() {
-            return Err(ConfigError::SecretsNotFound(path.display().to_string()));
-        }
-
-        let content = std::fs::read_to_string(path)?;
-        let secrets: SecretsConfig = json5::from_str(&content)
-            .map_err(|e| ConfigError::ParseError(format!("Secrets JSON5 parse error: {}", e)))?;
-
-        Ok(secrets)
-    }
-
-    /// Get environment variables map (for backward compatibility)
-    pub fn to_env_vars(&self) -> HashMap<String, String> {
-        let mut env_vars = HashMap::new();
-
-        // Database password
-        env_vars.insert(
-            "DATABASE_PASSWORD".to_string(),
-            self.database.password.clone(),
-        );
-        env_vars.insert(
-            "POSTGRES_PASSWORD".to_string(),
-            self.database.password.clone(),
-        );
-
-        // Database URL override if provided
-        if let Some(ref url) = self.database.url_override {
-            env_vars.insert("DATABASE_URL".to_string(), url.clone());
-        }
-
-        // Session secret
-        if let Some(ref secret) = self.app.session_secret {
-            env_vars.insert("SESSION_SECRET".to_string(), secret.clone());
-        }
-
-        // API keys
-        for (key, value) in &self.app.api_keys {
-            env_vars.insert(format!("API_KEY_{}", key.to_uppercase()), value.clone());
-        }
-
-        // External services
-        if let Some(ref smtp_password) = self.external.smtp_password {
-            env_vars.insert("SMTP_PASSWORD".to_string(), smtp_password.clone());
-        }
-
-        for (service, credential) in &self.external.services {
-            env_vars.insert(
-                format!("{}_CREDENTIAL", service.to_uppercase()),
-                credential.clone(),
-            );
-        }
-
-        env_vars
-    }
-}
-
-impl Default for SecretsConfig {
-    fn default() -> Self {
-        Self::generate_default()
     }
 }
 
@@ -1271,15 +637,6 @@ mod tests {
     }
 
     #[test]
-    fn test_env_vars_generation() {
-        let config = AppConfig::default();
-        let env_vars = config.to_env_vars();
-        assert!(env_vars.contains_key("DATABASE_URL"));
-        assert!(env_vars.contains_key("RUST_LOG"));
-        assert_eq!(env_vars.get("RUST_LOG"), Some(&"info".to_string()));
-    }
-
-    #[test]
     fn test_config_validation_errors() {
         let mut config = AppConfig::default();
         config.server.port = 0;
@@ -1292,15 +649,5 @@ mod tests {
             assert!(msg.contains("port cannot be 0"));
             assert!(msg.contains("RP ID cannot be empty"));
         }
-    }
-
-    #[test]
-    fn test_json_schema_generation() {
-        let schema_result = AppConfig::generate_schema();
-        assert!(schema_result.is_ok());
-
-        let schema = schema_result.unwrap();
-        assert!(schema.contains("AppConfig"));
-        assert!(schema.contains("properties"));
     }
 }

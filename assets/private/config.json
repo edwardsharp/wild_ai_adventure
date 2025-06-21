@@ -9,23 +9,12 @@
   "security": {
     "webauthn": {
       "rp_id": "localhost",
-      "rp_name": "Axum Webauthn-rs Demo",
-      "require_resident_key": false,
-      "require_user_verification": "preferred",
-      "timeout_ms": 60000
+      "rp_name": "Axum Webauthn-rs Demo"
     },
     "sessions": {
-      "name": "webauthnrs",
       "max_age_seconds": 3600,
       "secure": false,
-      "same_site": "strict",
-      "store_type": "memory"
-    },
-    "invite_codes": {
-      "length": 8,
-      "expiry_days": 30,
-      "single_use": true,
-      "case_sensitive": false
+      "same_site": "strict"
     }
   },
   "database": {
@@ -33,36 +22,20 @@
     "pool_size": 10,
     "connection_timeout_seconds": 30,
     "migrations": {
-      "auto_run": true,
-      "version": "001_initial"
+      "auto_run": true
     }
   },
   "server": {
     "host": "0.0.0.0",
-    "port": 8080,
-    "request_timeout_seconds": 30,
-    "max_request_size_bytes": 1048576,
-    "cors": {
-      "enabled": false,
-      "allowed_origins": ["http://localhost:8080"]
-    }
+    "port": 8080
   },
   "logging": {
-    "level": "info",
-    "format": "json",
-    "security_events": {
-      "log_auth_attempts": true,
-      "log_private_access": true,
-      "log_failed_invites": true
-    }
+    "level": "info"
   },
   "features": {
     "registration_enabled": true,
     "invite_codes_required": true,
-    "multiple_credentials_per_user": true,
-    "admin_cli_enabled": true,
-    "public_static_files": true,
-    "private_static_files": true
+    "analytics_enabled": true
   },
   "monitoring": {
     "metrics_enabled": false,
@@ -72,30 +45,17 @@
   "file_serving": {
     "public_directory": "assets/public",
     "private_directory": "assets/private",
-    "javascript_frontend": "assets/js",
-    "wasm_frontend": "assets/wasm",
-    "default_frontend": "javascript"
+    "assets_directory": "assets"
   },
   "admin": {
-    "cli_tool": "cli",
-    "invite_generation": {
-      "default_count": 1,
-      "default_length": 8,
-      "max_batch_size": 100
-    }
+    "cli_tool": "cli"
   },
   "development": {
-    "auto_reload": false,
-    "debug_middleware": true,
-    "seed_data": false,
-    "test_users": []
+    "auto_generate_invites": true
   },
-  "production_notes": {
-    "ssl_required": true,
-    "session_store": "Use PostgreSQL instead of memory store",
-    "secrets": "Store sensitive values in environment variables",
-    "backup": "Regular database backups required",
-    "monitoring": "Enable metrics and alerting"
+  "storage": {
+    "analytics": "memory",
+    "sessions": "memory"
   },
   "metadata": {
     "config_version": "1.0",
