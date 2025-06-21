@@ -12,7 +12,7 @@ use axum::{
     http::{
         header::{
             ACCEPT_RANGES, CACHE_CONTROL, CONTENT_LENGTH, CONTENT_RANGE, CONTENT_TYPE, ETAG,
-            IF_MODIFIED_SINCE, IF_RANGE, LAST_MODIFIED, RANGE,
+            IF_RANGE, LAST_MODIFIED, RANGE,
         },
         HeaderMap, HeaderValue, StatusCode,
     },
@@ -76,7 +76,7 @@ impl RangeHandler {
         let etag = self.generate_etag(&metadata);
 
         // Check if this is a range request
-        if let Some(range_header) = req.headers().get(RANGE) {
+        if let Some(_range_header) = req.headers().get(RANGE) {
             self.handle_range_request(req, file_path, metadata, etag)
                 .await
         } else {
@@ -92,12 +92,14 @@ impl RangeHandler {
         file_path: PathBuf,
         metadata: Metadata,
         etag: String,
-    ) -> Result<Response, RangeError> {
+    ) -> Result<Response<Body>, RangeError> {
         // Use tower-http's ServeFile for full requests as it's optimized
         let serve_file = ServeFile::new(&file_path);
 
         match serve_file.oneshot(req).await {
-            Ok(mut response) => {
+            Ok(response) => {
+                let (parts, _body) = response.into_parts();
+                let mut response = Response::from_parts(parts, Body::empty());
                 self.add_common_headers(response.headers_mut(), &metadata, &etag);
                 Ok(response)
             }
@@ -112,7 +114,7 @@ impl RangeHandler {
         file_path: PathBuf,
         metadata: Metadata,
         etag: String,
-    ) -> Result<Response, RangeError> {
+    ) -> Result<Response<Body>, RangeError> {
         let file_size = metadata.len();
         let range_header = req.headers().get(RANGE).unwrap();
 
@@ -263,9 +265,8 @@ impl RangeHandler {
 
         // Last-Modified
         if let Ok(modified) = metadata.modified() {
-            if let Ok(http_date) = httpdate::fmt_http_date(modified) {
-                headers.insert(LAST_MODIFIED, HeaderValue::from_str(&http_date).unwrap());
-            }
+            let http_date = httpdate::fmt_http_date(modified);
+            headers.insert(LAST_MODIFIED, HeaderValue::from_str(&http_date).unwrap());
         }
 
         // Accept ranges for all responses

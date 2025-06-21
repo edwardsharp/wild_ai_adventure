@@ -11,8 +11,13 @@
 pub mod enhanced;
 pub mod range_handler;
 
-use axum::http::header::{CACHE_CONTROL, CONTENT_TYPE};
-use axum::{http::StatusCode, middleware as axum_middleware, response::IntoResponse, Router};
+use axum::http::header::CACHE_CONTROL;
+use axum::{
+    http::{HeaderValue, StatusCode},
+    middleware as axum_middleware,
+    response::IntoResponse,
+    Router,
+};
 use std::path::PathBuf;
 use tower::service_fn;
 use tower_http::compression::CompressionLayer;
@@ -41,7 +46,7 @@ pub fn build_public_static_routes(config: &AppConfig) -> Router {
         .layer(CompressionLayer::new())
         .layer(SetResponseHeaderLayer::if_not_present(
             CACHE_CONTROL,
-            "public, max-age=3600",
+            HeaderValue::from_static("public, max-age=3600"),
         ))
         .layer(TraceLayer::new_for_http())
 }
@@ -59,7 +64,7 @@ pub fn build_protected_static_routes(config: &AppConfig) -> Router {
         .layer(CompressionLayer::new())
         .layer(SetResponseHeaderLayer::if_not_present(
             CACHE_CONTROL,
-            "private, max-age=1800",
+            HeaderValue::from_static("private, max-age=1800"),
         ))
         .layer(TraceLayer::new_for_http())
         .layer(axum_middleware::from_fn(require_authentication))
@@ -91,7 +96,7 @@ pub fn build_assets_fallback_service(config: &AppConfig) -> Router {
         .layer(CompressionLayer::new())
         .layer(SetResponseHeaderLayer::if_not_present(
             CACHE_CONTROL,
-            "public, max-age=86400", // 24 hours for assets
+            HeaderValue::from_static("public, max-age=86400"), // 24 hours for assets
         ))
         .layer(TraceLayer::new_for_http())
 }

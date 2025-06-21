@@ -8,7 +8,13 @@
 //! - Security headers
 
 use axum::http::header::{CACHE_CONTROL, CONTENT_TYPE};
-use axum::{http::StatusCode, middleware as axum_middleware, response::IntoResponse, Router};
+use axum::http::Extensions;
+use axum::{
+    http::{HeaderMap, HeaderValue, StatusCode, Version},
+    middleware as axum_middleware,
+    response::{IntoResponse, Response},
+    Router,
+};
 use std::path::PathBuf;
 use tower::service_fn;
 use tower_http::compression::CompressionLayer;
@@ -37,11 +43,11 @@ pub fn build_enhanced_public_routes(config: &AppConfig) -> Router {
     Router::new()
         .nest_service("/public", serve_dir)
         .layer(
-            CompressionLayer::new().gzip(true).br(true).deflate(false), // Disable deflate as it's less efficient
+            CompressionLayer::new().gzip(true).br(true).no_deflate(), // Disable deflate as it's less efficient
         )
         .layer(SetResponseHeaderLayer::if_not_present(
             CACHE_CONTROL,
-            "public, max-age=31536000, immutable", // 1 year for public assets
+            HeaderValue::from_static("public, max-age=31536000, immutable"), // 1 year for public assets
         ))
         .layer(TraceLayer::new_for_http())
 }
@@ -60,7 +66,7 @@ pub fn build_enhanced_private_routes(config: &AppConfig) -> Router {
         .layer(CompressionLayer::new().gzip(true).br(true))
         .layer(SetResponseHeaderLayer::if_not_present(
             CACHE_CONTROL,
-            "private, max-age=3600, must-revalidate", // 1 hour for private content
+            HeaderValue::from_static("private, max-age=3600, must-revalidate"), // 1 hour for private content
         ))
         .layer(TraceLayer::new_for_http())
         .layer(axum_middleware::from_fn(require_authentication))
@@ -89,20 +95,25 @@ pub fn build_enhanced_assets_service(config: &AppConfig) -> Router {
                 .gzip(true)
                 .br(true)
                 // Don't compress media files as they're already compressed
-                .compress_when(|headers, _| {
-                    if let Some(content_type) = headers.get(CONTENT_TYPE) {
-                        let ct = content_type.to_str().unwrap_or("");
-                        !ct.starts_with("video/")
-                            && !ct.starts_with("audio/")
-                            && !ct.starts_with("image/")
-                    } else {
-                        true
-                    }
-                }),
+                .compress_when(
+                    |_status: StatusCode,
+                     _version: Version,
+                     headers: &HeaderMap,
+                     _extensions: &Extensions| {
+                        if let Some(content_type) = headers.get(CONTENT_TYPE) {
+                            let ct = content_type.to_str().unwrap_or("");
+                            !ct.starts_with("video/")
+                                && !ct.starts_with("audio/")
+                                && !ct.starts_with("image/")
+                        } else {
+                            true
+                        }
+                    },
+                ),
         )
         .layer(SetResponseHeaderLayer::if_not_present(
             CACHE_CONTROL,
-            get_cache_control_for_assets(),
+            HeaderValue::from_static(get_cache_control_for_assets()),
         ))
         .layer(TraceLayer::new_for_http())
 }
@@ -115,8 +126,10 @@ fn get_cache_control_for_assets() -> &'static str {
 }
 
 /// Custom 404 handler for static files
-async fn not_found_handler(_: axum::extract::Request) -> impl IntoResponse {
-    (
+async fn not_found_handler(
+    _: axum::extract::Request,
+) -> Result<Response, std::convert::Infallible> {
+    Ok((
         StatusCode::NOT_FOUND,
         [("content-type", "text/html; charset=utf-8")],
         r#"
@@ -143,8 +156,9 @@ async fn not_found_handler(_: axum::extract::Request) -> impl IntoResponse {
     <p><a href="/">← Back to Home</a></p>
 </body>
 </html>
-        "#,
+            "#,
     )
+        .into_response())
 }
 
 /// Check if a file path represents a media file that benefits from range requests
