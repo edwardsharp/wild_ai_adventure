@@ -269,6 +269,8 @@ pub struct LoggingConfig {
     pub file: Option<LogFileConfig>,
     /// Security event logging
     pub security: SecurityLoggingConfig,
+    /// HTTP access logging configuration
+    pub access_log: Option<AccessLogConfig>,
 }
 
 /// Log file configuration
@@ -287,6 +289,25 @@ pub struct LogFileConfig {
     pub keep_files: u32,
 }
 
+/// Access log configuration for HTTP requests
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct AccessLogConfig {
+    /// Enable HTTP access logging
+    #[serde(default)]
+    pub enabled: bool,
+    /// Access log file path
+    #[serde(default = "default_access_log_path")]
+    pub file_path: String,
+    /// Log format (common, combined, custom)
+    #[serde(default = "default_access_log_format")]
+    pub format: String,
+    /// Custom format template (used when format = "custom")
+    pub custom_template: Option<String>,
+    /// Also log to application logger
+    #[serde(default)]
+    pub also_log_to_tracing: bool,
+}
+
 /// Security logging configuration
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct SecurityLoggingConfig {
@@ -301,7 +322,7 @@ pub struct SecurityLoggingConfig {
     pub log_failed_invites: bool,
     /// Log all request analytics
     #[serde(default = "default_true")]
-    pub log_request_analytics: bool,
+    pub log_analytics: bool,
 }
 
 /// Analytics configuration
@@ -646,6 +667,14 @@ fn default_log_keep_files() -> u32 {
     10
 }
 
+fn default_access_log_path() -> String {
+    "logs/access.log".to_string()
+}
+
+fn default_access_log_format() -> String {
+    "combined".to_string()
+}
+
 fn default_analytics_retention() -> u32 {
     30
 }
@@ -833,8 +862,9 @@ impl AppConfig {
                     log_auth_attempts: true,
                     log_private_access: true,
                     log_failed_invites: true,
-                    log_request_analytics: true,
+                    log_analytics: true,
                 },
+                access_log: None,
             },
             analytics: AnalyticsConfig {
                 enabled: true,

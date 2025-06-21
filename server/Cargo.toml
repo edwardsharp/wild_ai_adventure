@@ -27,8 +27,11 @@ tower-sessions.workspace = true
 tower-sessions-sqlx-store.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
+tracing-appender.workspace = true
 url.workspace = true
 uuid.workspace = true
+httpdate.workspace = true
+mime_guess.workspace = true
 webauthn-rs = { workspace = true, features = [
     "danger-allow-state-serialisation",
 ] }

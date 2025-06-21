@@ -9,6 +9,9 @@ use tower_sessions::{
 
 use server::analytics::{analytics_middleware, security_logging};
 use server::config::AppConfig;
+use server::logging::{
+    access_log_middleware_with_logger, AccessLogConfig, AccessLogFormat, AccessLogger,
+};
 use server::routes::build_routes;
 use server::startup::AppState;
 use server::static_filez::build_assets_fallback_service;
@@ -151,6 +154,45 @@ async fn main() {
     // Get analytics service for middleware
     let analytics_service = app_state.analytics.clone();
 
+    // Set up access logging if enabled
+    let access_logger = if let Some(access_config) = &config.logging.access_log {
+        if access_config.enabled {
+            let format = match access_config.format.as_str() {
+                "common" => AccessLogFormat::CommonLog,
+                "combined" => AccessLogFormat::CombinedLog,
+                "custom" => {
+                    if let Some(template) = &access_config.custom_template {
+                        AccessLogFormat::Custom(template.clone())
+                    } else {
+                        AccessLogFormat::CombinedLog
+                    }
+                }
+                _ => AccessLogFormat::CombinedLog,
+            };
+
+            let access_log_config = AccessLogConfig {
+                file_path: access_config.file_path.clone(),
+                format,
+                also_log_to_tracing: access_config.also_log_to_tracing,
+            };
+
+            match AccessLogger::new(access_log_config) {
+                Ok(logger) => {
+                    info!("📝 Access logging enabled: {}", access_config.file_path);
+                    Some(logger)
+                }
+                Err(e) => {
+                    error!("❌ Failed to initialize access logger: {}", e);
+                    None
+                }
+            }
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
     // Build session manager with config
     let same_site = match config.sessions.same_site.as_str() {
         "strict" => SameSite::Strict,
@@ -173,6 +215,13 @@ async fn main() {
         .layer(Extension(app_state.database.clone()))
         .layer(Extension(app_state))
         .layer(axum_middleware::from_fn(security_logging));
+
+    // Add access logging middleware if enabled
+    if let Some(logger) = access_logger {
+        app = app.layer(axum_middleware::from_fn(access_log_middleware_with_logger(
+            logger,
+        )));
+    }
 
     // Add analytics middleware if enabled
     if config.features.analytics_enabled {
