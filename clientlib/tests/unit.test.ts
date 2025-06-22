@@ -1,3 +1,4 @@
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { ApiClient, ApiError } from '../src/api-client.js';
 
 // Mock fetch globally

@@ -1,3 +1,4 @@
+import { describe, it, expect, beforeAll } from 'vitest';
 import { TestApiClient, testUtils } from '../src/test-helpers.js';
 import { ApiError } from '../src/api-client.js';
 import testCodes from '../test-data/invite-codes.json' assert { type: 'json' };

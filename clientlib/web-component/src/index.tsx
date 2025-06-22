@@ -10,7 +10,8 @@ export { VERSION } from './webauthn-component';
 export type { WebAuthnAuthProps } from './webauthn-component';
 
 // WebSocket Components
-export { ConnectionStatus } from './websocket-status';
+import { ConnectionStatus } from './websocket-status';
+export { ConnectionStatus };
 export type { WebSocketHandlerProps } from './websocket-handler';
 export type { WebSocketStatusProps } from './websocket-status';
 
