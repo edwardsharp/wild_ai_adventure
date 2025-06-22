@@ -1,3 +1,4 @@
+import { vi } from 'vitest';
 import { ApiClient, ApiError } from './api-client.js';
 
 export class TestApiClient extends ApiClient {

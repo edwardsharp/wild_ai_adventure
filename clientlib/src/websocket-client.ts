@@ -7,9 +7,7 @@
 
 import {
   WebSocketMessage,
-  WebSocketResponse,
   ConnectionStatus,
-  parseWebSocketResponse,
   safeParseWebSocketResponse,
   createMessage,
   MediaBlob,
@@ -32,7 +30,11 @@ export interface WebSocketClientEvents {
   /** Connection status changed */
   statusChange: (status: ConnectionStatus) => void;
   /** Received welcome message */
-  welcome: (data: { message: string; user_id?: string; connection_id: string }) => void;
+  welcome: (data: {
+    message: string;
+    user_id?: string;
+    connection_id: string;
+  }) => void;
   /** Received media blobs */
   mediaBlobs: (data: { blobs: MediaBlob[]; total_count: number }) => void;
   /** Received single media blob */
@@ -215,7 +217,9 @@ export class WebSocketClient {
       const parseResult = safeParseWebSocketResponse(data);
 
       if (!parseResult.success) {
-        const error = new Error(`Message parse error: ${parseResult.error.message}`);
+        const error = new Error(
+          `Message parse error: ${parseResult.error.message}`
+        );
         this.log('Parse error:', error);
         this.listeners.parseError?.(error, rawMessage);
         return;
@@ -265,8 +269,10 @@ export class WebSocketClient {
   private scheduleReconnect(): void {
     if (!this.config.autoReconnect) return;
 
-    if (this.config.maxReconnectAttempts > 0 &&
-        this.reconnectAttempts >= this.config.maxReconnectAttempts) {
+    if (
+      this.config.maxReconnectAttempts > 0 &&
+      this.reconnectAttempts >= this.config.maxReconnectAttempts
+    ) {
       this.log('Max reconnection attempts reached');
       return;
     }
@@ -274,7 +280,9 @@ export class WebSocketClient {
     this.clearReconnectTimer();
     this.reconnectAttempts++;
 
-    this.log(`Scheduling reconnect attempt ${this.reconnectAttempts} in ${this.config.reconnectDelay}ms`);
+    this.log(
+      `Scheduling reconnect attempt ${this.reconnectAttempts} in ${this.config.reconnectDelay}ms`
+    );
 
     this.reconnectTimer = window.setTimeout(() => {
       this.connect();

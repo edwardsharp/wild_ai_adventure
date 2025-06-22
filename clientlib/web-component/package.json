@@ -9,9 +9,6 @@
     "build": "vite build --config vite.wc.config.ts",
     "build:copy": "npm run build && npm run copy",
     "copy": "cp dist/webauthn-auth-standalone.js ../../assets/clientlib/web-component/dist/webauthn-auth-standalone.js",
-    "build:old": "node build.js",
-    "build:dev": "esbuild src/index.ts --bundle --format=esm --outfile=dist/webauthn-auth.js --external:solid-js --sourcemap",
-    "watch": "esbuild src/index.ts --bundle --format=esm --outfile=dist/webauthn-auth.js --external:solid-js --watch --sourcemap",
     "build:standalone": "vite build --config vite.wc.config.ts",
     "dev": "vite dev --config vite.wc.config.ts",
     "clean": "rm -rf dist",
@@ -31,13 +28,13 @@
   "license": "MIT",
   "dependencies": {
     "solid-js": "^1.8.5",
-    "zod": "^3.22.4"
+    "zod": "^3.22.4",
+    "@webauthn/clientlib": "file:.."
   },
   "devDependencies": {
     "@types/node": "^20.9.0",
     "@typescript-eslint/eslint-plugin": "^6.12.0",
     "@typescript-eslint/parser": "^6.12.0",
-    "esbuild": "^0.19.8",
     "eslint": "^8.54.0",
     "eslint-config-prettier": "^9.0.0",
     "eslint-plugin-prettier": "^5.0.1",

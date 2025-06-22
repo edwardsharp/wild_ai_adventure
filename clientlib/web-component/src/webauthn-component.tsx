@@ -1,8 +1,8 @@
 import { customElement } from 'solid-element';
 import { createSignal, createEffect, onMount, Show } from 'solid-js';
 
-// Import the API client
-import { ApiClient, ApiError } from './api-client';
+// Import the API client from parent clientlib
+import { ApiClient, ApiError } from '@webauthn/clientlib';
 
 export interface WebAuthnAuthProps {
   baseUrl?: string;
@@ -197,7 +197,7 @@ customElement('webauthn-auth', { baseUrl: '', theme: 'auto' }, (props) => {
         publicKey: {
           ...challenge.publicKey,
           challenge: base64ToUint8Array(challenge.publicKey.challenge),
-          allowCredentials: challenge.publicKey.allow_credentials?.map(
+          allowCredentials: challenge.publicKey.allowCredentials?.map(
             (cred) => ({
               ...cred,
               id: base64ToUint8Array(cred.id),

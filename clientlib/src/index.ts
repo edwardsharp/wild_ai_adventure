@@ -29,12 +29,8 @@ export type {
   WebAuthnPublicKeyCredentialRequestOptions,
 } from './api-spec.js';
 
-// Test utilities (useful for development and testing)
-export { TestApiClient, testUtils, mockWebAuthn } from './test-helpers.js';
-
-// Test data management
-export { TestDataManager, testData } from './test-data.js';
-export type { TestInviteCode } from './test-data.js';
+// Note: Test utilities are available in individual files for testing environments
+// but not exported from main index to avoid Node.js dependencies in browser builds
 
 // WebSocket client and types
 export { WebSocketClient } from './websocket-client.js';
