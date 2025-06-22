@@ -1,8 +1,17 @@
 import { customElement } from 'solid-element';
-import { createSignal, createEffect, onMount, Show } from 'solid-js';
+import {
+  createSignal,
+  createEffect,
+  onMount,
+  Show,
+  createMemo,
+} from 'solid-js';
 
 // Import the API client from parent clientlib
 import { ApiClient, ApiError } from '@webauthn/clientlib';
+
+// WebAuthn types
+type UserVerificationRequirement = 'required' | 'preferred' | 'discouraged';
 
 export interface WebAuthnAuthProps {
   baseUrl?: string;
@@ -42,9 +51,12 @@ customElement('webauthn-auth', { baseUrl: '', theme: 'auto' }, (props) => {
   >('info');
   const [mode, setMode] = createSignal<'login' | 'register'>('login');
 
-  const apiClient = new ApiClient({
-    baseUrl: props.baseUrl || 'http://localhost:8080',
-  });
+  const apiClient = createMemo(
+    () =>
+      new ApiClient({
+        baseUrl: props.baseUrl || 'http://localhost:8080',
+      })
+  );
 
   const showMessage = (
     msg: string,
@@ -79,11 +91,11 @@ customElement('webauthn-auth', { baseUrl: '', theme: 'auto' }, (props) => {
 
   const checkAuthStatus = async () => {
     try {
-      const status = await apiClient.authStatus();
+      const status = await apiClient().authStatus();
       setIsAuthenticated(status.authenticated);
       setCurrentUser(status.username || null);
       return status.authenticated;
-    } catch (error) {
+    } catch {
       setIsAuthenticated(false);
       setCurrentUser(null);
       return false;
@@ -99,7 +111,7 @@ customElement('webauthn-auth', { baseUrl: '', theme: 'auto' }, (props) => {
     setIsLoading(true);
     try {
       // Start registration
-      const challenge = await apiClient.registerStart(username(), {
+      const challenge = await apiClient().registerStart(username(), {
         invite_code: inviteCode(),
       });
 
@@ -143,7 +155,7 @@ customElement('webauthn-auth', { baseUrl: '', theme: 'auto' }, (props) => {
       }
 
       // Finish registration
-      await apiClient.registerFinish({
+      await apiClient().registerFinish({
         id: credential.id,
         rawId: uint8ArrayToBase64(new Uint8Array(credential.rawId)),
         type: credential.type,
@@ -190,13 +202,15 @@ customElement('webauthn-auth', { baseUrl: '', theme: 'auto' }, (props) => {
     setIsLoading(true);
     try {
       // Start login
-      const challenge = await apiClient.loginStart(username());
+      const challenge = await apiClient().loginStart(username());
 
       // Convert challenge data for WebAuthn API
       const credentialRequestOptions: CredentialRequestOptions = {
         publicKey: {
           ...challenge.publicKey,
           challenge: base64ToUint8Array(challenge.publicKey.challenge),
+          userVerification: challenge.publicKey
+            .userVerification as UserVerificationRequirement,
           allowCredentials: challenge.publicKey.allowCredentials?.map(
             (cred) => ({
               ...cred,
@@ -216,7 +230,7 @@ customElement('webauthn-auth', { baseUrl: '', theme: 'auto' }, (props) => {
       }
 
       // Finish login
-      await apiClient.loginFinish({
+      await apiClient().loginFinish({
         id: assertion.id,
         rawId: uint8ArrayToBase64(new Uint8Array(assertion.rawId)),
         type: assertion.type,
@@ -272,7 +286,7 @@ customElement('webauthn-auth', { baseUrl: '', theme: 'auto' }, (props) => {
   const handleLogout = async () => {
     setIsLoading(true);
     try {
-      await apiClient.logout();
+      await apiClient().logout();
       setIsAuthenticated(false);
       setCurrentUser(null);
       setUsername('');

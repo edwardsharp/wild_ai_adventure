@@ -34,7 +34,7 @@ struct AccessLogEntry {
 
 impl AccessLogEntry {
     /// Format as Common Log Format
-    fn to_common_log_format(&self) -> String {
+    fn _to_common_log_format(&self) -> String {
         let size = self
             .response_size
             .map(|s| s.to_string())
@@ -96,7 +96,8 @@ fn format_timestamp() -> String {
         format_description::parse("[day]/[month repr:short]/[year]:[hour]:[minute]:[second] +0000")
             .unwrap();
 
-    now.format(&format).unwrap_or_else(|_| "unknown".to_string())
+    now.format(&format)
+        .unwrap_or_else(|_| "unknown".to_string())
 }
 
 /// Write log entry to file
@@ -104,11 +105,7 @@ async fn write_log_entry(entry: &AccessLogEntry, log_file: &str) {
     let log_line = entry.to_combined_log_format();
 
     // Write to file (in production, you'd want better error handling and possibly async file I/O)
-    if let Ok(mut file) = OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(log_file)
-    {
+    if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(log_file) {
         if let Err(e) = writeln!(file, "{}", log_line) {
             warn!("Failed to write access log: {}", e);
         }
@@ -267,7 +264,10 @@ mod tests {
     #[test]
     fn test_extract_client_ip() {
         let mut headers = HeaderMap::new();
-        headers.insert("x-forwarded-for", "192.168.1.100, 10.0.0.1".parse().unwrap());
+        headers.insert(
+            "x-forwarded-for",
+            "192.168.1.100, 10.0.0.1".parse().unwrap(),
+        );
 
         let ip = extract_client_ip(&headers);
         assert_eq!(ip, "192.168.1.100");

@@ -164,7 +164,7 @@ mod tests {
     fn test_media_blob_new() {
         let params = CreateMediaBlob {
             data: Some(vec![1, 2, 3, 4]),
-            sha256: "abc".into(),
+            sha256: "a".repeat(64),
             size: Some(4),
             mime: Some("image/png".to_string()),
             source_client_id: Some("test-client".to_string()),
@@ -180,7 +180,7 @@ mod tests {
 
     #[test]
     fn test_media_blob_without_data() {
-        let mut blob = MediaBlob::new(CreateMediaBlob {
+        let blob = MediaBlob::new(CreateMediaBlob {
             data: Some(vec![1, 2, 3, 4]),
             sha256: "a".repeat(64),
             size: Some(4),

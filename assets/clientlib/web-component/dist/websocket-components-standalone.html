@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WebSocket Components Test</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 2rem;
+      background: #f5f5f5;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔌 WebSocket Components Test</h1>
+
+    <div style="margin-bottom: 2rem;">
+      <h2>Connection Status</h2>
+      <websocket-status
+        status="disconnected"
+        showText="true"
+        showUserCount="true">
+      </websocket-status>
+    </div>
+
+    <div>
+      <h2>WebSocket Handler</h2>
+      <websocket-handler
+        websocketUrl="ws://localhost:8080/ws"
+        autoConnect="false"
+        showDebugLog="true">
+      </websocket-handler>
+    </div>
+  </div>
+
+  <script type="module">
+import{b as oe,a as g,f as G,t as l,i as s,c as m,g as H,h as ne,m as J,S as x,d as me,j as pe,F as fe}from"./index-Brcx7u6i.js";var he=l("<span>"),xe=l("<span class=user-count>(<!> user<!>)"),$e=l(`<div><style>
+        .status-indicator {
+          width: 12px;
+          height: 12px;
+          border-radius: 50%;
+          border: 1px solid rgba(0, 0, 0, 0.1);
+          transition: all 0.3s ease;
+          position: relative;
+        }
+
+        .status-indicator.disconnected {
+          background-color: #ef4444;
+          box-shadow: 0 0 4px rgba(239, 68, 68, 0.3);
+        }
+
+        .status-indicator.connecting {
+          background-color: #f59e0b;
+          box-shadow: 0 0 4px rgba(245, 158, 11, 0.3);
+          animation: pulse 1.5s infinite;
+        }
+
+        .status-indicator.connected {
+          background-color: #10b981;
+          box-shadow: 0 0 4px rgba(16, 185, 129, 0.3);
+        }
+
+        .status-indicator.error {
+          background-color: #dc2626;
+          box-shadow: 0 0 4px rgba(220, 38, 38, 0.5);
+          animation: blink 1s infinite;
+        }
+
+        @keyframes pulse {
+          0%, 100% {
+            opacity: 1;
+            transform: scale(1);
+          }
+          50% {
+            opacity: 0.7;
+            transform: scale(1.1);
+          }
+        }
+
+        @keyframes blink {
+          0%, 50% {
+            opacity: 1;
+          }
+          51%, 100% {
+            opacity: 0.3;
+          }
+        }
+
+        .status-text {
+          color: #374151;
+          font-weight: 500;
+        }
+
+        .status-text.disconnected {
+          color: #dc2626;
+        }
+
+        .status-text.connecting {
+          color: #d97706;
+        }
+
+        .status-text.connected {
+          color: #059669;
+        }
+
+        .status-text.error {
+          color: #dc2626;
+        }
+
+        .user-count {
+          color: #6b7280;
+          font-size: 12px;
+          margin-left: 4px;
+        }
+      </style><div>`),c=(a=>(a.Disconnected="disconnected",a.Connecting="connecting",a.Connected="connected",a.Error="error",a))(c||{});const ve=a=>{const[$,N]=g(Date.now()),v=()=>a.status??"disconnected",p=()=>a.showText??!0,_=()=>a.userCount??0,E=()=>a.showUserCount??!1,M=()=>a.compact??!1;G(()=>{const i=v();N(Date.now());const k=new CustomEvent("status-change",{detail:{status:i,timestamp:$()},bubbles:!0});setTimeout(()=>{const f=document.querySelector("websocket-status");f&&f.dispatchEvent(k)},0)});const F=()=>{switch(v()){case"disconnected":return"Offline";case"connecting":return"Connecting...";case"connected":return"Online";case"error":return"Connection Error";default:return"Unknown"}},j=()=>`status-indicator ${v()}`,y=()=>`status-text ${v()}`;return(()=>{var i=$e(),k=i.firstChild,f=k.nextSibling;return i.style.setProperty("display","inline-flex"),i.style.setProperty("align-items","center"),i.style.setProperty("gap","8px"),i.style.setProperty("font-family",'-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'),i.style.setProperty("font-size","14px"),s(i,m(x,{get when(){return J(()=>!!p())()&&!M()},get children(){var d=he();return s(d,F),H(()=>ne(d,y())),d}}),null),s(i,m(x,{get when(){return J(()=>!!(E()&&_()>0))()&&!M()},get children(){var d=xe(),I=d.firstChild,R=I.nextSibling,q=R.nextSibling,o=q.nextSibling;return o.nextSibling,s(d,_,R),s(d,()=>_()!==1?"s":"",o),d}}),null),H(()=>ne(f,j())),i})()};oe("websocket-status",{status:"disconnected",showText:!0,userCount:0,showUserCount:!1,compact:!1},ve);var ye=l("<button>Disconnect"),ke=l("<div class=error-message>"),Se=l("<div class=debug-log>"),we=l(`<div><style>
+        .container {
+          padding: 16px;
+          border: 1px solid #e5e7eb;
+          border-radius: 8px;
+          background: #f9fafb;
+        }
+
+        .header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 16px;
+        }
+
+        .title {
+          font-size: 18px;
+          font-weight: 600;
+          color: #111827;
+        }
+
+        .controls {
+          display: flex;
+          gap: 8px;
+        }
+
+        button {
+          padding: 6px 12px;
+          border: 1px solid #d1d5db;
+          border-radius: 6px;
+          background: white;
+          color: #374151;
+          font-size: 14px;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+
+        button:hover {
+          background: #f3f4f6;
+          border-color: #9ca3af;
+        }
+
+        button:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
+        button.primary {
+          background: #3b82f6;
+          color: white;
+          border-color: #3b82f6;
+        }
+
+        button.primary:hover {
+          background: #2563eb;
+          border-color: #2563eb;
+        }
+
+        .status-section {
+          margin-bottom: 16px;
+        }
+
+        .debug-log {
+          background: #1f2937;
+          color: #f3f4f6;
+          padding: 12px;
+          border-radius: 6px;
+          font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+          font-size: 12px;
+          max-height: 300px;
+          overflow-y: auto;
+          white-space: pre-wrap;
+          word-break: break-all;
+        }
+
+        .media-blobs {
+          margin-top: 16px;
+        }
+
+        .media-blob {
+          padding: 12px;
+          border: 1px solid #e5e7eb;
+          border-radius: 6px;
+          margin-bottom: 8px;
+          background: white;
+        }
+
+        .media-blob-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 8px;
+        }
+
+        .media-blob-id {
+          font-family: monospace;
+          font-size: 12px;
+          color: #6b7280;
+        }
+
+        .media-blob-info {
+          font-size: 14px;
+          color: #374151;
+        }
+
+        .media-blob-meta {
+          font-size: 12px;
+          color: #6b7280;
+          margin-top: 4px;
+        }
+
+        .empty-state {
+          text-align: center;
+          color: #6b7280;
+          font-style: italic;
+          padding: 32px;
+        }
+
+        .error-message {
+          background: #fef2f2;
+          border: 1px solid #fecaca;
+          color: #dc2626;
+          padding: 12px;
+          border-radius: 6px;
+          margin-bottom: 16px;
+        }
+      </style><div class=container><div class=header><h2 class=title>WebSocket Handler</h2><div class=controls><button>Ping</button><button>Get Media Blobs</button></div></div><div class=status-section><websocket-status></websocket-status></div><div class=media-blobs><h3>Media Blobs (<!>)`,!0,!1,!1),Ce=l("<button class=primary>Connect"),_e=l('<div class=empty-state>No media blobs received yet. Click "Get Media Blobs" to fetch from server.'),Ee=l("<br>"),Me=l("<div class=media-blob><div class=media-blob-header><div class=media-blob-id></div><div class=media-blob-info> • </div></div><div class=media-blob-meta>SHA256: <br>Client: <br>Path: <br>Created: ");const De=a=>{const $=()=>a.websocketUrl??"",N=()=>a.autoConnect??!0,v=()=>a.showDebugLog??!0,[p,_]=g(c.Disconnected),[E,M]=g(null),[F,j]=g([]),[y,i]=g([]),[k,f]=g(""),[d,I]=g(0),[R,q]=g("");G(()=>{N()&&$()&&K()});const o=(t,...e)=>{const r=new Date().toLocaleTimeString(),u=e.length>0?`[${r}] ${t}: ${JSON.stringify(e,null,2)}`:`[${r}] ${t}`;j(D=>[...D.slice(-99),u]),console.log("[WebSocketHandler]",t,...e)},S=t=>{if(p()!==t){_(t),o(`Status changed to: ${t}`);const e=new CustomEvent("status-change",{detail:{status:t},bubbles:!0});setTimeout(()=>{const r=document.querySelector("websocket-handler");r&&r.dispatchEvent(e)},0)}},h=t=>{f(t),o(`Error: ${t}`)},A=()=>{f("")},K=()=>{if(!$()){h("WebSocket URL not provided");return}if(E()?.readyState===WebSocket.OPEN){o("Already connected");return}A(),S(c.Connecting),o(`Connecting to ${$()}`);try{const t=new WebSocket($());M(t),re(t)}catch(t){h(`Connection failed: ${t}`),S(c.Error)}},Q=()=>{o("Disconnecting...");const t=E();t&&(t.close(1e3,"Client disconnect"),M(null)),S(c.Disconnected)},re=t=>{t.onopen=()=>{o("Connected successfully"),S(c.Connected),A()},t.onclose=e=>{o("Connection closed",{code:e.code,reason:e.reason}),S(c.Disconnected)},t.onerror=e=>{o("Socket error",e),S(c.Error),h("Connection error occurred")},t.onmessage=e=>{se(e.data)}},se=t=>{o("Received raw message",t);try{const e=JSON.parse(t);switch(o("Parsed message",e),e.type){case"Welcome":o("Welcome received",e.data),q(e.data?.connection_id||"");break;case"Pong":o("Pong received");break;case"MediaBlobs":o("Media blobs received",e.data);const r=e.data;i(r?.blobs||[]);const u=new CustomEvent("media-blobs-received",{detail:{blobs:y(),totalCount:r?.total_count},bubbles:!0});setTimeout(()=>{const b=document.querySelector("websocket-handler");b&&b.dispatchEvent(u)},0);break;case"MediaBlob":o("Single media blob received",e.data);const D=e.data,L=new CustomEvent("media-blob-received",{detail:{blob:D?.blob},bubbles:!0});setTimeout(()=>{const b=document.querySelector("websocket-handler");b&&b.dispatchEvent(L)},0);break;case"Error":o("Error message received",e.data);const U=e.data;h(U?.message||"Server error");break;case"ConnectionStatus":o("Connection status update",e.data);const O=e.data;I(O?.user_count||0);break;default:o("Unknown message type",e)}}catch(e){o("Failed to parse message",{error:e instanceof Error?e.toString():String(e),rawMessage:t}),h(`Message parse error: ${e}`)}},V=t=>{const e=E();if(!e||e.readyState!==WebSocket.OPEN)return h("Cannot send message: not connected"),!1;try{const r=JSON.stringify(t);return e.send(r),o("Sent message",t),!0}catch(r){return h(`Send error: ${r}`),!1}},ae=()=>V({type:"Ping"}),ie=(t,e)=>V({type:"GetMediaBlobs",data:{limit:t,offset:e}}),ce=t=>{if(!t)return"Unknown size";const e=["B","KB","MB","GB"];let r=t,u=0;for(;r>=1024&&u<e.length-1;)r/=1024,u++;return`${r.toFixed(1)} ${e[u]}`};return G(()=>()=>{Q()}),(()=>{var t=we(),e=t.firstChild,r=e.nextSibling,u=r.firstChild,D=u.firstChild,L=D.nextSibling,U=L.firstChild,O=U.nextSibling,b=u.nextSibling,T=b.firstChild,W=b.nextSibling,X=W.firstChild,le=X.firstChild,Y=le.nextSibling;return Y.nextSibling,t.style.setProperty("display","block"),t.style.setProperty("font-family",'-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'),U.$click=ae,O.$click=()=>ie(),s(L,m(x,{get when(){return p()===c.Connected},get fallback(){return(()=>{var n=Ce();return n.$click=K,n})()},get children(){var n=ye();return n.$click=Q,n}}),null),T.showusercount=!0,T._$owner=pe(),s(r,m(x,{get when(){return k()},get children(){var n=ke();return s(n,k),n}}),W),s(r,m(x,{get when(){return v()},get children(){var n=Se();return s(n,()=>F().join(`
+`)),n}}),W),s(X,()=>y().length,Y),s(W,m(x,{get when(){return y().length>0},get fallback(){return _e()},get children(){return m(fe,{get each(){return y()},children:n=>(()=>{var B=Me(),P=B.firstChild,z=P.firstChild,w=z.nextSibling,de=w.firstChild,C=P.nextSibling,ue=C.firstChild,Z=ue.nextSibling,be=Z.nextSibling,ee=be.nextSibling,ge=ee.nextSibling,te=ge.nextSibling;return te.nextSibling,s(z,()=>n.id),s(w,()=>n.mime||"Unknown type",de),s(w,()=>ce(n.size),null),s(C,()=>n.sha256,Z),s(C,()=>n.source_client_id||"Unknown",ee),s(C,()=>n.local_path||"None",te),s(C,()=>new Date(n.created_at).toLocaleString(),null),s(C,m(x,{get when(){return Object.keys(n.metadata).length>0},get children(){return[Ee(),"Metadata: ",J(()=>JSON.stringify(n.metadata))]}}),null),B})()})}}),null),H(n=>{var B=p()!==c.Connected,P=p()!==c.Connected,z=p(),w=d();return B!==n.e&&(U.disabled=n.e=B),P!==n.t&&(O.disabled=n.t=P),z!==n.a&&(T.status=n.a=z),w!==n.o&&(T.usercount=n.o=w),n},{e:void 0,t:void 0,a:void 0,o:void 0}),t})()};oe("websocket-handler",{websocketUrl:"",autoConnect:!0,showDebugLog:!0},De);me(["click"]);
+//# sourceMappingURL=websocket-components.js.map
+
+  </script>
+
+  <script>
+    // Listen for WebSocket events
+    document.addEventListener('status-change', (e) => {
+      console.log('📡 Status changed:', e.detail);
+    });
+
+    document.addEventListener('media-blobs-received', (e) => {
+      console.log('📦 Media blobs received:', e.detail);
+    });
+  </script>
+</body>
+</html>

@@ -4,7 +4,6 @@ use axum::{
     extract::Request,
     http::{Method, StatusCode},
     middleware,
-    response::Response,
     routing::get,
     Router,
 };

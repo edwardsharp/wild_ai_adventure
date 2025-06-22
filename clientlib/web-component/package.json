@@ -1,27 +1,29 @@
 {
   "name": "@webauthn/web-component",
   "version": "1.0.0",
-  "description": "Solid.js web component for WebAuthn authentication",
+  "description": "Solid.js web components for WebAuthn authentication and WebSocket handling",
   "type": "module",
-  "main": "dist/webauthn-auth.js",
-  "types": "dist/webauthn-auth.d.ts",
+  "main": "dist/all-components.js",
+  "types": "dist/all-components.d.ts",
   "scripts": {
     "build": "vite build --config vite.wc.config.ts",
     "build:copy": "npm run build && npm run copy",
-    "copy": "cp dist/webauthn-auth-standalone.js ../../assets/clientlib/web-component/dist/webauthn-auth-standalone.js",
+    "copy": "cp dist/*.js ../../assets/clientlib/web-component/dist/ && cp dist/*.html ../../assets/clientlib/web-component/dist/",
     "build:standalone": "vite build --config vite.wc.config.ts",
     "dev": "vite dev --config vite.wc.config.ts",
     "clean": "rm -rf dist",
-    "lint": "eslint src/**/*.ts src/**/*.tsx",
-    "lint:fix": "eslint src/**/*.ts src/**/*.tsx --fix",
+    "lint": "eslint 'src/**/*.{ts,tsx}'",
+    "lint:fix": "eslint 'src/**/*.{ts,tsx}' --fix",
     "format": "prettier --write src/**/*.{ts,tsx}",
     "typecheck": "tsc --noEmit"
   },
   "keywords": [
     "webauthn",
+    "websocket",
     "solid-js",
     "web-component",
     "authentication",
+    "realtime",
     "typescript"
   ],
   "author": "WebAuthn Team",
@@ -33,12 +35,13 @@
   },
   "devDependencies": {
     "@types/node": "^20.9.0",
-    "@typescript-eslint/eslint-plugin": "^6.12.0",
-    "@typescript-eslint/parser": "^6.12.0",
-    "eslint": "^8.54.0",
+    "@typescript-eslint/eslint-plugin": "^8.34.1",
+    "@typescript-eslint/parser": "^8.34.1",
+    "eslint": "^9.29.0",
     "eslint-config-prettier": "^9.0.0",
     "eslint-plugin-prettier": "^5.0.1",
-    "eslint-plugin-solid": "^0.13.1",
+    "eslint-plugin-solid": "^0.14.5",
+    "globals": "^15.0.0",
     "prettier": "^3.1.0",
     "solid-element": "^1.9.1",
     "typescript": "^5.3.2",
@@ -52,41 +55,22 @@
   ],
   "exports": {
     ".": {
+      "import": "./dist/all-components.js",
+      "types": "./dist/all-components.d.ts"
+    },
+    "./webauthn": {
       "import": "./dist/webauthn-auth.js",
       "types": "./dist/webauthn-auth.d.ts"
     },
-    "./standalone": "./dist/webauthn-auth-standalone.js"
-  },
-  "eslintConfig": {
-    "parser": "@typescript-eslint/parser",
-    "parserOptions": {
-      "ecmaVersion": 2022,
-      "sourceType": "module",
-      "ecmaFeatures": {
-        "jsx": true
-      }
+    "./websocket": {
+      "import": "./dist/websocket-components.js",
+      "types": "./dist/websocket-components.d.ts"
     },
-    "plugins": [
-      "@typescript-eslint",
-      "prettier",
-      "solid"
-    ],
-    "extends": [
-      "eslint:recommended",
-      "@typescript-eslint/recommended",
-      "plugin:solid/recommended",
-      "prettier"
-    ],
-    "rules": {
-      "prettier/prettier": "error",
-      "@typescript-eslint/no-unused-vars": "error",
-      "@typescript-eslint/explicit-function-return-type": "warn"
-    },
-    "env": {
-      "browser": true,
-      "es2022": true
-    }
+    "./webauthn/standalone": "./dist/webauthn-auth-standalone.js",
+    "./websocket/standalone": "./dist/websocket-components-standalone.js",
+    "./standalone": "./dist/all-components-standalone.js"
   },
+
   "prettier": {
     "semi": true,
     "trailingComma": "es5",

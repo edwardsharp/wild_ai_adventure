@@ -311,7 +311,7 @@ export class WebSocketClient {
     }
   }
 
-  private log(...args: any[]): void {
+  private log(...args: unknown[]): void {
     if (this.config.debug) {
       console.log('[WebSocketClient]', ...args);
     }

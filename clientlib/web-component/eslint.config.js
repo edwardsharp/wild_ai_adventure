@@ -3,68 +3,60 @@ import tseslint from '@typescript-eslint/eslint-plugin';
 import tsparser from '@typescript-eslint/parser';
 import prettier from 'eslint-plugin-prettier';
 import prettierConfig from 'eslint-config-prettier';
+import solid from 'eslint-plugin-solid';
 import globals from 'globals';
 
 export default [
   js.configs.recommended,
   {
-    files: ['src/**/*.ts'],
+    files: ['src/**/*.{ts,tsx}'],
     languageOptions: {
       parser: tsparser,
-      ecmaVersion: 2020,
+      ecmaVersion: 2022,
       sourceType: 'module',
+      parserOptions: {
+        ecmaFeatures: {
+          jsx: true,
+        },
+        project: './tsconfig.json',
+      },
       globals: {
-        ...globals.node,
         ...globals.browser,
-        vi: 'readonly',
+        ...globals.es2022,
       },
     },
     plugins: {
       '@typescript-eslint': tseslint,
       prettier: prettier,
+      solid: solid,
     },
     rules: {
       ...tseslint.configs.recommended.rules,
+      ...solid.configs.recommended.rules,
       ...prettierConfig.rules,
       'prettier/prettier': 'error',
       '@typescript-eslint/no-unused-vars': 'error',
       '@typescript-eslint/explicit-function-return-type': 'off',
       '@typescript-eslint/no-explicit-any': 'warn',
-      'no-undef': 'off',
+      'no-undef': 'off', // TypeScript handles this
+      'solid/reactivity': 'warn',
+      'solid/no-destructure': 'warn',
     },
   },
   {
-    files: ['tests/**/*.ts'],
+    files: ['vite.config.ts', 'vite.wc.config.ts'],
     languageOptions: {
       parser: tsparser,
-      ecmaVersion: 2020,
-      sourceType: 'module',
       globals: {
         ...globals.node,
-        ...globals.browser,
-        describe: 'readonly',
-        it: 'readonly',
-        expect: 'readonly',
-        beforeAll: 'readonly',
-        beforeEach: 'readonly',
-        afterAll: 'readonly',
-        afterEach: 'readonly',
-        vi: 'readonly',
-        global: 'writable',
       },
     },
     plugins: {
       '@typescript-eslint': tseslint,
-      prettier: prettier,
     },
     rules: {
       ...tseslint.configs.recommended.rules,
-      ...prettierConfig.rules,
-      'prettier/prettier': 'error',
-      '@typescript-eslint/no-unused-vars': 'error',
-      '@typescript-eslint/explicit-function-return-type': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
-      'no-undef': 'off',
     },
   },
 ];

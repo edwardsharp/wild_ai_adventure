@@ -3,18 +3,24 @@ import solid from 'vite-plugin-solid';
 
 function inlineHtmlTemplate(): import('vite').Plugin {
   return {
-    name: 'generate-webauthn-html',
+    name: 'generate-html-templates',
     generateBundle(_, bundle) {
       const jsAsset = Object.values(bundle).find(
-        (file) => file.type === 'chunk' && file.fileName.endsWith('.js')
+        (file) => file.type === 'chunk' && file.fileName.includes('webauthn')
       );
 
-      if (!jsAsset || jsAsset.type !== 'chunk') {
-        console.error('JS asset not found');
-        return;
-      }
+      const wsAsset = Object.values(bundle).find(
+        (file) => file.type === 'chunk' && file.fileName.includes('websocket')
+      );
 
-      const templateHtml = `
+      const allAsset = Object.values(bundle).find(
+        (file) =>
+          file.type === 'chunk' && file.fileName.includes('all-components')
+      );
+
+      // Generate WebAuthn standalone HTML
+      if (jsAsset && jsAsset.type === 'chunk') {
+        const webauthnHtml = `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -72,24 +78,106 @@ function inlineHtmlTemplate(): import('vite').Plugin {
   </script>
 </body>
 </html>
-      `.trim();
+        `.trim();
 
-      this.emitFile({
-        type: 'asset',
-        fileName: 'webauthn-auth-standalone.html',
-        source: templateHtml.replace('${jsCode}', jsAsset.code),
-      });
+        this.emitFile({
+          type: 'asset',
+          fileName: 'webauthn-auth-standalone.html',
+          source: webauthnHtml.replace('${jsCode}', jsAsset.code),
+        });
 
-      // Also emit just the JS file
-      this.emitFile({
-        type: 'asset',
-        fileName: 'webauthn-auth-standalone.js',
-        source: jsAsset.code,
-      });
+        this.emitFile({
+          type: 'asset',
+          fileName: 'webauthn-auth-standalone.js',
+          source: jsAsset.code,
+        });
+      }
 
-      console.log(
-        '✅ Emitted: webauthn-auth-standalone.html and webauthn-auth-standalone.js'
-      );
+      // Generate WebSocket standalone HTML
+      if (wsAsset && wsAsset.type === 'chunk') {
+        const websocketHtml = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WebSocket Components Test</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 2rem;
+      background: #f5f5f5;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔌 WebSocket Components Test</h1>
+
+    <div style="margin-bottom: 2rem;">
+      <h2>Connection Status</h2>
+      <websocket-status
+        status="disconnected"
+        showText="true"
+        showUserCount="true">
+      </websocket-status>
+    </div>
+
+    <div>
+      <h2>WebSocket Handler</h2>
+      <websocket-handler
+        websocketUrl="ws://localhost:8080/ws"
+        autoConnect="false"
+        showDebugLog="true">
+      </websocket-handler>
+    </div>
+  </div>
+
+  <script type="module">
+\${jsCode}
+  </script>
+
+  <script>
+    // Listen for WebSocket events
+    document.addEventListener('status-change', (e) => {
+      console.log('📡 Status changed:', e.detail);
+    });
+
+    document.addEventListener('media-blobs-received', (e) => {
+      console.log('📦 Media blobs received:', e.detail);
+    });
+  </script>
+</body>
+</html>
+        `.trim();
+
+        this.emitFile({
+          type: 'asset',
+          fileName: 'websocket-components-standalone.html',
+          source: websocketHtml.replace('${jsCode}', wsAsset.code),
+        });
+
+        this.emitFile({
+          type: 'asset',
+          fileName: 'websocket-components-standalone.js',
+          source: wsAsset.code,
+        });
+      }
+
+      // Generate all components HTML
+      if (allAsset && allAsset.type === 'chunk') {
+        this.emitFile({
+          type: 'asset',
+          fileName: 'all-components-standalone.js',
+          source: allAsset.code,
+        });
+      }
+
+      console.log('✅ Generated standalone files for all available components');
     },
   };
 }
@@ -103,12 +191,19 @@ export default defineConfig({
     sourcemap: true,
     rollupOptions: {
       input: {
-        main: './src/webauthn-component.tsx',
+        webauthn: './src/webauthn-component.tsx',
+        websocket: './src/websocket-handler.tsx',
+        'all-components': './src/index.tsx',
       },
       output: {
-        entryFileNames: 'webauthn-auth.js',
-        chunkFileNames: 'webauthn-auth-[hash].js',
-        assetFileNames: 'webauthn-auth-[hash].[ext]',
+        entryFileNames: (chunkInfo) => {
+          if (chunkInfo.name === 'webauthn') return 'webauthn-auth.js';
+          if (chunkInfo.name === 'websocket') return 'websocket-components.js';
+          if (chunkInfo.name === 'all-components') return 'all-components.js';
+          return '[name].js';
+        },
+        chunkFileNames: '[name]-[hash].js',
+        assetFileNames: '[name]-[hash].[ext]',
       },
     },
   },

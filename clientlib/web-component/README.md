@@ -22,25 +22,95 @@ npm install @webauthn/web-component
 Or use directly from CDN:
 
 ```html
-<script type="module" src="https://unpkg.com/@webauthn/web-component/dist/webauthn-auth.js"></script>
+<!-- WebAuthn only -->
+<script
+  type="module"
+  src="https://unpkg.com/@webauthn/web-component/dist/webauthn-auth.js"
+></script>
+
+<!-- WebSocket only -->
+<script
+  type="module"
+  src="https://unpkg.com/@webauthn/web-component/dist/websocket-components.js"
+></script>
+
+<!-- All components -->
+<script
+  type="module"
+  src="https://unpkg.com/@webauthn/web-component/dist/all-components.js"
+></script>
 ```
 
 ## Quick Start
 
-### Basic HTML Usage
+### WebAuthn Component
 
 ```html
 <!DOCTYPE html>
 <html>
-<head>
-  <script type="module" src="./node_modules/@webauthn/web-component/dist/webauthn-auth.js"></script>
-</head>
-<body>
-  <webauthn-auth
-    base-url="http://localhost:8080"
-    theme="light">
-  </webauthn-auth>
-</body>
+  <head>
+    <script
+      type="module"
+      src="./node_modules/@webauthn/web-component/dist/webauthn-auth.js"
+    ></script>
+  </head>
+  <body>
+    <webauthn-auth base-url="http://localhost:8080" theme="light">
+    </webauthn-auth>
+  </body>
+</html>
+```
+
+### WebSocket Components
+
+```html
+<!DOCTYPE html>
+<html>
+  <head>
+    <script
+      type="module"
+      src="./node_modules/@webauthn/web-component/dist/websocket-components.js"
+    ></script>
+  </head>
+  <body>
+    <!-- Connection status indicator -->
+    <websocket-status
+      status="disconnected"
+      showText="true"
+      showUserCount="true"
+    >
+    </websocket-status>
+
+    <!-- Full WebSocket handler with UI -->
+    <websocket-handler
+      websocketUrl="ws://localhost:8080/ws"
+      autoConnect="false"
+      showDebugLog="true"
+    >
+    </websocket-handler>
+  </body>
+</html>
+```
+
+### All Components
+
+```html
+<!DOCTYPE html>
+<html>
+  <head>
+    <script
+      type="module"
+      src="./node_modules/@webauthn/web-component/dist/all-components.js"
+    ></script>
+  </head>
+  <body>
+    <!-- All components are available -->
+    <webauthn-auth base-url="http://localhost:8080"></webauthn-auth>
+    <websocket-status status="connected"></websocket-status>
+    <websocket-handler
+      websocketUrl="ws://localhost:8080/ws"
+    ></websocket-handler>
+  </body>
 </html>
 ```
 
@@ -69,23 +139,435 @@ Or use directly from CDN:
 </script>
 ```
 
-## API Reference
+## Components
 
-### HTML Attributes
+### `<webauthn-auth>`
 
-| Attribute  | Type                    | Default              | Description                           |
-|------------|-------------------------|----------------------|---------------------------------------|
-| `base-url` | `string`                | `http://localhost:8080` | WebAuthn server base URL           |
-| `theme`    | `light\|dark\|auto`     | `auto`               | Component theme                       |
-| `class`    | `string`                | -                    | Additional CSS classes                |
+The main WebAuthn authentication component.
 
-### Custom Events
+#### HTML Attributes
 
-| Event Name       | Detail                    | Description                |
-|------------------|---------------------------|----------------------------|
-| `webauthn-login` | `{ username: string }`    | User successfully logged in |
-| `webauthn-logout`| -                         | User logged out            |
-| `webauthn-error` | `{ error: string }`       | Authentication error occurred |
+| Attribute  | Type                | Default                 | Description              |
+| ---------- | ------------------- | ----------------------- | ------------------------ |
+| `base-url` | `string`            | `http://localhost:8080` | WebAuthn server base URL |
+| `theme`    | `light\|dark\|auto` | `auto`                  | Component theme          |
+| `class`    | `string`            | -                       | Additional CSS classes   |
+
+#### Custom Events
+
+| Event Name        | Detail                 | Description                   |
+| ----------------- | ---------------------- | ----------------------------- |
+| `webauthn-login`  | `{ username: string }` | User successfully logged in   |
+| `webauthn-logout` | -                      | User logged out               |
+| `webauthn-error`  | `{ error: string }`    | Authentication error occurred |
+
+### `<websocket-handler>`
+
+A comprehensive WebSocket management component with UI for handling WebSocket connections, sending/receiving messages, and displaying media blobs.
+
+#### HTML Attributes
+
+| Attribute      | Type      | Default | Description                     |
+| -------------- | --------- | ------- | ------------------------------- |
+| `websocketUrl` | `string`  | `""`    | WebSocket server URL            |
+| `autoConnect`  | `boolean` | `true`  | Whether to auto-connect on load |
+| `showDebugLog` | `boolean` | `true`  | Whether to show debug log       |
+
+#### Custom Events
+
+| Event Name             | Detail                                      | Description                      |
+| ---------------------- | ------------------------------------------- | -------------------------------- |
+| `status-change`        | `{ status: ConnectionStatus }`              | Connection status changed        |
+| `media-blobs-received` | `{ blobs: MediaBlob[], totalCount: number}` | Media blobs received from server |
+| `media-blob-received`  | `{ blob: MediaBlob }`                       | Single media blob received       |
+
+#### Methods (via DOM element)
+
+```javascript
+const handler = document.querySelector('websocket-handler');
+
+// Send a ping message
+handler.ping();
+
+// Request media blobs
+handler.getMediaBlobs(limit, offset);
+
+// Request specific media blob
+handler.getMediaBlob(id);
+
+// Upload a media blob
+handler.uploadMediaBlob(blobData);
+
+// Manual connection control
+handler.connect();
+handler.disconnect();
+```
+
+### `<websocket-status>`
+
+A minimal status indicator component showing WebSocket connection state.
+
+#### HTML Attributes
+
+| Attribute       | Type               | Default        | Description                 |
+| --------------- | ------------------ | -------------- | --------------------------- |
+| `status`        | `ConnectionStatus` | `disconnected` | Current connection status   |
+| `showText`      | `boolean`          | `true`         | Whether to show status text |
+| `userCount`     | `number`           | `0`            | Number of connected users   |
+| `showUserCount` | `boolean`          | `false`        | Whether to show user count  |
+| `compact`       | `boolean`          | `false`        | Compact display mode        |
+
+#### Connection Status Types
+
+```typescript
+enum ConnectionStatus {
+  Disconnected = 'disconnected',
+  Connecting = 'connecting',
+  Connected = 'connected',
+  Error = 'error',
+}
+```
+
+#### Custom Events
+
+| Event Name      | Detail                                            | Description    |
+| --------------- | ------------------------------------------------- | -------------- |
+| `status-change` | `{ status: ConnectionStatus, timestamp: number }` | Status changed |
+
+## Practical Examples
+
+### Simple WebSocket Chat Interface
+
+```html
+<!DOCTYPE html>
+<html>
+  <head>
+    <script type="module" src="./dist/websocket-components.js"></script>
+    <style>
+      .chat-container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      .status-bar {
+        margin-bottom: 20px;
+        padding: 10px;
+        background: #f5f5f5;
+        border-radius: 6px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="chat-container">
+      <div class="status-bar">
+        <websocket-status
+          status="disconnected"
+          showText="true"
+          showUserCount="true"
+        >
+        </websocket-status>
+      </div>
+
+      <websocket-handler
+        websocketUrl="ws://localhost:8080/ws"
+        autoConnect="true"
+        showDebugLog="false"
+      >
+      </websocket-handler>
+    </div>
+
+    <script>
+      // Update status indicator based on handler events
+      document.addEventListener('status-change', (e) => {
+        const statusEl = document.querySelector('websocket-status');
+        statusEl.status = e.detail.status;
+      });
+    </script>
+  </body>
+</html>
+```
+
+### Combined Authentication & WebSocket
+
+```html
+<!DOCTYPE html>
+<html>
+  <head>
+    <script type="module" src="./dist/all-components.js"></script>
+    <style>
+      .app {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+      }
+      .main-content {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <div class="header">
+        <h1>My App</h1>
+        <websocket-status
+          status="disconnected"
+          showText="true"
+        ></websocket-status>
+      </div>
+
+      <div class="main-content">
+        <div class="auth-section">
+          <h2>Authentication</h2>
+          <webauthn-auth
+            base-url="http://localhost:8080"
+            theme="auto"
+          ></webauthn-auth>
+        </div>
+
+        <div class="ws-section">
+          <h2>Real-time Data</h2>
+          <websocket-handler
+            websocketUrl="ws://localhost:8080/ws"
+            autoConnect="false"
+            showDebugLog="true"
+          >
+          </websocket-handler>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      let isAuthenticated = false;
+
+      // Handle authentication events
+      document.addEventListener('webauthn-login', (e) => {
+        isAuthenticated = true;
+        console.log('User logged in:', e.detail.username);
+
+        // Auto-connect WebSocket after authentication
+        const wsHandler = document.querySelector('websocket-handler');
+        wsHandler.connect();
+      });
+
+      document.addEventListener('webauthn-logout', () => {
+        isAuthenticated = false;
+        console.log('User logged out');
+
+        // Disconnect WebSocket
+        const wsHandler = document.querySelector('websocket-handler');
+        wsHandler.disconnect();
+      });
+
+      // Update status indicator
+      document.addEventListener('status-change', (e) => {
+        const statusEl = document.querySelector('websocket-status');
+        statusEl.status = e.detail.status;
+      });
+    </script>
+  </body>
+</html>
+```
+
+### React Integration Example
+
+```jsx
+import React, { useEffect, useRef, useState } from 'react';
+
+// Import the web components (this registers them globally)
+import '@webauthn/web-component';
+
+function App() {
+  const wsHandlerRef = useRef(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [wsStatus, setWsStatus] = useState('disconnected');
+  const [mediaBlobs, setMediaBlobs] = useState([]);
+
+  useEffect(() => {
+    const handleLogin = (e) => {
+      setIsAuthenticated(true);
+      console.log('User logged in:', e.detail.username);
+
+      // Connect WebSocket after login
+      if (wsHandlerRef.current) {
+        wsHandlerRef.current.connect();
+      }
+    };
+
+    const handleLogout = () => {
+      setIsAuthenticated(false);
+      if (wsHandlerRef.current) {
+        wsHandlerRef.current.disconnect();
+      }
+    };
+
+    const handleStatusChange = (e) => {
+      setWsStatus(e.detail.status);
+    };
+
+    const handleMediaBlobs = (e) => {
+      setMediaBlobs(e.detail.blobs);
+    };
+
+    // Add event listeners
+    document.addEventListener('webauthn-login', handleLogin);
+    document.addEventListener('webauthn-logout', handleLogout);
+    document.addEventListener('status-change', handleStatusChange);
+    document.addEventListener('media-blobs-received', handleMediaBlobs);
+
+    return () => {
+      document.removeEventListener('webauthn-login', handleLogin);
+      document.removeEventListener('webauthn-logout', handleLogout);
+      document.removeEventListener('status-change', handleStatusChange);
+      document.removeEventListener('media-blobs-received', handleMediaBlobs);
+    };
+  }, []);
+
+  return (
+    <div className='app'>
+      <header>
+        <h1>My React App</h1>
+        <websocket-status
+          status={wsStatus}
+          showText='true'
+          showUserCount='true'
+        />
+      </header>
+
+      <main>
+        <section>
+          <h2>Authentication</h2>
+          <webauthn-auth base-url='http://localhost:8080' theme='auto' />
+        </section>
+
+        {isAuthenticated && (
+          <section>
+            <h2>WebSocket Connection</h2>
+            <websocket-handler
+              ref={wsHandlerRef}
+              websocketUrl='ws://localhost:8080/ws'
+              autoConnect='false'
+              showDebugLog='true'
+            />
+
+            <h3>Media Blobs ({mediaBlobs.length})</h3>
+            <ul>
+              {mediaBlobs.map((blob) => (
+                <li key={blob.id}>
+                  {blob.mime} - {blob.size} bytes
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+      </main>
+    </div>
+  );
+}
+
+export default App;
+```
+
+### Vue.js Integration Example
+
+```vue
+<template>
+  <div class="app">
+    <header>
+      <h1>My Vue App</h1>
+      <websocket-status
+        :status="wsStatus"
+        show-text="true"
+        :user-count="userCount"
+        show-user-count="true"
+      />
+    </header>
+
+    <main>
+      <section>
+        <h2>Authentication</h2>
+        <webauthn-auth
+          base-url="http://localhost:8080"
+          theme="auto"
+          @webauthn-login="handleLogin"
+          @webauthn-logout="handleLogout"
+          @webauthn-error="handleAuthError"
+        />
+      </section>
+
+      <section v-if="isAuthenticated">
+        <h2>WebSocket Connection</h2>
+        <websocket-handler
+          ref="wsHandler"
+          :websocket-url="wsUrl"
+          auto-connect="false"
+          show-debug-log="true"
+          @status-change="handleStatusChange"
+          @media-blobs-received="handleMediaBlobs"
+        />
+      </section>
+    </main>
+  </div>
+</template>
+
+<script>
+// Import web components
+import '@webauthn/web-component';
+
+export default {
+  name: 'App',
+  data() {
+    return {
+      isAuthenticated: false,
+      wsStatus: 'disconnected',
+      wsUrl: 'ws://localhost:8080/ws',
+      userCount: 0,
+      mediaBlobs: [],
+    };
+  },
+  methods: {
+    handleLogin(event) {
+      this.isAuthenticated = true;
+      console.log('User logged in:', event.detail.username);
+
+      // Connect WebSocket
+      this.$nextTick(() => {
+        if (this.$refs.wsHandler) {
+          this.$refs.wsHandler.connect();
+        }
+      });
+    },
+
+    handleLogout() {
+      this.isAuthenticated = false;
+      if (this.$refs.wsHandler) {
+        this.$refs.wsHandler.disconnect();
+      }
+    },
+
+    handleAuthError(event) {
+      console.error('Auth error:', event.detail.error);
+    },
+
+    handleStatusChange(event) {
+      this.wsStatus = event.detail.status;
+    },
+
+    handleMediaBlobs(event) {
+      this.mediaBlobs = event.detail.blobs;
+      this.userCount = event.detail.totalCount || 0;
+    },
+  },
+};
+</script>
+```
 
 ### Programmatic Usage
 
@@ -142,21 +624,30 @@ The component uses semantic CSS classes that you can target:
 
 ```css
 /* Main container */
-.webauthn-auth { }
+.webauthn-auth {
+}
 
 /* Form elements */
-.webauthn-form { }
-.webauthn-input { }
-.webauthn-button { }
+.webauthn-form {
+}
+.webauthn-input {
+}
+.webauthn-button {
+}
 
 /* Messages */
-.webauthn-message { }
-.webauthn-message--error { }
-.webauthn-message--success { }
+.webauthn-message {
+}
+.webauthn-message--error {
+}
+.webauthn-message--success {
+}
 
 /* User info when authenticated */
-.webauthn-user-info { }
-.webauthn-username { }
+.webauthn-user-info {
+}
+.webauthn-username {
+}
 ```
 
 ## Framework Integration
@@ -188,11 +679,7 @@ function WebAuthnComponent({ onLogin, onLogout, onError }) {
   }, [onLogin, onLogout, onError]);
 
   return (
-    <webauthn-auth
-      ref={ref}
-      base-url="https://api.example.com"
-      theme="auto"
-    />
+    <webauthn-auth ref={ref} base-url='https://api.example.com' theme='auto' />
   );
 }
 ```
@@ -222,9 +709,9 @@ export default {
     },
     handleError(event) {
       console.error('Auth error:', event.detail.error);
-    }
-  }
-}
+    },
+  },
+};
 </script>
 ```
 
@@ -242,9 +729,10 @@ import { Component, ElementRef, ViewChild } from '@angular/core';
       theme="auto"
       (webauthn-login)="onLogin($event)"
       (webauthn-logout)="onLogout()"
-      (webauthn-error)="onError($event)">
+      (webauthn-error)="onError($event)"
+    >
     </webauthn-auth>
-  `
+  `,
 })
 export class AuthComponent {
   @ViewChild('authElement') authElement!: ElementRef;
@@ -339,21 +827,25 @@ For older browser support, you may need polyfills:
 ### Common Issues
 
 **Component not loading:**
+
 - Ensure the script is loaded as a module: `<script type="module">`
 - Check browser console for import errors
 - Verify the file path is correct
 
 **WebAuthn not working:**
+
 - Check that you're using HTTPS (except on localhost)
 - Verify the server supports WebAuthn endpoints
 - Ensure the browser supports WebAuthn APIs
 
 **Styling issues:**
+
 - CSS custom properties require modern browser support
 - Check that CSS isn't being overridden by other stylesheets
 - Verify theme attribute is spelled correctly
 
 **Events not firing:**
+
 - Ensure event listeners are added after the component is loaded
 - Check event names are spelled correctly
 - Verify the component is properly connected to the DOM

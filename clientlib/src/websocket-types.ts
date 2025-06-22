@@ -110,9 +110,9 @@ export type WebSocketResponse = z.infer<typeof WebSocketResponseSchema>;
  */
 export enum ConnectionStatus {
   Disconnected = 'disconnected', // Red light
-  Connecting = 'connecting',     // Yellow light
-  Connected = 'connected',       // Green light
-  Error = 'error',              // Red light with error
+  Connecting = 'connecting', // Yellow light
+  Connected = 'connected', // Green light
+  Error = 'error', // Red light with error
 }
 
 /**
@@ -153,7 +153,9 @@ export const parseWebSocketResponse = (data: unknown): WebSocketResponse => {
  */
 export const safeParseWebSocketResponse = (
   data: unknown
-): { success: true; data: WebSocketResponse } | { success: false; error: z.ZodError } => {
+):
+  | { success: true; data: WebSocketResponse }
+  | { success: false; error: z.ZodError } => {
   const result = WebSocketResponseSchema.safeParse(data);
   return result;
 };
@@ -161,18 +163,26 @@ export const safeParseWebSocketResponse = (
 /**
  * Type guards for response types
  */
-export const isWelcomeMessage = (response: WebSocketResponse): response is Extract<WebSocketResponse, { type: 'Welcome' }> => {
+export const isWelcomeMessage = (
+  response: WebSocketResponse
+): response is Extract<WebSocketResponse, { type: 'Welcome' }> => {
   return response.type === 'Welcome';
 };
 
-export const isMediaBlobsMessage = (response: WebSocketResponse): response is Extract<WebSocketResponse, { type: 'MediaBlobs' }> => {
+export const isMediaBlobsMessage = (
+  response: WebSocketResponse
+): response is Extract<WebSocketResponse, { type: 'MediaBlobs' }> => {
   return response.type === 'MediaBlobs';
 };
 
-export const isErrorMessage = (response: WebSocketResponse): response is Extract<WebSocketResponse, { type: 'Error' }> => {
+export const isErrorMessage = (
+  response: WebSocketResponse
+): response is Extract<WebSocketResponse, { type: 'Error' }> => {
   return response.type === 'Error';
 };
 
-export const isConnectionStatusMessage = (response: WebSocketResponse): response is Extract<WebSocketResponse, { type: 'ConnectionStatus' }> => {
+export const isConnectionStatusMessage = (
+  response: WebSocketResponse
+): response is Extract<WebSocketResponse, { type: 'ConnectionStatus' }> => {
   return response.type === 'ConnectionStatus';
 };

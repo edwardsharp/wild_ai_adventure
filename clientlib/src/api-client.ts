@@ -90,7 +90,7 @@ export class ApiClient {
   private buildUrl(
     path: string,
     pathParams?: Record<string, string>,
-    queryParams?: Record<string, any>
+    queryParams?: Record<string, unknown>
   ): string {
     let url = path;
 
@@ -123,10 +123,10 @@ export class ApiClient {
     method: string,
     url: string,
     options: {
-      body?: any;
+      body?: unknown;
       headers?: Record<string, string>;
       responseSchema?: z.ZodSchema<T>;
-      requestSchema?: z.ZodSchema<any>;
+      requestSchema?: z.ZodSchema<unknown>;
       endpoint?: string;
     } = {}
   ): Promise<T> {
@@ -172,7 +172,7 @@ export class ApiClient {
         return undefined as T;
       }
 
-      let data: any;
+      let data: unknown;
       const contentType = response.headers.get('content-type');
 
       if (contentType?.includes('application/json')) {
@@ -187,7 +187,7 @@ export class ApiClient {
         return responseSchema.parse(data);
       }
 
-      return data;
+      return data as T;
     } catch (error) {
       clearTimeout(timeoutId);
 

@@ -8,7 +8,7 @@ export class TestApiClient extends ApiClient {
 
   // Helper method for testing error responses
   async expectError(
-    operation: () => Promise<any>,
+    operation: () => Promise<unknown>,
     expectedStatus?: number
   ): Promise<ApiError> {
     try {
@@ -121,7 +121,7 @@ export const testUtils = {
     const errorLogs: string[] = [];
 
     // Capture console.error during tests
-    console.error = (...args: any[]) => {
+    console.error = (...args: unknown[]) => {
       errorLogs.push(args.join(' '));
       originalConsoleError(...args);
     };
@@ -138,7 +138,7 @@ export const testUtils = {
 // Mock WebAuthn API for browser environment testing
 export const mockWebAuthn = {
   // Mock navigator.credentials.create
-  mockCreate: (mockResponse?: any) => {
+  mockCreate: (mockResponse?: Credential | null) => {
     const originalCreate = navigator.credentials?.create;
     const mockFn = vi
       .fn()
@@ -159,7 +159,7 @@ export const mockWebAuthn = {
   },
 
   // Mock navigator.credentials.get
-  mockGet: (mockResponse?: any) => {
+  mockGet: (mockResponse?: Credential | null) => {
     const originalGet = navigator.credentials?.get;
     const mockFn = vi
       .fn()
