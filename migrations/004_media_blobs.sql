@@ -1,7 +1,5 @@
--- Migration 005: Create media_blobs table for WebSocket file sharing
---
--- This table stores metadata and optionally data for media files
--- shared through the WebSocket system.
+-- Media Blobs Storage
+-- Table for WebSocket file sharing with metadata and optional binary data
 
 CREATE TABLE IF NOT EXISTS media_blobs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
