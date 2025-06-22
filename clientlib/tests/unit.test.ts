@@ -203,9 +203,9 @@ describe('ApiClient Unit Tests', () => {
       publicKey: {
         challenge: 'login-challenge',
         timeout: 60000,
-        rp_id: 'test-rp',
-        allow_credentials: [],
-        user_verification: 'preferred',
+        rpId: 'test-rp',
+        allowCredentials: [],
+        userVerification: 'preferred',
       },
     };
 

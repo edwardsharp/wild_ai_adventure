@@ -9,7 +9,7 @@
     "build": "tsc && npm run build:web-component",
     "build:web-component": "cd web-component && npm run build",
     "dev": "tsc --watch",
-    "test": "vitest",
+    "test": "vitest --run",
     "test:unit": "vitest --run unit",
     "test:integration": "vitest --run integration",
     "test:coverage": "vitest --coverage",
@@ -17,6 +17,7 @@
     "lint": "eslint src/**/*.ts tests/**/*.ts",
     "lint:fix": "eslint src/**/*.ts tests/**/*.ts --fix",
     "format": "prettier --write src/**/*.ts tests/**/*.ts",
+    "type-check": "tsc --noEmit",
     "clean": "rm -rf dist coverage",
     "prepublishOnly": "npm run test && npm run lint"
   },

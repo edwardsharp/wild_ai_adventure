@@ -27,9 +27,9 @@ export const WebAuthnPublicKeyCredentialCreationOptionsSchema = z.object({
 export const WebAuthnPublicKeyCredentialRequestOptionsSchema = z.object({
   challenge: z.string(),
   timeout: z.number(),
-  rp_id: z.string(),
-  allow_credentials: z.array(z.any()),
-  user_verification: z.string(),
+  rpId: z.string(),
+  allowCredentials: z.array(z.any()),
+  userVerification: z.string(),
 });
 
 export const WebAuthnCredentialSchema = z.object({
