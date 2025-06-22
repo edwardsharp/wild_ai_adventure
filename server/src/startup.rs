@@ -1,6 +1,7 @@
 use crate::config::{AppConfig, StorageBackend};
 use crate::database::DatabaseConnection;
 use crate::storage::{AnalyticsService, SessionStore};
+use crate::wordlist::{initialize_wordlist, WordlistConfig};
 
 use std::sync::Arc;
 use webauthn_rs::prelude::*;
@@ -81,6 +82,16 @@ impl AppState {
         // Run migrations if enabled
         if config.database.migrations.auto_run {
             database.migrate().await?;
+        }
+
+        // Initialize wordlist for invite code generation
+        let wordlist_config = WordlistConfig::default();
+        if let Err(e) = initialize_wordlist(&wordlist_config) {
+            tracing::warn!("Wordlist initialization failed: {}", e);
+            tracing::warn!("Word-based invite codes will not be available");
+            tracing::warn!("To fix this, run: cargo run --bin cli wordlist generate");
+        } else {
+            tracing::info!("Wordlist initialized successfully for invite code generation");
         }
 
         Ok(AppState {

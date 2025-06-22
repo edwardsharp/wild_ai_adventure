@@ -10,6 +10,7 @@ use server::storage::AnalyticsService as StorageAnalyticsService;
 use crate::analytics::AnalyticsCommands;
 use crate::config::ConfigCommands;
 use crate::users::UserCommands;
+use crate::wordlist::WordlistCommands;
 
 #[derive(Parser)]
 #[command(name = "cli")]
@@ -44,6 +45,9 @@ pub enum Commands {
     /// Analytics and data management
     #[command(subcommand)]
     Analytics(AnalyticsCommands),
+    /// Wordlist management for invite codes
+    #[command(subcommand)]
+    Wordlist(WordlistCommands),
 }
 
 impl Cli {
@@ -51,11 +55,11 @@ impl Cli {
         match self.command {
             Commands::Config { command } => command.handle(self.config, self.secrets).await,
             Commands::Users(ref user_command) => {
-                let (config, db) = self.setup_database().await?;
+                let (_config, db) = self.setup_database().await?;
                 user_command
                     .handle(
                         &db, 5,  // default count
-                        32, // default length
+                        12, // default length - more reasonable than 32
                     )
                     .await
             }
@@ -72,6 +76,7 @@ impl Cli {
 
                 analytics_command.handle(&analytics, &db).await
             }
+            Commands::Wordlist(ref wordlist_command) => wordlist_command.handle().await,
         }
     }
 

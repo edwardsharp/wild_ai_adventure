@@ -11,6 +11,7 @@ use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
 use server::auth::{AuthRepository, UserRole};
 use server::database::DatabaseConnection;
+use server::wordlist;
 use sqlx::Row;
 
 #[derive(Subcommand, Clone)]
@@ -20,12 +21,18 @@ pub enum UserCommands {
         /// Number of invite codes to generate
         #[arg(short, long)]
         count: Option<u32>,
-        /// Length of the invite code
+        /// Length of the invite code (only for random codes)
         #[arg(short, long)]
         length: Option<usize>,
         /// Custom invite code(s) to create (comma-separated)
         #[arg(long)]
         custom: Option<String>,
+        /// Use random characters instead of words (default: use words)
+        #[arg(long)]
+        random: bool,
+        /// Number of words for word-based codes (default: 3)
+        #[arg(long, default_value = "3")]
+        words: usize,
     },
     /// List all invite codes
     ListInvites {
@@ -57,8 +64,8 @@ pub enum UserCommands {
     GenerateAccountLink {
         /// Username to generate account link code for
         username: String,
-        /// Account link code length (default: 12)
-        #[arg(short, long, default_value = "12")]
+        /// Account link code length (default: 16)
+        #[arg(short, long, default_value = "16")]
         length: usize,
         /// Account link code expiry in hours (default: 24)
         #[arg(short, long, default_value = "24")]
@@ -89,6 +96,8 @@ impl UserCommands {
                 count,
                 length,
                 custom,
+                random,
+                words,
             } => {
                 Self::generate_invite(
                     db,
@@ -97,6 +106,8 @@ impl UserCommands {
                     custom.as_deref(),
                     default_count,
                     default_length,
+                    *random,
+                    *words,
                 )
                 .await
             }
@@ -125,6 +136,8 @@ impl UserCommands {
         custom: Option<&str>,
         default_count: u32,
         default_length: usize,
+        use_random: bool,
+        word_count: usize,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let auth_repo = AuthRepository::new(db);
 
@@ -137,6 +150,15 @@ impl UserCommands {
             for (i, code) in codes.iter().enumerate() {
                 if code.is_empty() {
                     eprintln!("Skipping empty code at position {}", i + 1);
+                    continue;
+                }
+
+                // Validate code length
+                if let Err(validation_error) = Self::validate_code_length(code.len()) {
+                    eprintln!(
+                        "Invalid custom invite code '{}': {}",
+                        code, validation_error
+                    );
                     continue;
                 }
 
@@ -160,28 +182,83 @@ impl UserCommands {
             return Ok(());
         }
 
-        // Handle generated codes (existing logic)
+        // Handle generated codes
         let count = count.unwrap_or(default_count);
-        let length = length.unwrap_or(default_length);
 
-        println!(
-            "Generating {} invite code(s) of length {}...",
-            count, length
-        );
-        println!();
+        if use_random {
+            // Generate random character codes
+            let length = length.unwrap_or(default_length);
 
-        for i in 1..=count {
-            let code = Self::generate_code(length);
+            // Validate length before generating
+            if let Err(validation_error) = Self::validate_code_length(length) {
+                return Err(format!("Invalid code length {}: {}", length, validation_error).into());
+            }
 
-            match auth_repo.create_invite_code(&code).await {
-                Ok(invite_code) => {
-                    println!(
-                        "Generated invite code {}/{}: {}",
-                        i, count, invite_code.code
-                    );
+            println!(
+                "Generating {} random invite code(s) of length {}...",
+                count, length
+            );
+            println!();
+
+            for i in 1..=count {
+                let code = Self::generate_code(length);
+
+                match auth_repo.create_invite_code(&code).await {
+                    Ok(invite_code) => {
+                        println!(
+                            "Generated invite code {}/{}: {}",
+                            i, count, invite_code.code
+                        );
+                    }
+                    Err(e) => {
+                        eprintln!("Failed to generate invite code {}/{}: {}", i, count, e);
+                    }
                 }
-                Err(e) => {
-                    eprintln!("Failed to generate invite code {}/{}: {}", i, count, e);
+            }
+        } else {
+            // Generate word-based codes
+            if !wordlist::is_initialized() {
+                // Try to initialize wordlist
+                let wordlist_config = wordlist::WordlistConfig::default();
+                if let Err(e) = wordlist::initialize_wordlist(&wordlist_config) {
+                    eprintln!(
+                        "❌ Wordlist not initialized: {}. Run: cargo run --bin cli wordlist generate",
+                        e
+                    );
+                    return Err("Wordlist not available".into());
+                }
+            }
+
+            // Validate word count
+            if word_count < 2 || word_count > 6 {
+                return Err("Word count must be between 2 and 6".into());
+            }
+
+            println!(
+                "Generating {} word-based invite code(s) with {} words each...",
+                count, word_count
+            );
+            println!();
+
+            for i in 1..=count {
+                let code = match wordlist::generate_word_code(word_count) {
+                    Ok(code) => code,
+                    Err(e) => {
+                        eprintln!("Failed to generate word code {}/{}: {}", i, count, e);
+                        continue;
+                    }
+                };
+
+                match auth_repo.create_invite_code(&code).await {
+                    Ok(invite_code) => {
+                        println!(
+                            "Generated invite code {}/{}: {}",
+                            i, count, invite_code.code
+                        );
+                    }
+                    Err(e) => {
+                        eprintln!("Failed to create invite code {}/{}: {}", i, count, e);
+                    }
                 }
             }
         }
@@ -383,6 +460,12 @@ impl UserCommands {
     ) -> Result<(), Box<dyn std::error::Error>> {
         let auth_repo = AuthRepository::new(db);
 
+        // Validate code length
+        if let Err(validation_error) = Self::validate_code_length(length) {
+            eprintln!("❌ Invalid code length: {}", validation_error);
+            return Err(validation_error.into());
+        }
+
         // Check if user exists
         let _user = match auth_repo.get_user_by_username(username).await? {
             Some(user) => user,
@@ -432,6 +515,28 @@ impl UserCommands {
                 eprintln!("❌ Failed to generate account link code: {}", e);
                 return Err(e.into());
             }
+        }
+
+        Ok(())
+    }
+
+    /// Validate invite code length constraints
+    fn validate_code_length(length: usize) -> Result<(), String> {
+        const MIN_LENGTH: usize = 8;
+        const MAX_LENGTH: usize = 128;
+
+        if length < MIN_LENGTH {
+            return Err(format!(
+                "Code length must be at least {} characters (got {})",
+                MIN_LENGTH, length
+            ));
+        }
+
+        if length > MAX_LENGTH {
+            return Err(format!(
+                "Code length must be at most {} characters (got {})",
+                MAX_LENGTH, length
+            ));
         }
 
         Ok(())

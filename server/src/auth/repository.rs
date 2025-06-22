@@ -18,6 +18,9 @@ impl<'a> AuthRepository<'a> {
 
     /// Create a new invite code
     pub async fn create_invite_code(&self, code: &str) -> Result<InviteCode, AuthError> {
+        // Validate code length
+        Self::validate_invite_code_format(code)?;
+
         let row = sqlx::query!(
             r#"
             INSERT INTO invite_codes (code)
@@ -390,6 +393,47 @@ impl<'a> AuthRepository<'a> {
         )
         .execute(self.db.pool())
         .await?;
+
+        Ok(())
+    }
+
+    // ========== Validation Helpers ==========
+
+    /// Validate invite code format and constraints
+    fn validate_invite_code_format(code: &str) -> Result<(), AuthError> {
+        const MIN_LENGTH: usize = 8;
+        const MAX_LENGTH: usize = 128;
+
+        if code.is_empty() {
+            return Err(AuthError::InvalidInviteCodeFormat(
+                "Code cannot be empty".to_string(),
+            ));
+        }
+
+        if code.len() < MIN_LENGTH {
+            return Err(AuthError::InviteCodeTooShort {
+                min: MIN_LENGTH,
+                actual: code.len(),
+            });
+        }
+
+        if code.len() > MAX_LENGTH {
+            return Err(AuthError::InviteCodeTooLong {
+                max: MAX_LENGTH,
+                actual: code.len(),
+            });
+        }
+
+        // Ensure code only contains safe characters (alphanumeric, hyphens, underscores)
+        if !code
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+        {
+            return Err(AuthError::InvalidInviteCodeFormat(
+                "Code must contain only alphanumeric characters, hyphens, and underscores"
+                    .to_string(),
+            ));
+        }
 
         Ok(())
     }

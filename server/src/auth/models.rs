@@ -138,6 +138,12 @@ pub enum AuthError {
     UserNotFound,
     #[error("Invalid invite code")]
     InvalidInviteCode,
+    #[error("Invalid invite code format: {0}")]
+    InvalidInviteCodeFormat(String),
+    #[error("Invite code too short: minimum {min} characters, got {actual}")]
+    InviteCodeTooShort { min: usize, actual: usize },
+    #[error("Invite code too long: maximum {max} characters, got {actual}")]
+    InviteCodeTooLong { max: usize, actual: usize },
     #[error("Invite code already used")]
     InviteCodeAlreadyUsed,
     #[error("Username already exists")]

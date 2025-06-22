@@ -11,6 +11,7 @@ pub mod startup;
 pub mod static_filez;
 pub mod storage;
 pub mod websocket;
+pub mod wordlist;
 
 #[macro_use]
 extern crate tracing;
