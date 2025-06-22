@@ -265,7 +265,7 @@ describe('ApiClient Unit Tests', () => {
     it('should check authentication status', async () => {
       const mockAuthStatus = {
         authenticated: true,
-        username: 'testuser',
+        user_id: 'test-user-id',
       };
 
       mockFetch.mockResolvedValueOnce({
@@ -278,7 +278,7 @@ describe('ApiClient Unit Tests', () => {
       const result = await client.authStatus();
 
       expect(result.authenticated).toBe(true);
-      expect(result.username).toBe('testuser');
+      expect(result.user_id).toBe('test-user-id');
       expect(mockFetch).toHaveBeenCalledWith(
         'http://test.example.com/auth/status',
         expect.objectContaining({
@@ -516,7 +516,7 @@ describe('ApiClient Unit Tests', () => {
     it('should handle JSON responses', async () => {
       const mockAuthStatus = {
         authenticated: false,
-        username: undefined,
+        user_id: undefined,
       };
 
       mockFetch.mockResolvedValueOnce({

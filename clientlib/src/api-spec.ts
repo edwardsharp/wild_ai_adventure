@@ -121,7 +121,7 @@ export const API_SPEC = {
       requestSchema: z.void(),
       responseSchema: z.object({
         authenticated: z.boolean(),
-        username: z.string().optional(),
+        user_id: z.string().optional(),
       }),
     },
   },

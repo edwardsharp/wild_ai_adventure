@@ -136,7 +136,7 @@ describe('WebAuthn API Integration Tests', () => {
 
       expect(typeof status.authenticated).toBe('boolean');
       if (status.authenticated) {
-        expect(typeof status.username).toBe('string');
+        expect(typeof status.user_id).toBe('string');
       }
     });
   });
