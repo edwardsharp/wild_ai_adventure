@@ -22,6 +22,7 @@
     "port": 5432,
     "name": "webauthn_db",
     "user": "postgres",
+    "password": "supersecret",
     "pool": {
       "max_connections": 10,
       "min_connections": 1,
@@ -63,8 +64,8 @@
     "assets_directory": "assets"
   },
   "storage": {
-    "analytics": "memory",
-    "sessions": "memory"
+    "analytics": "postgres",
+    "sessions": "postgres"
   },
   "development": {
     "auto_generate_invites": true
