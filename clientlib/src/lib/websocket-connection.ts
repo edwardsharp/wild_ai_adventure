@@ -5,7 +5,11 @@
  * with automatic reconnection, status tracking, and message handling.
  */
 
-export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
+export type ConnectionStatus =
+  | 'disconnected'
+  | 'connecting'
+  | 'connected'
+  | 'error';
 
 export interface ConnectionStatusEvent {
   status: ConnectionStatus;
@@ -88,9 +92,11 @@ export class WebSocketConnection extends EventTarget {
    */
   send(message: WebSocketMessage): boolean {
     if (!this.isConnected()) {
-      this.dispatchEvent(new CustomEvent('error', {
-        detail: { error: 'Cannot send message: not connected' }
-      }));
+      this.dispatchEvent(
+        new CustomEvent('error', {
+          detail: { error: 'Cannot send message: not connected' },
+        })
+      );
       return false;
     }
 
@@ -98,15 +104,19 @@ export class WebSocketConnection extends EventTarget {
       const json = JSON.stringify(message);
       this.socket!.send(json);
 
-      this.dispatchEvent(new CustomEvent('message-sent', {
-        detail: { message }
-      }));
+      this.dispatchEvent(
+        new CustomEvent('message-sent', {
+          detail: { message },
+        })
+      );
 
       return true;
     } catch (error) {
-      this.dispatchEvent(new CustomEvent('error', {
-        detail: { error: `Send error: ${error}` }
-      }));
+      this.dispatchEvent(
+        new CustomEvent('error', {
+          detail: { error: `Send error: ${error}` },
+        })
+      );
       return false;
     }
   }
@@ -158,12 +168,17 @@ export class WebSocketConnection extends EventTarget {
       timestamp: Date.now(),
     };
 
-    this.dispatchEvent(new CustomEvent('status-change', {
-      detail: event
-    }));
+    this.dispatchEvent(
+      new CustomEvent('status-change', {
+        detail: event,
+      })
+    );
   }
 
-  private setupSocketListeners(resolve: () => void, reject: (error: any) => void): void {
+  private setupSocketListeners(
+    resolve: () => void,
+    reject: (error: any) => void
+  ): void {
     if (!this.socket) return;
 
     this.socket.onopen = () => {
@@ -178,12 +193,17 @@ export class WebSocketConnection extends EventTarget {
       this.setStatus('disconnected');
       this.socket = null;
 
-      this.dispatchEvent(new CustomEvent('connection-closed', {
-        detail: { code: event.code, reason: event.reason }
-      }));
+      this.dispatchEvent(
+        new CustomEvent('connection-closed', {
+          detail: { code: event.code, reason: event.reason },
+        })
+      );
 
       // Attempt reconnection if enabled
-      if (this.options.autoReconnect && this.reconnectAttempts < this.options.maxReconnectAttempts) {
+      if (
+        this.options.autoReconnect &&
+        this.reconnectAttempts < this.options.maxReconnectAttempts
+      ) {
         this.scheduleReconnect();
       }
     };
@@ -191,9 +211,11 @@ export class WebSocketConnection extends EventTarget {
     this.socket.onerror = (error) => {
       this.setStatus('error');
 
-      this.dispatchEvent(new CustomEvent('connection-error', {
-        detail: { error }
-      }));
+      this.dispatchEvent(
+        new CustomEvent('connection-error', {
+          detail: { error },
+        })
+      );
 
       if (this.reconnectAttempts === 0) {
         reject(error);
@@ -222,40 +244,49 @@ export class WebSocketConnection extends EventTarget {
           break;
 
         case 'Pong':
-          this.dispatchEvent(new CustomEvent('pong', {
-            detail: { timestamp: Date.now() }
-          }));
+          this.dispatchEvent(
+            new CustomEvent('pong', {
+              detail: { timestamp: Date.now() },
+            })
+          );
           break;
 
         case 'Error':
-          this.dispatchEvent(new CustomEvent('server-error', {
-            detail: { error: response.data?.message || 'Server error' }
-          }));
+          this.dispatchEvent(
+            new CustomEvent('server-error', {
+              detail: { error: response.data?.message || 'Server error' },
+            })
+          );
           break;
       }
 
       // Always emit the raw message for custom handling
-      this.dispatchEvent(new CustomEvent('message', {
-        detail: { message: response, raw: rawMessage }
-      }));
-
+      this.dispatchEvent(
+        new CustomEvent('message', {
+          detail: { message: response, raw: rawMessage },
+        })
+      );
     } catch (error) {
-      this.dispatchEvent(new CustomEvent('parse-error', {
-        detail: { error, rawMessage, messageLength: rawMessage.length }
-      }));
+      this.dispatchEvent(
+        new CustomEvent('parse-error', {
+          detail: { error, rawMessage, messageLength: rawMessage.length },
+        })
+      );
     }
   }
 
   private scheduleReconnect(): void {
     this.reconnectAttempts++;
 
-    this.dispatchEvent(new CustomEvent('reconnecting', {
-      detail: {
-        attempt: this.reconnectAttempts,
-        maxAttempts: this.options.maxReconnectAttempts,
-        delay: this.options.reconnectDelay
-      }
-    }));
+    this.dispatchEvent(
+      new CustomEvent('reconnecting', {
+        detail: {
+          attempt: this.reconnectAttempts,
+          maxAttempts: this.options.maxReconnectAttempts,
+          delay: this.options.reconnectDelay,
+        },
+      })
+    );
 
     this.reconnectTimer = window.setTimeout(() => {
       this.connect().catch(() => {
@@ -296,8 +327,19 @@ export class WebSocketConnection extends EventTarget {
   }
 
   private removeAllListeners(): void {
-    const events = ['status-change', 'message', 'connection-closed', 'connection-error', 'message-sent', 'error', 'pong', 'server-error', 'parse-error', 'reconnecting'];
-    events.forEach(event => {
+    const events = [
+      'status-change',
+      'message',
+      'connection-closed',
+      'connection-error',
+      'message-sent',
+      'error',
+      'pong',
+      'server-error',
+      'parse-error',
+      'reconnecting',
+    ];
+    events.forEach((event) => {
       // Remove all listeners for each event type
       const listeners = (this as any)._listeners?.[event] || [];
       listeners.forEach((listener: any) => {
