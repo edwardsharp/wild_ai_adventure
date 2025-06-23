@@ -8,6 +8,59 @@ use sqlx::FromRow;
 use time::OffsetDateTime;
 use uuid::Uuid;
 
+/// Common validation for media blob data
+fn validate_media_blob_common(
+    sha256: &str,
+    data: Option<&Vec<u8>>,
+    size: Option<i64>,
+    local_path: Option<&String>,
+    max_blob_size: u64,
+    max_fs_size: u64,
+) -> Result<(), String> {
+    if sha256.is_empty() {
+        return Err("SHA256 hash is required".to_string());
+    }
+
+    if sha256.len() != 64 {
+        return Err("SHA256 hash must be 64 characters".to_string());
+    }
+
+    // Check that we have either data or local_path
+    let has_data = data.is_some() && !data.unwrap().is_empty();
+    if !has_data && local_path.is_none() {
+        return Err("Either data or local_path must be provided".to_string());
+    }
+
+    // Determine which limit to use based on storage type
+    let max_file_size = if local_path.is_some() {
+        max_fs_size
+    } else {
+        max_blob_size
+    };
+
+    if let Some(data_vec) = data {
+        if data_vec.len() > max_file_size as usize {
+            return Err(format!(
+                "File size {} bytes exceeds maximum allowed size of {} bytes",
+                data_vec.len(),
+                max_file_size
+            ));
+        }
+    }
+
+    // Also check the size field if provided
+    if let Some(size_val) = size {
+        if size_val > max_file_size as i64 {
+            return Err(format!(
+                "File size {} bytes exceeds maximum allowed size of {} bytes",
+                size_val, max_file_size
+            ));
+        }
+    }
+
+    Ok(())
+}
+
 /// Media blob data structure matching the database schema
 #[derive(Clone, Serialize, Deserialize, FromRow)]
 pub struct MediaBlob {
@@ -145,69 +198,16 @@ impl MediaBlob {
         }
     }
 
-    /// Validate that required fields are present
-    pub fn validate(&self) -> Result<(), String> {
-        if self.sha256.is_empty() {
-            return Err("SHA256 hash is required".to_string());
-        }
-
-        if self.sha256.len() != 64 {
-            return Err("SHA256 hash must be 64 characters".to_string());
-        }
-
-        // Check that we have either data or local_path
-        if !self.has_data() && self.local_path.is_none() {
-            return Err("Either data or local_path must be provided".to_string());
-        }
-
-        // File size validation is now handled by validate_with_limits method
-        // This method is kept for backward compatibility but uses default limits
-        self.validate_with_limits(10 * 1024 * 1024, 1024 * 1024 * 1024)
-    }
-
-    /// Validate that required fields are present with custom file size limits
-    pub fn validate_with_limits(&self, max_blob_size: u64, max_fs_size: u64) -> Result<(), String> {
-        if self.sha256.is_empty() {
-            return Err("SHA256 hash is required".to_string());
-        }
-
-        if self.sha256.len() != 64 {
-            return Err("SHA256 hash must be 64 characters".to_string());
-        }
-
-        // Check that we have either data or local_path
-        if !self.has_data() && self.local_path.is_none() {
-            return Err("Either data or local_path must be provided".to_string());
-        }
-
-        // Determine which limit to use based on storage type
-        let max_file_size = if self.local_path.is_some() {
-            max_fs_size
-        } else {
-            max_blob_size
-        };
-
-        if let Some(ref data) = self.data {
-            if data.len() > max_file_size as usize {
-                return Err(format!(
-                    "File size {} bytes exceeds maximum allowed size of {} bytes",
-                    data.len(),
-                    max_file_size
-                ));
-            }
-        }
-
-        // Also check the size field if provided
-        if let Some(size) = self.size {
-            if size > max_file_size as i64 {
-                return Err(format!(
-                    "File size FIELD {} bytes exceeds maximum allowed size of {} bytes",
-                    size, max_file_size
-                ));
-            }
-        }
-
-        Ok(())
+    /// Validate that required fields are present with file size limits
+    pub fn validate(&self, max_blob_size: u64, max_fs_size: u64) -> Result<(), String> {
+        validate_media_blob_common(
+            &self.sha256,
+            self.data.as_ref(),
+            self.size,
+            self.local_path.as_ref(),
+            max_blob_size,
+            max_fs_size,
+        )
     }
 }
 
@@ -229,71 +229,16 @@ impl std::fmt::Debug for MediaBlob {
 }
 
 impl CreateMediaBlob {
-    /// Validate creation parameters
-    pub fn validate(&self) -> Result<(), String> {
-        if self.sha256.is_empty() {
-            return Err("SHA256 hash is required".to_string());
-        }
-
-        if self.sha256.len() != 64 {
-            return Err("SHA256 hash must be 64 characters".to_string());
-        }
-
-        // Check that we have either data or local_path
-        let has_data = self.data.is_some() && !self.data.as_ref().unwrap().is_empty();
-        if !has_data && self.local_path.is_none() {
-            return Err("Either data or local_path must be provided".to_string());
-        }
-
-        // File size validation is now handled by validate_with_limits method
-        // This method is kept for backward compatibility but uses default limits
-        self.validate_with_limits(10 * 1024 * 1024, 1024 * 1024 * 1024)
-    }
-
-    /// Validate creation parameters with custom file size limits
-    pub fn validate_with_limits(&self, max_blob_size: u64, max_fs_size: u64) -> Result<(), String> {
-        if self.sha256.is_empty() {
-            return Err("SHA256 hash is required".to_string());
-        }
-
-        if self.sha256.len() != 64 {
-            return Err("SHA256 hash must be 64 characters".to_string());
-        }
-
-        // Check that we have either data or local_path
-        let has_data = self.data.is_some() && !self.data.as_ref().unwrap().is_empty();
-        if !has_data && self.local_path.is_none() {
-            return Err("Either data or local_path must be provided".to_string());
-        }
-
-        // Determine which limit to use based on storage type
-        let max_file_size = if self.local_path.is_some() {
-            max_fs_size
-        } else {
-            max_blob_size
-        };
-
-        if let Some(ref data) = self.data {
-            if data.len() > max_file_size as usize {
-                return Err(format!(
-                    "File size {} bytes exceeds maximum allowed size of {} bytes",
-                    data.len(),
-                    max_file_size
-                ));
-            }
-        }
-
-        // Also check the size field if provided
-        if let Some(size) = self.size {
-            if size > max_file_size as i64 {
-                return Err(format!(
-                    "File size FIELD {} bytes exceeds maximum allowed size of {} bytes",
-                    size, max_file_size
-                ));
-            }
-        }
-
-        Ok(())
+    /// Validate creation parameters with file size limits
+    pub fn validate(&self, max_blob_size: u64, max_fs_size: u64) -> Result<(), String> {
+        validate_media_blob_common(
+            &self.sha256,
+            self.data.as_ref(),
+            self.size,
+            self.local_path.as_ref(),
+            max_blob_size,
+            max_fs_size,
+        )
     }
 }
 
@@ -379,17 +324,23 @@ mod tests {
             local_path: None,
             metadata: serde_json::Value::Null,
         });
-        assert!(valid_blob.validate().is_ok());
+        assert!(valid_blob
+            .validate(10 * 1024 * 1024, 1024 * 1024 * 1024)
+            .is_ok());
 
         // Invalid SHA256
         let mut invalid_blob = valid_blob.clone();
         invalid_blob.sha256 = "short".to_string();
-        assert!(invalid_blob.validate().is_err());
+        assert!(invalid_blob
+            .validate(10 * 1024 * 1024, 1024 * 1024 * 1024)
+            .is_err());
 
         // No data or path
         let mut no_data_blob = valid_blob.clone();
         no_data_blob.data = None;
         no_data_blob.local_path = None;
-        assert!(no_data_blob.validate().is_err());
+        assert!(no_data_blob
+            .validate(10 * 1024 * 1024, 1024 * 1024 * 1024)
+            .is_err());
     }
 }

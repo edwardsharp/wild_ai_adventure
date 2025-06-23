@@ -58,7 +58,7 @@ impl<'a> MediaRepository<'a> {
     ) -> Result<MediaBlob, WebauthnError> {
         // Validate input with config-based limits
         params
-            .validate_with_limits(
+            .validate(
                 media_config.max_blob_file_size,
                 media_config.max_fs_file_size,
             )
