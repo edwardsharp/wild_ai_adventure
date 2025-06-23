@@ -117,7 +117,7 @@ export const API_SPEC = {
     },
     authStatus: {
       method: "GET" as const,
-      path: "/auth/status",
+      path: "/api/whoami",
       requestSchema: z.void(),
       responseSchema: z.object({
         authenticated: z.boolean(),

@@ -280,7 +280,7 @@ describe("ApiClient Unit Tests", () => {
       expect(result.authenticated).toBe(true);
       expect(result.user_id).toBe("test-user-id");
       expect(mockFetch).toHaveBeenCalledWith(
-        "http://test.example.com/auth/status",
+        "http://test.example.com/api/whoami",
         expect.objectContaining({
           method: "GET",
         })
