@@ -142,15 +142,6 @@ async fn main() {
         .await
         .expect("Failed to initialize app state");
 
-    // Get session store and analytics service from app state
-    let session_store = match &app_state.session_store {
-        SessionStore::Memory(store) => SessionManagerLayer::new(store.clone()),
-        SessionStore::Postgres(_store) => {
-            // For now, fall back to memory store to avoid type conflicts
-            SessionManagerLayer::new(tower_sessions::MemoryStore::default())
-        }
-    };
-
     // Get analytics service for middleware
     let analytics_service = app_state.analytics.clone();
 
@@ -201,20 +192,11 @@ async fn main() {
         _ => SameSite::Strict,
     };
 
-    let session_layer = session_store
-        .with_name("webauthnrs")
-        .with_same_site(same_site)
-        .with_secure(config.sessions.secure)
-        .with_http_only(config.sessions.http_only)
-        .with_expiry(Expiry::OnInactivity(Duration::seconds(
-            config.sessions.max_age_seconds,
-        )));
-
     // Build main router with all routes
     let mut app = build_routes(&config)
         .layer(Extension(config.clone()))
         .layer(Extension(app_state.database.clone()))
-        .layer(Extension(app_state))
+        .layer(Extension(app_state.clone()))
         .layer(axum_middleware::from_fn(security_logging));
 
     // Add access logging middleware if enabled
@@ -231,10 +213,32 @@ async fn main() {
             .layer(Extension(analytics_service));
     }
 
-    // Serve main assets directory (contains both JS and WASM frontends)
-    app = app
-        .merge(build_assets_fallback_service(&config))
-        .layer(session_layer);
+    app = match &app_state.session_store {
+        SessionStore::Memory(store) => {
+            let layer = SessionManagerLayer::new(store.clone())
+                .with_name("webauthnrs")
+                .with_same_site(same_site)
+                .with_secure(config.sessions.secure)
+                .with_http_only(config.sessions.http_only)
+                .with_expiry(Expiry::OnInactivity(Duration::seconds(
+                    config.sessions.max_age_seconds,
+                )));
+            app.merge(build_assets_fallback_service(&config))
+                .layer(layer)
+        }
+        SessionStore::Postgres(store) => {
+            let layer = SessionManagerLayer::new(store.clone())
+                .with_name("webauthnrs")
+                .with_same_site(same_site)
+                .with_secure(config.sessions.secure)
+                .with_http_only(config.sessions.http_only)
+                .with_expiry(Expiry::OnInactivity(Duration::seconds(
+                    config.sessions.max_age_seconds,
+                )));
+            app.merge(build_assets_fallback_service(&config))
+                .layer(layer)
+        }
+    };
 
     // Parse server address from config (supports both hostnames and IP addresses)
     let addr_str = format!("{}:{}", config.server.host, config.server.port);
