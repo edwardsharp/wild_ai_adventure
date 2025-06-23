@@ -22,12 +22,18 @@ const WebSocketDemo = (props: WebSocketDemoProps) => {
   const [userCount, setUserCount] = createSignal(0);
   const [blobs, setBlobs] = createSignal<MediaBlob[]>([]);
   const [logs, setLogs] = createSignal<string[]>([]);
+  const [thumbnailRefresh, setThumbnailRefresh] = createSignal(0);
   const [url, setUrl] = createSignal(
     props.websocketUrl || 'ws://localhost:8080/ws'
   );
 
   // File upload ref
   let fileInputRef: HTMLInputElement | undefined;
+
+  // Global function for loading blob data (called from thumbnail onclick)
+  (window as any).loadBlobData = (blobId: string) => {
+    client()?.loadBlobData(blobId);
+  };
 
   // Initialize client
   createEffect(() => {
@@ -45,6 +51,11 @@ const WebSocketDemo = (props: WebSocketDemoProps) => {
 
     wsClient.addEventListener('blobs-updated', (e: any) => {
       setBlobs(e.detail.blobs);
+    });
+
+    wsClient.addEventListener('blob-data-cached', (e: any) => {
+      // Trigger thumbnail refresh
+      setThumbnailRefresh((prev) => prev + 1);
     });
 
     wsClient.addEventListener('log', (e: any) => {
@@ -281,7 +292,11 @@ const WebSocketDemo = (props: WebSocketDemoProps) => {
           <div class="blob-list">
             <For each={blobs()}>
               {(blob) => {
-                const displayInfo = () => client()?.getBlobDisplayInfo(blob);
+                const displayInfo = () => {
+                  // Include refresh signal to make this reactive
+                  thumbnailRefresh();
+                  return client()?.getBlobDisplayInfo(blob);
+                };
                 return (
                   <div class="blob-item">
                     <div class="blob-header">

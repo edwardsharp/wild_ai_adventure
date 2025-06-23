@@ -52,9 +52,22 @@ export class MediaBlobManager extends EventTarget {
   updateBlobs(blobs: MediaBlob[]): void {
     this.blobs = [...blobs];
 
-    this.dispatchEvent(new CustomEvent('blobs-updated', {
-      detail: { blobs: this.blobs, count: this.blobs.length }
-    }));
+    // Auto-load images for thumbnails
+    this.blobs.forEach((blob) => {
+      if (
+        blob.mime?.startsWith('image/') &&
+        !this.isCached(blob.id) &&
+        !this.isLoading(blob.id)
+      ) {
+        setTimeout(() => this.requestBlobData(blob.id), 100);
+      }
+    });
+
+    this.dispatchEvent(
+      new CustomEvent('blobs-updated', {
+        detail: { blobs: this.blobs, count: this.blobs.length },
+      })
+    );
   }
 
   /**
@@ -68,7 +81,7 @@ export class MediaBlobManager extends EventTarget {
    * Get a specific blob by ID
    */
   getBlob(id: string): MediaBlob | undefined {
-    return this.blobs.find(blob => blob.id === id);
+    return this.blobs.find((blob) => blob.id === id);
   }
 
   /**
@@ -88,9 +101,11 @@ export class MediaBlobManager extends EventTarget {
     this.blobDataCache.set(blobData.id, dataUrl);
     this.loadingBlobs.delete(blobData.id);
 
-    this.dispatchEvent(new CustomEvent('blob-data-cached', {
-      detail: { id: blobData.id, dataUrl, mime: blobData.mime }
-    }));
+    this.dispatchEvent(
+      new CustomEvent('blob-data-cached', {
+        detail: { id: blobData.id, dataUrl, mime: blobData.mime },
+      })
+    );
   }
 
   /**
@@ -131,9 +146,11 @@ export class MediaBlobManager extends EventTarget {
 
     this.markAsLoading(blobId);
 
-    this.dispatchEvent(new CustomEvent('blob-data-requested', {
-      detail: { id: blobId }
-    }));
+    this.dispatchEvent(
+      new CustomEvent('blob-data-requested', {
+        detail: { id: blobId },
+      })
+    );
   }
 
   /**
@@ -148,9 +165,10 @@ export class MediaBlobManager extends EventTarget {
       clientId: blob.source_client_id || 'Unknown',
       path: blob.local_path || 'None',
       createdAt: new Date(blob.created_at).toLocaleString(),
-      metadata: Object.keys(blob.metadata || {}).length > 0
-        ? JSON.stringify(blob.metadata)
-        : '',
+      metadata:
+        Object.keys(blob.metadata || {}).length > 0
+          ? JSON.stringify(blob.metadata)
+          : '',
       thumbnailHtml: this.generateThumbnailHtml(blob),
     };
   }
@@ -163,8 +181,10 @@ export class MediaBlobManager extends EventTarget {
     const cachedData = this.getCachedDataUrl(blob.id);
     const isLoading = this.isLoading(blob.id);
 
-    const baseStyle = 'width: 80px; height: 80px; border-radius: 4px; object-fit: cover;';
-    const placeholderStyle = 'display: flex; align-items: center; justify-content: center; background: #f0f0f0; font-size: 0.7em; border-radius: 4px; cursor: pointer;';
+    const baseStyle =
+      'width: 80px; height: 80px; border-radius: 4px; object-fit: cover;';
+    const placeholderStyle =
+      'display: flex; align-items: center; justify-content: center; background: #f0f0f0; font-size: 0.7em; border-radius: 4px; cursor: pointer;';
 
     if (mime.startsWith('image/')) {
       if (cachedData) {
@@ -172,7 +192,7 @@ export class MediaBlobManager extends EventTarget {
       } else if (isLoading) {
         return `<div style="${baseStyle} ${placeholderStyle}">Loading...</div>`;
       } else {
-        return `<div style="${baseStyle} ${placeholderStyle}" data-blob-id="${blob.id}">LOAD IMAGE</div>`;
+        return `<div style="${baseStyle} ${placeholderStyle}" onclick="window.loadBlobData('${blob.id}')">LOAD IMAGE</div>`;
       }
     } else if (mime.startsWith('video/')) {
       if (cachedData) {
@@ -180,7 +200,7 @@ export class MediaBlobManager extends EventTarget {
       } else if (isLoading) {
         return `<div style="${baseStyle} ${placeholderStyle}">Loading...</div>`;
       } else {
-        return `<div style="${baseStyle} ${placeholderStyle}" data-blob-id="${blob.id}">LOAD VIDEO</div>`;
+        return `<div style="${baseStyle} ${placeholderStyle}" onclick="window.loadBlobData('${blob.id}')">LOAD VIDEO</div>`;
       }
     } else if (mime.startsWith('audio/')) {
       if (cachedData) {
@@ -188,7 +208,7 @@ export class MediaBlobManager extends EventTarget {
       } else if (isLoading) {
         return `<div style="${baseStyle} ${placeholderStyle}">Loading...</div>`;
       } else {
-        return `<div style="${baseStyle} ${placeholderStyle}" data-blob-id="${blob.id}">LOAD AUDIO</div>`;
+        return `<div style="${baseStyle} ${placeholderStyle}" onclick="window.loadBlobData('${blob.id}')">LOAD AUDIO</div>`;
       }
     } else if (mime === 'application/pdf') {
       return `<div style="${baseStyle} ${placeholderStyle}">PDF</div>`;
@@ -218,9 +238,11 @@ export class MediaBlobManager extends EventTarget {
     a.click();
     document.body.removeChild(a);
 
-    this.dispatchEvent(new CustomEvent('blob-downloaded', {
-      detail: { id: blobId, filename: downloadName }
-    }));
+    this.dispatchEvent(
+      new CustomEvent('blob-downloaded', {
+        detail: { id: blobId, filename: downloadName },
+      })
+    );
 
     return true;
   }
@@ -237,9 +259,11 @@ export class MediaBlobManager extends EventTarget {
 
     window.open(cachedData, '_blank');
 
-    this.dispatchEvent(new CustomEvent('blob-viewed', {
-      detail: { id: blobId }
-    }));
+    this.dispatchEvent(
+      new CustomEvent('blob-viewed', {
+        detail: { id: blobId },
+      })
+    );
 
     return true;
   }
@@ -274,15 +298,21 @@ export class MediaBlobManager extends EventTarget {
     this.blobDataCache.clear();
     this.loadingBlobs.clear();
 
-    this.dispatchEvent(new CustomEvent('cache-cleared', {
-      detail: { timestamp: Date.now() }
-    }));
+    this.dispatchEvent(
+      new CustomEvent('cache-cleared', {
+        detail: { timestamp: Date.now() },
+      })
+    );
   }
 
   /**
    * Get cache statistics
    */
-  getCacheStats(): { cachedCount: number; loadingCount: number; totalBlobs: number } {
+  getCacheStats(): {
+    cachedCount: number;
+    loadingCount: number;
+    totalBlobs: number;
+  } {
     return {
       cachedCount: this.blobDataCache.size,
       loadingCount: this.loadingBlobs.size,
@@ -298,8 +328,15 @@ export class MediaBlobManager extends EventTarget {
     this.blobs = [];
 
     // Remove all event listeners
-    const events = ['blobs-updated', 'blob-data-cached', 'blob-data-requested', 'blob-downloaded', 'blob-viewed', 'cache-cleared'];
-    events.forEach(event => {
+    const events = [
+      'blobs-updated',
+      'blob-data-cached',
+      'blob-data-requested',
+      'blob-downloaded',
+      'blob-viewed',
+      'cache-cleared',
+    ];
+    events.forEach((event) => {
       const listeners = (this as any)._listeners?.[event] || [];
       listeners.forEach((listener: any) => {
         this.removeEventListener(event, listener);
