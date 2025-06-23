@@ -7,11 +7,12 @@
 //! - Range request support via tower-http
 //! - Security headers
 
-use axum::http::header::{CACHE_CONTROL, CONTENT_TYPE};
+use axum::http::header::{CACHE_CONTROL, CONTENT_DISPOSITION, CONTENT_TYPE};
 use axum::http::Extensions;
 use axum::{
+    extract::Request,
     http::{HeaderMap, HeaderValue, StatusCode, Version},
-    middleware as axum_middleware,
+    middleware::{self as axum_middleware, Next},
     response::{IntoResponse, Response},
     Router,
 };
@@ -31,6 +32,29 @@ const MEDIA_EXTENSIONS: &[&str] = &[
     ".m4v", ".3gp", ".wmv",
 ];
 
+/// Video file extensions and their MIME types
+const VIDEO_MIME_TYPES: &[(&str, &str)] = &[
+    (".mp4", "video/mp4"),
+    (".webm", "video/webm"),
+    (".ogg", "video/ogg"),
+    (".mov", "video/quicktime"),
+    (".avi", "video/x-msvideo"),
+    (".mkv", "video/x-matroska"),
+    (".m4v", "video/x-m4v"),
+    (".3gp", "video/3gpp"),
+    (".wmv", "video/x-ms-wmv"),
+];
+
+/// Audio file extensions and their MIME types
+const AUDIO_MIME_TYPES: &[(&str, &str)] = &[
+    (".mp3", "audio/mpeg"),
+    (".wav", "audio/wav"),
+    (".flac", "audio/flac"),
+    (".aac", "audio/aac"),
+    (".m4a", "audio/mp4"),
+    (".ogg", "audio/ogg"),
+];
+
 /// Build enhanced public static file routes
 /// Optimized for public assets with aggressive caching
 pub fn build_enhanced_public_routes(config: &AppConfig) -> Router {
@@ -42,6 +66,7 @@ pub fn build_enhanced_public_routes(config: &AppConfig) -> Router {
 
     Router::new()
         .nest_service("/public", serve_dir)
+        .layer(axum_middleware::from_fn(fix_media_headers))
         .layer(
             CompressionLayer::new().gzip(true).br(true).no_deflate(), // Disable deflate as it's less efficient
         )
@@ -63,6 +88,7 @@ pub fn build_enhanced_private_routes(config: &AppConfig) -> Router {
 
     Router::new()
         .nest_service("/private", serve_dir)
+        .layer(axum_middleware::from_fn(fix_media_headers))
         .layer(CompressionLayer::new().gzip(true).br(true))
         .layer(SetResponseHeaderLayer::if_not_present(
             CACHE_CONTROL,
@@ -159,6 +185,53 @@ async fn not_found_handler(
             "#,
     )
         .into_response())
+}
+
+/// Middleware to fix MIME types and Content-Disposition for media files
+async fn fix_media_headers(request: Request, next: Next) -> Response {
+    let path = request.uri().path().to_lowercase();
+    let mut response = next.run(request).await;
+
+    // Check if this is a media file
+    let media_info = get_media_info(&path);
+
+    if let Some((mime_type, disposition)) = media_info {
+        tracing::debug!(
+            "Fixing media headers for {}: mime_type={}, disposition={}",
+            path,
+            mime_type,
+            disposition
+        );
+
+        let headers = response.headers_mut();
+
+        // Override Content-Type if needed
+        headers.insert(CONTENT_TYPE, HeaderValue::from_static(mime_type));
+
+        // Set Content-Disposition to inline for media files
+        headers.insert(CONTENT_DISPOSITION, HeaderValue::from_static(disposition));
+    }
+
+    response
+}
+
+/// Get media info (MIME type and disposition) for a file path
+fn get_media_info(path: &str) -> Option<(&'static str, &'static str)> {
+    // Check video files first
+    for (ext, mime_type) in VIDEO_MIME_TYPES {
+        if path.ends_with(ext) {
+            return Some((mime_type, "inline"));
+        }
+    }
+
+    // Check audio files
+    for (ext, mime_type) in AUDIO_MIME_TYPES {
+        if path.ends_with(ext) {
+            return Some((mime_type, "inline"));
+        }
+    }
+
+    None
 }
 
 /// Check if a file path represents a media file that benefits from range requests

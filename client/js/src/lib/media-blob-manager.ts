@@ -214,11 +214,11 @@ export class MediaBlobManager extends EventTarget {
     } else if (mime.startsWith("video/")) {
       // For large files stored on disk, use the direct URL
       if (storageType === "disk" && fileUrl) {
-        return `<video style="${baseStyle}" controls muted><source src="${fileUrl}" type="${mime}"></video>`;
+        return this.generateVideoElement(fileUrl, mime, baseStyle);
       }
       // For small files in database, use cached data or load on demand
       else if (cachedData) {
-        return `<video style="${baseStyle}" controls muted><source src="${cachedData}" type="${mime}"></video>`;
+        return this.generateVideoElement(cachedData, mime, baseStyle);
       } else if (isLoading) {
         return `<div style="${baseStyle} ${placeholderStyle}">Loading...</div>`;
       } else {
@@ -241,6 +241,80 @@ export class MediaBlobManager extends EventTarget {
       return `<div style="${baseStyle} ${placeholderStyle}">PDF</div>`;
     } else {
       return `<div style="${baseStyle} ${placeholderStyle}">FILE</div>`;
+    }
+  }
+
+  /**
+   * Generate video element with browser compatibility fallbacks
+   */
+  private generateVideoElement(
+    src: string,
+    mime: string,
+    baseStyle: string
+  ): string {
+    // Check if this is a potentially problematic format for Chrome
+    const isQuickTime =
+      mime === "video/quicktime" || src.toLowerCase().endsWith(".mov");
+
+    const browserInfo = this.getBrowserInfo();
+
+    if (isQuickTime && !browserInfo.supportsMov) {
+      // For QuickTime/MOV files in unsupported browsers, show helpful message
+      return `
+        <div style="${baseStyle} display: flex; align-items: center; justify-content: center; font-size: 0.6em; text-align: center; padding: 8px; background: #fef3c7; color: #92400e; border-radius: 4px; flex-direction: column;">
+          <div style="font-weight: bold; margin-bottom: 4px;">📹 Video format not supported in ${browserInfo.name}</div>
+          <div style="margin-bottom: 6px;">This .mov file works best in Safari</div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;">
+            <a href="${src}" target="_blank" style="color: #92400e; text-decoration: underline; font-size: 0.9em;">📥 Download file</a>
+            <span style="color: #6b7280;">•</span>
+            <span style="font-size: 0.8em; color: #6b7280;">Try Safari browser</span>
+          </div>
+        </div>
+      `;
+    } else {
+      // Standard video element with additional attributes for better compatibility
+      const videoAttributes = isQuickTime
+        ? 'controls muted preload="metadata" playsinline'
+        : 'controls muted preload="metadata"';
+
+      return `<video style="${baseStyle}" ${videoAttributes}><source src="${src}" type="${mime}">Your browser does not support this video format. <a href="${src}" target="_blank">Download to view</a></video>`;
+    }
+  }
+
+  /**
+   * Get browser information and capabilities
+   */
+  private getBrowserInfo(): { name: string; supportsMov: boolean } {
+    const userAgent = navigator.userAgent.toLowerCase();
+    let browserName = "Unknown";
+
+    if (userAgent.includes("safari") && !userAgent.includes("chrome")) {
+      browserName = "Safari";
+    } else if (userAgent.includes("chrome")) {
+      browserName = "Chrome";
+    } else if (userAgent.includes("firefox")) {
+      browserName = "Firefox";
+    } else if (userAgent.includes("edge")) {
+      browserName = "Edge";
+    }
+
+    // Dynamically test codec support
+    const supportsMov = this.canPlayVideoType("video/quicktime");
+
+    return { name: browserName, supportsMov };
+  }
+
+  /**
+   * Test if browser can play a specific video type
+   */
+  private canPlayVideoType(mimeType: string): boolean {
+    try {
+      const video = document.createElement("video");
+      const canPlay = video.canPlayType(mimeType);
+      // canPlayType returns "probably", "maybe", or ""
+      return canPlay === "probably" || canPlay === "maybe";
+    } catch {
+      return false;
     }
   }
 

@@ -666,6 +666,38 @@ const WebSocketDemo = (props: WebSocketDemoProps) => {
                         <br />
                         <small>
                           {displayInfo()?.mime} • {displayInfo()?.size}
+                          {/* Show compatibility warning for .mov files */}
+                          {blob.mime === "video/quicktime" ||
+                          blob.local_path?.toLowerCase().endsWith(".mov") ? (
+                            <span
+                              style={{
+                                background: "#fef3c7",
+                                color: "#92400e",
+                                padding: "0.125rem 0.5rem",
+                                "border-radius": "4px",
+                                "font-size": "0.7rem",
+                                "font-weight": "500",
+                                "margin-left": "0.5rem",
+                              }}
+                              title="This video format may not play in all browsers (Chrome/Firefox). Works best in Safari."
+                            >
+                              ⚠️ Limited browser support
+                            </span>
+                          ) : blob.mime?.startsWith("video/") ? (
+                            <span
+                              style={{
+                                background: "#d1fae5",
+                                color: "#065f46",
+                                padding: "0.125rem 0.5rem",
+                                "border-radius": "4px",
+                                "font-size": "0.7rem",
+                                "font-weight": "500",
+                                "margin-left": "0.5rem",
+                              }}
+                            >
+                              ✅ Web compatible
+                            </span>
+                          ) : null}
                         </small>
                         <br />
                         <small style={{ color: "#6b7280" }}>
