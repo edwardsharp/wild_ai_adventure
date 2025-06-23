@@ -12,7 +12,7 @@ import { createSignal, createEffect, Show, For } from "solid-js";
 import { ConnectionStatus, WebSocketStatus } from "./websocket-status";
 import "./websocket-status";
 
-// Import types from the clientlib
+// Import types from the client library
 import { MediaBlob } from "../lib/websocket-types.js";
 import { WebSocketClient } from "../lib/websocket-client.js";
 

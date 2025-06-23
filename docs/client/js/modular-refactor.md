@@ -9,6 +9,7 @@ Successfully refactored the functionality from `assets/public/websocket-demo.htm
 ### 1. Created Modular Components
 
 **WebSocketConnection** (`src/websocket-connection.ts`)
+
 - Pure WebSocket connection management
 - Automatic reconnection with configurable retry logic
 - Status tracking and event emission
@@ -16,6 +17,7 @@ Successfully refactored the functionality from `assets/public/websocket-demo.htm
 - Clean connect/disconnect API
 
 **MediaBlobManager** (`src/media-blob-manager.ts`)
+
 - Media blob data caching and management
 - Thumbnail generation for images, videos, audio
 - Download and view functionality
@@ -23,6 +25,7 @@ Successfully refactored the functionality from `assets/public/websocket-demo.htm
 - File size formatting utilities
 
 **FileUploadHandler** (`src/file-upload.ts`)
+
 - File validation (size, type, empty check)
 - SHA256 hash calculation
 - Progress tracking
@@ -30,6 +33,7 @@ Successfully refactored the functionality from `assets/public/websocket-demo.htm
 - Support for multiple file uploads
 
 **WebSocketDemoClient** (`src/websocket-demo-client.ts`)
+
 - Unified orchestrator combining all components
 - High-level API matching original demo functionality
 - Event logging and debugging
@@ -38,6 +42,7 @@ Successfully refactored the functionality from `assets/public/websocket-demo.htm
 ### 2. Created Web Component
 
 **WebSocketDemo** (`web-component/src/websocket-demo.tsx`)
+
 - Complete demo showcasing modular components
 - Minimal styling (basic layout only)
 - Interactive file upload, blob management, connection controls
@@ -47,6 +52,7 @@ Successfully refactored the functionality from `assets/public/websocket-demo.htm
 ### 3. Simplified Build Templates
 
 **Updated `vite.wc.config.ts`**
+
 - Removed complex inline styling from HTML templates
 - Simplified to bare minimum HTML structure
 - Added build support for new websocket-demo component
@@ -55,6 +61,7 @@ Successfully refactored the functionality from `assets/public/websocket-demo.htm
 ### 4. Enhanced Exports
 
 **Updated `src/index.ts`**
+
 - Exported all new modular components
 - Proper TypeScript type exports
 - Maintained backward compatibility
@@ -71,30 +78,35 @@ The build process now creates:
 ## Benefits Achieved
 
 ### ✅ Modularity
+
 - Each component has a single responsibility
 - Components can be used independently
 - Easy to test individual pieces
 - Reusable across different projects
 
 ### ✅ No Styling Dependencies
+
 - Pure logic components with minimal CSS
 - Developers can apply their own styles
 - No CSS conflicts or overwrites
 - Clean separation of concerns
 
 ### ✅ Event-Driven Architecture
+
 - Components communicate via events
 - Loose coupling between modules
 - Easy to extend or replace components
 - Clear data flow
 
 ### ✅ TypeScript Support
+
 - Full type safety across all components
 - Proper interface definitions
 - IDE autocomplete and error checking
 - Self-documenting APIs
 
 ### ✅ Simplified Templates
+
 - Minimal HTML in build templates
 - Focus on functionality over presentation
 - Easy to customize for different use cases
@@ -103,25 +115,27 @@ The build process now creates:
 ## Migration Path
 
 ### From websocket-demo.html
+
 ```javascript
 // Old: Copy/paste HTML and JavaScript
 // New: Import and use modular components
 
-import { WebSocketDemoClient } from '@webauthn/clientlib';
+import { WebSocketDemoClient } from "@webauthn/client-js";
 
-const client = new WebSocketDemoClient('ws://localhost:8080/ws');
-client.addEventListener('status-change', (e) => {
-  console.log('Status:', e.detail.status);
+const client = new WebSocketDemoClient("ws://localhost:8080/ws");
+client.addEventListener("status-change", (e) => {
+  console.log("Status:", e.detail.status);
 });
 await client.connect();
 ```
 
 ### For Custom UIs
+
 ```javascript
 // Use individual components
-import { WebSocketConnection, MediaBlobManager } from '@webauthn/clientlib';
+import { WebSocketConnection, MediaBlobManager } from "@webauthn/client-js";
 
-const ws = new WebSocketConnection({ url: 'ws://localhost:8080/ws' });
+const ws = new WebSocketConnection({ url: "ws://localhost:8080/ws" });
 const blobs = new MediaBlobManager();
 
 // Build your own UI around these components
@@ -130,6 +144,7 @@ const blobs = new MediaBlobManager();
 ## Files Created/Modified
 
 ### New Files
+
 - `src/websocket-connection.ts` - Core WebSocket management
 - `src/media-blob-manager.ts` - Blob handling and caching
 - `src/file-upload.ts` - File processing and validation
@@ -138,39 +153,47 @@ const blobs = new MediaBlobManager();
 - `docs/websocket-modular-components.md` - Documentation
 
 ### Modified Files
+
 - `src/index.ts` - Added exports for new components
 - `web-component/vite.wc.config.ts` - Simplified templates, added demo build
 - `web-component/src/index.tsx` - Added websocket-demo component
 
 ### Preserved Files
+
 - `assets/public/websocket-demo.html` - Original demo untouched as requested
 
 ## Usage Examples
 
 ### Simple Connection
-```javascript
-import { WebSocketConnection } from '@webauthn/clientlib';
 
-const ws = new WebSocketConnection({ url: 'ws://localhost:8080/ws' });
-ws.addEventListener('status-change', (e) => updateUI(e.detail.status));
+```javascript
+import { WebSocketConnection } from "@webauthn/client-js";
+
+const ws = new WebSocketConnection({ url: "ws://localhost:8080/ws" });
+ws.addEventListener("status-change", (e) => updateUI(e.detail.status));
 await ws.connect();
 ```
 
 ### File Upload
+
 ```javascript
-import { FileUploadHandler } from '@webauthn/clientlib';
+import { FileUploadHandler } from "@webauthn/client-js";
 
 const uploader = new FileUploadHandler({ maxFileSize: 10 * 1024 * 1024 });
-uploader.addEventListener('upload-completed', (e) => sendToServer(e.detail.blob));
+uploader.addEventListener("upload-completed", (e) =>
+  sendToServer(e.detail.blob),
+);
 await uploader.addFiles(fileInput.files);
 ```
 
 ### Complete Demo
+
 ```html
 <websocket-demo
   websocketUrl="ws://localhost:8080/ws"
   autoConnect="false"
-  showDebugLog="true">
+  showDebugLog="true"
+>
 </websocket-demo>
 ```
 

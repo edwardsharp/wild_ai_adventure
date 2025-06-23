@@ -1,7 +1,7 @@
 /**
  * Web Components Library - Entry Point
  *
- * This file exports all available web components for the clientlib.
+ * This file exports all available web components for the client library.
  * Components are automatically registered as custom elements when imported.
  */
 

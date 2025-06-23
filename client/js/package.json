@@ -1,5 +1,5 @@
 {
-  "name": "@webauthn/clientlib",
+  "name": "@webauthn/client-js",
   "version": "1.0.0",
   "description": "TypeScript client library for WebAuthn API with Zod validation, fetch wrappers, and Solid.js web components",
   "main": "dist/index.js",
@@ -10,7 +10,7 @@
     "build:lib": "tsc",
     "build:web-components": "vite build --config vite.wc.config.ts",
     "build:copy": "npm run build && npm run copy",
-    "copy": "cp dist/* ../assets/clientlib/",
+    "copy": "cp dist/* ../../assets/client/js/",
     "dev": "tsc --watch",
     "dev:web-components": "vite dev --config vite.wc.config.ts",
     "test": "vitest --run",
@@ -71,7 +71,7 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/your-org/webauthn-tutorial.git",
-    "directory": "clientlib"
+    "directory": "client/js"
   },
   "prettier": {
     "semi": true,

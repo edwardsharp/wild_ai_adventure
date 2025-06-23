@@ -7,12 +7,14 @@ Enhanced the modular WebSocket demo component to match the functionality of the 
 ## Improvements Made
 
 ### ✅ **WebSocket URL Input**
+
 - Added text input field for WebSocket server URL
 - Default value: `ws://localhost:8080/ws`
 - Input is disabled when connected/connecting to prevent URL changes during active connection
 - Proper validation and error handling
 
 ### ✅ **Enhanced Connection Section**
+
 - **Connect Button** - Initiates WebSocket connection (disabled when already connected)
 - **Disconnect Button** - Cleanly disconnects from server (disabled when not connected)
 - **Status Display** - Visual indicator with colored dot showing connection state:
@@ -23,6 +25,7 @@ Enhanced the modular WebSocket demo component to match the functionality of the 
 - **User Count** - Shows number of online users when available
 
 ### ✅ **Reorganized Actions Section**
+
 Moved all action buttons into a dedicated "Actions" section:
 
 - **Ping Button** - Send ping to test connection
@@ -31,12 +34,14 @@ Moved all action buttons into a dedicated "Actions" section:
 - **Clear Log Button** - Clear the debug log
 
 ### ✅ **Improved File Upload**
+
 - Hidden file input element (triggered by "Upload Files" button)
 - Support for multiple file selection
 - Proper file validation and error handling
 - Integration with the modular `FileUploadHandler`
 
 ### ✅ **Enhanced Styling**
+
 - Better spacing and alignment in control sections
 - Improved button styling with hover states
 - Consistent typography and colors
@@ -81,11 +86,13 @@ Moved all action buttons into a dedicated "Actions" section:
 ## Key Features Maintained
 
 ### ✅ **Modular Architecture**
+
 - Uses `WebSocketDemoClient` from the core library
 - Clean separation between UI and business logic
 - Event-driven communication between components
 
 ### ✅ **Full Functionality Parity**
+
 - All features from original `websocket-demo.html` are present
 - File upload with progress tracking
 - Media blob caching and thumbnails
@@ -93,6 +100,7 @@ Moved all action buttons into a dedicated "Actions" section:
 - Debug logging with timestamps
 
 ### ✅ **Responsive Design**
+
 - Flexbox layouts that adapt to screen size
 - Proper button and input sizing
 - Mobile-friendly touch targets
@@ -102,23 +110,27 @@ Moved all action buttons into a dedicated "Actions" section:
 The enhanced demo is available in multiple formats:
 
 ### Standalone HTML
+
 ```html
 <!-- Open in browser -->
 dist/websocket-demo-standalone.html
 ```
 
 ### Web Component
+
 ```html
 <websocket-demo
   websocketUrl="ws://localhost:8080/ws"
   autoConnect="false"
-  showDebugLog="true">
+  showDebugLog="true"
+>
 </websocket-demo>
 ```
 
 ### JavaScript Module
+
 ```javascript
-import '@webauthn/clientlib/web-components/demo';
+import "@webauthn/client-js/web-components/demo";
 ```
 
 ## Benefits

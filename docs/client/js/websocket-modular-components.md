@@ -18,28 +18,28 @@ The WebSocket functionality has been refactored into several modular components:
 Manages WebSocket connections with automatic reconnection and status tracking.
 
 ```typescript
-import { WebSocketConnection } from '@webauthn/clientlib';
+import { WebSocketConnection } from "@webauthn/client-js";
 
 const connection = new WebSocketConnection({
-  url: 'ws://localhost:8080/ws',
+  url: "ws://localhost:8080/ws",
   autoReconnect: true,
   reconnectDelay: 3000,
   maxReconnectAttempts: 5,
-  pingInterval: 30000
+  pingInterval: 30000,
 });
 
 // Event listeners
-connection.addEventListener('status-change', (e) => {
-  console.log('Status:', e.detail.status);
+connection.addEventListener("status-change", (e) => {
+  console.log("Status:", e.detail.status);
 });
 
-connection.addEventListener('message', (e) => {
-  console.log('Message:', e.detail.message);
+connection.addEventListener("message", (e) => {
+  console.log("Message:", e.detail.message);
 });
 
 // Connect and send messages
 await connection.connect();
-connection.send({ type: 'Ping' });
+connection.send({ type: "Ping" });
 ```
 
 ### MediaBlobManager
@@ -47,16 +47,16 @@ connection.send({ type: 'Ping' });
 Handles media blob data management, caching, and thumbnail generation.
 
 ```typescript
-import { MediaBlobManager } from '@webauthn/clientlib';
+import { MediaBlobManager } from "@webauthn/client-js";
 
 const blobManager = new MediaBlobManager();
 
 // Event listeners
-blobManager.addEventListener('blobs-updated', (e) => {
-  console.log('Blobs updated:', e.detail.blobs);
+blobManager.addEventListener("blobs-updated", (e) => {
+  console.log("Blobs updated:", e.detail.blobs);
 });
 
-blobManager.addEventListener('blob-data-requested', (e) => {
+blobManager.addEventListener("blob-data-requested", (e) => {
   // Handle requests to load blob data
   loadBlobDataFromServer(e.detail.id);
 });
@@ -65,7 +65,7 @@ blobManager.addEventListener('blob-data-requested', (e) => {
 blobManager.updateBlobs(blobsFromServer);
 
 // Generate display info
-const blob = blobManager.getBlob('blob-id');
+const blob = blobManager.getBlob("blob-id");
 const displayInfo = blobManager.getBlobDisplayInfo(blob);
 ```
 
@@ -74,25 +74,25 @@ const displayInfo = blobManager.getBlobDisplayInfo(blob);
 Processes file uploads with validation, SHA256 calculation, and progress tracking.
 
 ```typescript
-import { FileUploadHandler } from '@webauthn/clientlib';
+import { FileUploadHandler } from "@webauthn/client-js";
 
 const uploadHandler = new FileUploadHandler({
   maxFileSize: 10 * 1024 * 1024, // 10MB
-  clientId: 'my-client'
+  clientId: "my-client",
 });
 
 // Event listeners
-uploadHandler.addEventListener('upload-completed', (e) => {
+uploadHandler.addEventListener("upload-completed", (e) => {
   const { file, blob } = e.detail;
-  console.log('Upload completed:', file.name);
+  console.log("Upload completed:", file.name);
   // Send blob to server
 });
 
 // Process files
 const fileInput = document.querySelector('input[type="file"]');
-fileInput.addEventListener('change', async (e) => {
+fileInput.addEventListener("change", async (e) => {
   const uploadIds = await uploadHandler.addFiles(e.target.files);
-  console.log('Started uploads:', uploadIds);
+  console.log("Started uploads:", uploadIds);
 });
 ```
 
@@ -101,20 +101,20 @@ fileInput.addEventListener('change', async (e) => {
 Unified client that orchestrates all components together.
 
 ```typescript
-import { WebSocketDemoClient } from '@webauthn/clientlib';
+import { WebSocketDemoClient } from "@webauthn/client-js";
 
-const client = new WebSocketDemoClient('ws://localhost:8080/ws', {
+const client = new WebSocketDemoClient("ws://localhost:8080/ws", {
   autoGetMediaBlobs: true,
-  logLevel: 'info'
+  logLevel: "info",
 });
 
 // Event listeners
-client.addEventListener('status-change', (e) => {
-  console.log('Connection status:', e.detail.status);
+client.addEventListener("status-change", (e) => {
+  console.log("Connection status:", e.detail.status);
 });
 
-client.addEventListener('blobs-updated', (e) => {
-  console.log('Media blobs:', e.detail.blobs);
+client.addEventListener("blobs-updated", (e) => {
+  console.log("Media blobs:", e.detail.blobs);
 });
 
 // Connect and use
@@ -127,8 +127,8 @@ const files = document.querySelector('input[type="file"]').files;
 await client.uploadFiles(files);
 
 // Download/view blobs
-client.downloadBlob('blob-id', 'filename.jpg');
-client.viewBlob('blob-id');
+client.downloadBlob("blob-id", "filename.jpg");
+client.viewBlob("blob-id");
 ```
 
 ## Web Components
@@ -141,7 +141,8 @@ A complete demo component that showcases all the modular functionality:
 <websocket-demo
   websocketUrl="ws://localhost:8080/ws"
   autoConnect="false"
-  showDebugLog="true">
+  showDebugLog="true"
+>
 </websocket-demo>
 ```
 
@@ -158,40 +159,40 @@ The build process generates standalone HTML files you can use directly:
 ### Basic WebSocket Connection
 
 ```typescript
-import { WebSocketConnection } from '@webauthn/clientlib';
+import { WebSocketConnection } from "@webauthn/client-js";
 
-const ws = new WebSocketConnection({ url: 'ws://localhost:8080/ws' });
+const ws = new WebSocketConnection({ url: "ws://localhost:8080/ws" });
 
-ws.addEventListener('status-change', (e) => {
-  document.getElementById('status').textContent = e.detail.status;
+ws.addEventListener("status-change", (e) => {
+  document.getElementById("status").textContent = e.detail.status;
 });
 
-ws.addEventListener('message', (e) => {
-  console.log('Received:', e.detail.message);
+ws.addEventListener("message", (e) => {
+  console.log("Received:", e.detail.message);
 });
 
-document.getElementById('connect').onclick = () => ws.connect();
-document.getElementById('disconnect').onclick = () => ws.disconnect();
+document.getElementById("connect").onclick = () => ws.connect();
+document.getElementById("disconnect").onclick = () => ws.disconnect();
 ```
 
 ### File Upload with Progress
 
 ```typescript
-import { FileUploadHandler } from '@webauthn/clientlib';
+import { FileUploadHandler } from "@webauthn/client-js";
 
 const uploader = new FileUploadHandler();
 
-uploader.addEventListener('upload-started', (e) => {
+uploader.addEventListener("upload-started", (e) => {
   console.log(`Starting upload: ${e.detail.file.name}`);
 });
 
-uploader.addEventListener('upload-completed', (e) => {
+uploader.addEventListener("upload-completed", (e) => {
   console.log(`Completed: ${e.detail.file.name}`);
   // Send e.detail.blob to your WebSocket server
 });
 
 // Handle file input
-document.getElementById('file-input').onchange = (e) => {
+document.getElementById("file-input").onchange = (e) => {
   uploader.addFiles(e.target.files);
 };
 ```
@@ -199,17 +200,17 @@ document.getElementById('file-input').onchange = (e) => {
 ### Media Blob Display
 
 ```typescript
-import { MediaBlobManager } from '@webauthn/clientlib';
+import { MediaBlobManager } from "@webauthn/client-js";
 
 const blobManager = new MediaBlobManager();
 
-blobManager.addEventListener('blobs-updated', (e) => {
-  const container = document.getElementById('blobs');
-  container.innerHTML = '';
+blobManager.addEventListener("blobs-updated", (e) => {
+  const container = document.getElementById("blobs");
+  container.innerHTML = "";
 
-  e.detail.blobs.forEach(blob => {
+  e.detail.blobs.forEach((blob) => {
     const info = blobManager.getBlobDisplayInfo(blob);
-    const div = document.createElement('div');
+    const div = document.createElement("div");
     div.innerHTML = `
       <h3>${blob.id}</h3>
       <p>${info.mime} • ${info.size}</p>

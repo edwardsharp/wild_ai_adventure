@@ -1,8 +1,8 @@
-# ClientLib Project Restructure Summary
+# Client JS Project Restructure Summary
 
 ## Overview
 
-Successfully merged the `web-component` subdirectory into the main `clientlib` project while maintaining complete modularity. The restructure provides clean separation between core library functionality and web components while simplifying the build process.
+Successfully merged the `web-component` subdirectory into the main `client/js` project while maintaining complete modularity. The restructure provides clean separation between core library functionality and web components while simplifying the build process.
 
 ## New Project Structure
 
@@ -59,6 +59,7 @@ clientlib/
 ### Build Outputs
 
 1. **Core Library** (`npm run build:lib`)
+
    - `dist/index.js` - Main entry point
    - `dist/lib/` - Individual library modules
    - TypeScript declaration files
@@ -74,33 +75,37 @@ clientlib/
 ## Key Benefits Achieved
 
 ### ✅ Simplified Project Management
+
 - Single `package.json` with unified dependencies
 - One `node_modules` directory
 - Simplified CI/CD and build processes
 - Easier dependency management
 
 ### ✅ Maintained Modularity
+
 - Core library builds independently
 - Web components build separately
 - Can import just the library without components
 - Can use components without full library
 
 ### ✅ Clean Separation of Concerns
+
 - `src/lib/` - Pure TypeScript logic
 - `src/web-components/` - UI components with JSX
 - Different TypeScript configs for each
 - Separate ESLint rules for each
 
 ### ✅ Flexible Import Options
+
 ```javascript
 // Core library only
-import { WebSocketConnection } from '@webauthn/clientlib';
+import { WebSocketConnection } from "@webauthn/client-js";
 
 // Web components
-import '@webauthn/clientlib/web-components/websocket';
+import "@webauthn/client-js/web-components/websocket";
 
 // Individual web component
-import '@webauthn/clientlib/web-components/demo';
+import "@webauthn/client-js/web-components/demo";
 ```
 
 ## Configuration Files
@@ -108,6 +113,7 @@ import '@webauthn/clientlib/web-components/demo';
 ### TypeScript Configs
 
 1. **`tsconfig.json`** - Main config for library code
+
    - Excludes `src/web-components`
    - Standard TypeScript compilation
    - Outputs to `dist/lib/`
@@ -120,6 +126,7 @@ import '@webauthn/clientlib/web-components/demo';
 ### ESLint Configuration
 
 Updated to handle both TypeScript and TSX files:
+
 - `src/lib/**/*.ts` - Standard TypeScript rules
 - `src/web-components/**/*.{ts,tsx}` - TSX + Solid.js rules
 
@@ -152,17 +159,20 @@ Updated to handle both TypeScript and TSX files:
 ## Migration Impact
 
 ### For Library Users
+
 - No breaking changes to core library imports
 - New web component import paths available
 - Standalone HTML files still generated
 
 ### For Development
+
 - Single project to manage
 - Unified build process
 - Shared dependencies reduce disk usage
 - Simpler testing and linting
 
 ### For CI/CD
+
 - Single `npm install`
 - Single test/lint command
 - Unified version management
@@ -171,30 +181,31 @@ Updated to handle both TypeScript and TSX files:
 ## Usage Examples
 
 ### Core Library Only
+
 ```javascript
 import {
   WebSocketConnection,
   MediaBlobManager,
-  FileUploadHandler
-} from '@webauthn/clientlib';
+  FileUploadHandler,
+} from "@webauthn/client-js";
 
-const ws = new WebSocketConnection({ url: 'ws://localhost:8080/ws' });
+const ws = new WebSocketConnection({ url: "ws://localhost:8080/ws" });
 ```
 
 ### Web Components
+
 ```html
 <!-- Import and use -->
 <script type="module">
-  import '@webauthn/clientlib/web-components/demo';
+  import "@webauthn/client-js/web-components/demo";
 </script>
 
-<websocket-demo
-  websocketUrl="ws://localhost:8080/ws"
-  autoConnect="false">
+<websocket-demo websocketUrl="ws://localhost:8080/ws" autoConnect="false">
 </websocket-demo>
 ```
 
 ### Standalone Files
+
 - `dist/websocket-demo-standalone.html` - Complete demo
 - `dist/webauthn-auth-standalone.html` - WebAuthn component
 - `dist/websocket-components-standalone.html` - Basic components

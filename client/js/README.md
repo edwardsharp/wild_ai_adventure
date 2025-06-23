@@ -15,7 +15,7 @@ A comprehensive TypeScript client library for WebAuthn authentication with Zod v
 ## Installation
 
 ```bash
-npm install @webauthn/clientlib
+npm install @webauthn/client-js
 ```
 
 ## Quick Start
@@ -23,14 +23,14 @@ npm install @webauthn/clientlib
 ### Basic Usage
 
 ```typescript
-import { ApiClient, apiClient } from '@webauthn/clientlib';
+import { ApiClient, apiClient } from "@webauthn/client-js";
 
 // Use the default client instance
-const challenge = await apiClient.registerStart('username');
+const challenge = await apiClient.registerStart("username");
 
 // Or create a custom client
 const client = new ApiClient({
-  baseUrl: 'https://your-api.com',
+  baseUrl: "https://your-api.com",
   timeout: 10000,
 });
 ```
@@ -38,13 +38,13 @@ const client = new ApiClient({
 ### WebAuthn Registration Flow
 
 ```typescript
-import { apiClient } from '@webauthn/clientlib';
+import { apiClient } from "@webauthn/client-js";
 
 async function registerUser(username: string, inviteCode?: string) {
   try {
     // Start registration
     const challenge = await apiClient.registerStart(username, {
-      invite_code: inviteCode
+      invite_code: inviteCode,
     });
 
     // Create WebAuthn credential (browser API)
@@ -74,9 +74,9 @@ async function registerUser(username: string, inviteCode?: string) {
       },
     });
 
-    console.log('Registration successful!');
+    console.log("Registration successful!");
   } catch (error) {
-    console.error('Registration failed:', error);
+    console.error("Registration failed:", error);
   }
 }
 ```
@@ -94,10 +94,12 @@ async function loginUser(username: string) {
       publicKey: {
         ...challenge.publicKey,
         challenge: base64ToUint8Array(challenge.publicKey.challenge),
-        allowCredentials: challenge.publicKey.allow_credentials?.map(cred => ({
-          ...cred,
-          id: base64ToUint8Array(cred.id),
-        })),
+        allowCredentials: challenge.publicKey.allow_credentials?.map(
+          (cred) => ({
+            ...cred,
+            id: base64ToUint8Array(cred.id),
+          })
+        ),
       },
     });
 
@@ -122,9 +124,9 @@ async function loginUser(username: string) {
       },
     });
 
-    console.log('Login successful!');
+    console.log("Login successful!");
   } catch (error) {
-    console.error('Login failed:', error);
+    console.error("Login failed:", error);
   }
 }
 ```
@@ -138,43 +140,50 @@ Use the ready-made Solid.js web component for quick integration:
 ```html
 <!DOCTYPE html>
 <html>
-<head>
-  <script type="module" src="./node_modules/@webauthn/clientlib/web-component/dist/webauthn-auth.js"></script>
-</head>
-<body>
-  <webauthn-auth
-    base-url="http://localhost:8080"
-    theme="light">
-  </webauthn-auth>
+  <head>
+    <script
+      type="module"
+      src="./node_modules/@webauthn/client-js/web-component/dist/webauthn-auth.js"
+    ></script>
+  </head>
+  <body>
+    <webauthn-auth base-url="http://localhost:8080" theme="light">
+    </webauthn-auth>
 
-  <script>
-    document.querySelector('webauthn-auth').addEventListener('webauthn-login', (e) => {
-      console.log('User logged in:', e.detail.username);
-    });
+    <script>
+      document
+        .querySelector("webauthn-auth")
+        .addEventListener("webauthn-login", (e) => {
+          console.log("User logged in:", e.detail.username);
+        });
 
-    document.querySelector('webauthn-auth').addEventListener('webauthn-logout', () => {
-      console.log('User logged out');
-    });
+      document
+        .querySelector("webauthn-auth")
+        .addEventListener("webauthn-logout", () => {
+          console.log("User logged out");
+        });
 
-    document.querySelector('webauthn-auth').addEventListener('webauthn-error', (e) => {
-      console.error('Auth error:', e.detail.error);
-    });
-  </script>
-</body>
+      document
+        .querySelector("webauthn-auth")
+        .addEventListener("webauthn-error", (e) => {
+          console.error("Auth error:", e.detail.error);
+        });
+    </script>
+  </body>
 </html>
 ```
 
 ### Programmatic Usage
 
 ```typescript
-import { createWebAuthnAuth } from '@webauthn/clientlib/web-component';
+import { createWebAuthnAuth } from "@webauthn/client-js/web-component";
 
-const dispose = createWebAuthnAuth(document.getElementById('auth-container'), {
-  baseUrl: 'http://localhost:8080',
-  theme: 'dark',
-  onLogin: (username) => console.log('Logged in:', username),
-  onLogout: () => console.log('Logged out'),
-  onError: (error) => console.error('Auth error:', error),
+const dispose = createWebAuthnAuth(document.getElementById("auth-container"), {
+  baseUrl: "http://localhost:8080",
+  theme: "dark",
+  onLogin: (username) => console.log("Logged in:", username),
+  onLogout: () => console.log("Logged out"),
+  onError: (error) => console.error("Auth error:", error),
 });
 
 // Later, cleanup
@@ -197,9 +206,9 @@ new ApiClient(config?: ApiClientConfig)
 
 ```typescript
 interface ApiClientConfig {
-  baseUrl?: string;          // Default: 'http://localhost:8080'
+  baseUrl?: string; // Default: 'http://localhost:8080'
   defaultHeaders?: Record<string, string>;
-  timeout?: number;          // Default: 30000ms
+  timeout?: number; // Default: 30000ms
   credentials?: RequestCredentials; // Default: 'include'
 }
 ```
@@ -217,31 +226,31 @@ interface ApiClientConfig {
 #### Header Management
 
 ```typescript
-client.setHeader('Authorization', 'Bearer token');
-client.removeHeader('Authorization');
+client.setHeader("Authorization", "Bearer token");
+client.removeHeader("Authorization");
 const headers = client.getHeaders();
 ```
 
 #### Configuration Updates
 
 ```typescript
-client.setBaseUrl('https://new-api.com');
+client.setBaseUrl("https://new-api.com");
 client.setTimeout(60000);
-client.setCredentials('same-origin');
+client.setCredentials("same-origin");
 ```
 
 ### Error Handling
 
 ```typescript
-import { ApiError } from '@webauthn/clientlib';
+import { ApiError } from "@webauthn/client-js";
 
 try {
-  await apiClient.registerStart('username');
+  await apiClient.registerStart("username");
 } catch (error) {
   if (error instanceof ApiError) {
     console.error(`API Error ${error.status}: ${error.message}`);
-    console.error('Response:', error.responseText);
-    console.error('Endpoint:', error.endpoint);
+    console.error("Response:", error.responseText);
+    console.error("Endpoint:", error.endpoint);
   }
 }
 ```
@@ -251,19 +260,16 @@ try {
 ### Test Utilities
 
 ```typescript
-import { TestApiClient, testUtils } from '@webauthn/clientlib';
+import { TestApiClient, testUtils } from "@webauthn/client-js";
 
-const testClient = new TestApiClient('http://localhost:8080');
+const testClient = new TestApiClient("http://localhost:8080");
 
 // Generate test data
-const user = testUtils.generateTestUser('_test');
+const user = testUtils.generateTestUser("_test");
 const mockCredential = testUtils.generateMockCredential();
 
 // Test error scenarios
-await testClient.expectError(
-  () => testClient.registerStart(''),
-  405
-);
+await testClient.expectError(() => testClient.registerStart(""), 405);
 ```
 
 ### Running Tests
@@ -330,7 +336,7 @@ npm run format
 The library includes a comprehensive API specification that describes all available routes:
 
 ```typescript
-import { API_SPEC } from '@webauthn/clientlib';
+import { API_SPEC } from "@webauthn/client-js";
 
 console.log(API_SPEC.endpoints.registerStart);
 // {
@@ -353,8 +359,8 @@ import type {
   LoginStartResponse,
   WebAuthnCredential,
   WebAuthnAssertion,
-  ApiClientConfig
-} from '@webauthn/clientlib';
+  ApiClientConfig,
+} from "@webauthn/client-js";
 ```
 
 ## Browser Compatibility

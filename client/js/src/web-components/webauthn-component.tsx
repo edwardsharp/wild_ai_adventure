@@ -8,7 +8,7 @@ import {
   createMemo,
 } from "solid-js";
 
-// Import the API client from parent clientlib
+// Import the API client from parent client library
 import { ApiClient, ApiError } from "../lib/api-client.js";
 
 // WebAuthn types
