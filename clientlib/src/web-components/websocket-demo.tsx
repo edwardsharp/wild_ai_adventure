@@ -7,8 +7,8 @@
 
 import { customElement } from 'solid-element';
 import { createSignal, createEffect, For, Show, onCleanup } from 'solid-js';
-import { WebSocketDemoClient } from '../../src/websocket-demo-client.js';
-import type { MediaBlob } from '../../src/media-blob-manager.js';
+import { WebSocketDemoClient } from '../lib/websocket-demo-client.js';
+import type { MediaBlob } from '../lib/media-blob-manager.js';
 
 export interface WebSocketDemoProps {
   websocketUrl?: string;
@@ -25,6 +25,9 @@ const WebSocketDemo = (props: WebSocketDemoProps) => {
   const [url, setUrl] = createSignal(
     props.websocketUrl || 'ws://localhost:8080/ws'
   );
+
+  // File upload ref
+  let fileInputRef: HTMLInputElement | undefined;
 
   // Initialize client
   createEffect(() => {
@@ -89,6 +92,10 @@ const WebSocketDemo = (props: WebSocketDemoProps) => {
     }
   };
 
+  const handleUploadClick = () => {
+    fileInputRef?.click();
+  };
+
   const handleDownload = (blobId: string, filename?: string) => {
     client()?.downloadBlob(blobId, filename);
   };
@@ -123,13 +130,15 @@ const WebSocketDemo = (props: WebSocketDemoProps) => {
     <div style={{ padding: '1rem', 'font-family': 'sans-serif' }}>
       <style>{`
         .demo-section { margin-bottom: 2rem; }
-        .controls { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+        .controls { display: flex; gap: 0.75rem; margin-bottom: 1rem; flex-wrap: wrap; align-items: center; }
         button {
           padding: 0.5rem 1rem;
           border: 1px solid #ccc;
           background: white;
           cursor: pointer;
           border-radius: 4px;
+          font-size: 0.875rem;
+          font-weight: 500;
         }
         button:hover:not(:disabled) { background: #f0f0f0; }
         button:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -140,6 +149,7 @@ const WebSocketDemo = (props: WebSocketDemoProps) => {
           border: 1px solid #ccc;
           border-radius: 4px;
           min-width: 300px;
+          font-size: 0.875rem;
         }
         .status-indicator {
           display: inline-block;
@@ -173,7 +183,16 @@ const WebSocketDemo = (props: WebSocketDemoProps) => {
           margin-bottom: 0.5rem;
         }
         .blob-actions { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
-        .blob-actions button { font-size: 0.875rem; padding: 0.25rem 0.5rem; }
+        .blob-actions button {
+          font-size: 0.75rem;
+          padding: 0.25rem 0.5rem;
+          font-weight: normal;
+        }
+        .section-title {
+          margin: 0 0 1rem 0;
+          color: #374151;
+          font-weight: 600;
+        }
         .empty-state {
           text-align: center;
           padding: 2rem;
@@ -184,18 +203,18 @@ const WebSocketDemo = (props: WebSocketDemoProps) => {
 
       <h1>WebSocket Demo (Modular Components)</h1>
 
-      <div class='demo-section'>
-        <h2>Connection</h2>
-        <div class='controls'>
+      <div class="demo-section">
+        <h2 class="section-title">Connection</h2>
+        <div class="controls">
           <input
-            type='text'
+            type="text"
             value={url()}
             onInput={(e) => setUrl(e.target.value)}
-            placeholder='WebSocket URL'
+            placeholder="WebSocket URL"
             disabled={status() === 'connected' || status() === 'connecting'}
           />
           <button
-            class='primary'
+            class="primary"
             onClick={handleConnect}
             disabled={status() === 'connected' || status() === 'connecting'}
           >
@@ -211,7 +230,7 @@ const WebSocketDemo = (props: WebSocketDemoProps) => {
 
         <div style={{ 'margin-bottom': '1rem' }}>
           <span
-            class='status-indicator'
+            class="status-indicator"
             style={{ 'background-color': getStatusColor() }}
           ></span>
           Status: {status()}
@@ -222,42 +241,50 @@ const WebSocketDemo = (props: WebSocketDemoProps) => {
         </div>
       </div>
 
-      <div class='demo-section'>
-        <h2>Actions</h2>
-        <div class='controls'>
+      <div class="demo-section">
+        <h2 class="section-title">Actions</h2>
+        <div class="controls">
           <button onClick={handlePing} disabled={status() !== 'connected'}>
             Ping
           </button>
           <button onClick={handleGetBlobs} disabled={status() !== 'connected'}>
             Get Media Blobs
           </button>
+          <button
+            onClick={handleUploadClick}
+            disabled={status() !== 'connected'}
+          >
+            Upload Files
+          </button>
+          <button onClick={clearLogs}>Clear Log</button>
           <input
-            type='file'
+            ref={fileInputRef}
+            type="file"
             multiple
             onChange={handleFileUpload}
             disabled={status() !== 'connected'}
-            style={{ 'margin-left': '0.5rem' }}
+            style={{ display: 'none' }}
           />
         </div>
       </div>
 
-      <div class='demo-section'>
-        <h2>Media Blobs ({blobs().length})</h2>
+      <div class="demo-section">
+        <h2 class="section-title">Media Blobs ({blobs().length})</h2>
         <Show
           when={blobs().length > 0}
           fallback={
-            <div class='empty-state'>
+            <div class="empty-state">
               No media blobs yet. Upload a file or get blobs from server.
             </div>
           }
         >
-          <div class='blob-list'>
+          <div class="blob-list">
             <For each={blobs()}>
               {(blob) => {
                 const displayInfo = () => client()?.getBlobDisplayInfo(blob);
                 return (
-                  <div class='blob-item'>
-                    <div class='blob-header'>
+                  <div class="blob-item">
+                    <div class="blob-header">
                       <div>
                         <strong>{blob.id}</strong>
                         <br />
@@ -274,7 +301,7 @@ const WebSocketDemo = (props: WebSocketDemoProps) => {
                         Created: {new Date(blob.created_at).toLocaleString()}
                       </small>
                     </div>
-                    <div class='blob-actions'>
+                    <div class="blob-actions">
                       <button
                         onClick={() => handleDownload(blob.id, blob.local_path)}
                       >
@@ -294,12 +321,12 @@ const WebSocketDemo = (props: WebSocketDemoProps) => {
       </div>
 
       <Show when={props.showDebugLog}>
-        <div class='demo-section'>
-          <h2>Debug Log</h2>
-          <div class='controls'>
+        <div class="demo-section">
+          <h2 class="section-title">Debug Log</h2>
+          <div class="controls">
             <button onClick={clearLogs}>Clear Log</button>
           </div>
-          <div class='log-container'>
+          <div class="log-container">
             <For each={logs()}>{(log) => <div>{log}</div>}</For>
             <Show when={logs().length === 0}>
               <div style={{ color: '#6b7280', 'font-style': 'italic' }}>

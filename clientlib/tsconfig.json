@@ -37,13 +37,15 @@
     "tsBuildInfoFile": "./dist/.tsbuildinfo"
   },
   "include": [
-    "src/**/*"
+    "src/lib/**/*",
+    "src/index.ts"
   ],
   "exclude": [
     "node_modules",
     "dist",
     "tests",
     "web-component",
+    "src/web-components",
     "**/*.test.ts",
     "**/*.spec.ts"
   ]

@@ -144,10 +144,10 @@ export default defineConfig({
     sourcemap: true,
     rollupOptions: {
       input: {
-        webauthn: './src/webauthn-component.tsx',
-        websocket: './src/websocket-handler.tsx',
-        'websocket-demo': './src/websocket-demo.tsx',
-        'all-components': './src/index.tsx',
+        webauthn: './src/web-components/webauthn-component.tsx',
+        websocket: './src/web-components/websocket-handler.tsx',
+        'websocket-demo': './src/web-components/websocket-demo.tsx',
+        'all-components': './src/web-components/index.tsx',
       },
       output: {
         entryFileNames: (chunkInfo) => {

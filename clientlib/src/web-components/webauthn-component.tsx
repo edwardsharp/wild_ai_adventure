@@ -8,7 +8,7 @@ import {
 } from 'solid-js';
 
 // Import the API client from parent clientlib
-import { ApiClient, ApiError } from '@webauthn/clientlib';
+import { ApiClient, ApiError } from '../lib/api-client.js';
 
 // WebAuthn types
 type UserVerificationRequirement = 'required' | 'preferred' | 'discouraged';
@@ -465,8 +465,8 @@ customElement('webauthn-auth', { baseUrl: '', theme: 'auto' }, (props) => {
               background: props.theme === 'dark' ? '#2a2a2a' : 'white',
               color: props.theme === 'dark' ? 'white' : 'black',
             }}
-            type='text'
-            placeholder='Username'
+            type="text"
+            placeholder="Username"
             value={username()}
             onInput={(e) => setUsername(e.currentTarget.value)}
             onKeyDown={handleEnterKey}
@@ -482,8 +482,8 @@ customElement('webauthn-auth', { baseUrl: '', theme: 'auto' }, (props) => {
               background: props.theme === 'dark' ? '#2a2a2a' : 'white',
               color: props.theme === 'dark' ? 'white' : 'black',
             }}
-            type='text'
-            placeholder='Invite or account link code (optional)'
+            type="text"
+            placeholder="Invite or account link code (optional)"
             value={inviteCode()}
             onInput={(e) => setInviteCode(e.currentTarget.value)}
             onKeyDown={handleEnterKey}
