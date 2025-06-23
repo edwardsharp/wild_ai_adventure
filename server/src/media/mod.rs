@@ -12,6 +12,7 @@ pub mod models;
 pub mod repository;
 
 // Re-export commonly used types
+use crate::config::MediaConfig;
 use crate::error::WebauthnError;
 pub use models::{CreateMediaBlob, MediaBlob, MediaBlobQuery, MediaBlobStats};
 pub use repository::{MediaError, MediaRepository};
@@ -28,7 +29,11 @@ impl<'a> MediaService<'a> {
     }
 
     /// Create a new media blob with deduplication check
-    pub async fn create_blob(&self, params: CreateMediaBlob) -> Result<MediaBlob, WebauthnError> {
+    pub async fn create_blob(
+        &self,
+        params: CreateMediaBlob,
+        media_config: &MediaConfig,
+    ) -> Result<MediaBlob, WebauthnError> {
         // Check if blob with same SHA256 already exists
         if let Ok(existing) = self.repository.get_by_sha256(&params.sha256).await {
             tracing::info!("Found existing blob with SHA256: {}", params.sha256);
@@ -36,7 +41,7 @@ impl<'a> MediaService<'a> {
         }
 
         // Create new blob
-        self.repository.create(params).await
+        self.repository.create(params, media_config).await
     }
 
     /// Get a blob by ID, optionally including data

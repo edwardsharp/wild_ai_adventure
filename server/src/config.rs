@@ -54,6 +54,8 @@ pub struct AppConfig {
     pub static_files: StaticFilesConfig,
     /// Storage backend configuration
     pub storage: StorageConfig,
+    /// Media and file upload configuration
+    pub media: MediaConfig,
     /// Development-specific settings
     pub development: DevelopmentConfig,
     /// Feature flags
@@ -150,10 +152,21 @@ pub struct ServerConfig {
     pub port: u16,
 }
 
+/// Media and file upload configuration
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct MediaConfig {
+    /// Maximum size for blob files stored in database (in bytes)
+    #[serde(default = "default_max_blob_file_size")]
+    pub max_blob_file_size: u64,
+    /// Maximum size for files stored on filesystem (in bytes)
+    #[serde(default = "default_max_fs_file_size")]
+    pub max_fs_file_size: u64,
+}
+
 /// Session configuration
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct SessionConfig {
-    /// Session max age in seconds
+    /// Session max age in seconds. Set to 0 or negative value for sessions that never expire.
     #[serde(default = "default_session_max_age")]
     pub max_age_seconds: i64,
     /// Secure cookie flag
@@ -340,6 +353,15 @@ fn default_server_port() -> u16 {
 fn default_session_max_age() -> i64 {
     3600
 }
+
+fn default_max_blob_file_size() -> u64 {
+    10 * 1024 * 1024 // 10MB
+}
+
+fn default_max_fs_file_size() -> u64 {
+    1024 * 1024 * 1024 // 1GB
+}
+
 fn default_session_same_site() -> String {
     "strict".to_string()
 }
@@ -476,6 +498,10 @@ impl AppConfig {
                 upload_directory: default_upload_dir(),
             },
             storage: StorageConfig::default(),
+            media: MediaConfig {
+                max_blob_file_size: default_max_blob_file_size(),
+                max_fs_file_size: default_max_fs_file_size(),
+            },
             development: DevelopmentConfig {
                 auto_generate_invites: false,
             },
@@ -632,6 +658,10 @@ impl Default for AppConfig {
                 upload_directory: default_upload_dir(),
             },
             storage: StorageConfig::default(),
+            media: MediaConfig {
+                max_blob_file_size: default_max_blob_file_size(),
+                max_fs_file_size: default_max_fs_file_size(),
+            },
             development: DevelopmentConfig {
                 auto_generate_invites: false,
             },

@@ -43,7 +43,8 @@
     "port": 8080
   },
   "sessions": {
-    "max_age_seconds": 3600,
+    // Session timeout in seconds. Set to 0 or negative value for sessions that never expire.
+    "max_age_seconds": -1,
     "secure": false,
     "same_site": "strict",
     "http_only": true
@@ -66,6 +67,12 @@
   "storage": {
     "analytics": "postgres",
     "sessions": "postgres"
+  },
+  "media": {
+    // Maximum file size for blobs stored in database (10MB default)
+    "max_blob_file_size": 10485760,
+    // Maximum file size for files stored on filesystem (1GB default)
+    "max_fs_file_size": 1073741824
   },
   "development": {
     "auto_generate_invites": true

@@ -160,24 +160,49 @@ impl MediaBlob {
             return Err("Either data or local_path must be provided".to_string());
         }
 
-        // Check file size limit (10MB = 10 * 1024 * 1024 bytes)
-        const MAX_FILE_SIZE: usize = 10 * 1024 * 1024;
+        // File size validation is now handled by validate_with_limits method
+        // This method is kept for backward compatibility but uses default limits
+        self.validate_with_limits(10 * 1024 * 1024, 1024 * 1024 * 1024)
+    }
+
+    /// Validate that required fields are present with custom file size limits
+    pub fn validate_with_limits(&self, max_blob_size: u64, max_fs_size: u64) -> Result<(), String> {
+        if self.sha256.is_empty() {
+            return Err("SHA256 hash is required".to_string());
+        }
+
+        if self.sha256.len() != 64 {
+            return Err("SHA256 hash must be 64 characters".to_string());
+        }
+
+        // Check that we have either data or local_path
+        if !self.has_data() && self.local_path.is_none() {
+            return Err("Either data or local_path must be provided".to_string());
+        }
+
+        // Determine which limit to use based on storage type
+        let max_file_size = if self.local_path.is_some() {
+            max_fs_size
+        } else {
+            max_blob_size
+        };
+
         if let Some(ref data) = self.data {
-            if data.len() > MAX_FILE_SIZE {
+            if data.len() > max_file_size as usize {
                 return Err(format!(
-                    "File size {} bytes exceeds maximum allowed size of {} bytes (10MB)",
+                    "File size {} bytes exceeds maximum allowed size of {} bytes",
                     data.len(),
-                    MAX_FILE_SIZE
+                    max_file_size
                 ));
             }
         }
 
-        // Also check the size field if provided (but only when there's no local_path)
+        // Also check the size field if provided
         if let Some(size) = self.size {
-            if self.local_path.is_none() && size > MAX_FILE_SIZE as i64 {
+            if size > max_file_size as i64 {
                 return Err(format!(
-                    "File size FIELD {} bytes exceeds maximum allowed size of {} bytes (10MB)",
-                    size, MAX_FILE_SIZE
+                    "File size FIELD {} bytes exceeds maximum allowed size of {} bytes",
+                    size, max_file_size
                 ));
             }
         }
@@ -220,21 +245,38 @@ impl CreateMediaBlob {
             return Err("Either data or local_path must be provided".to_string());
         }
 
-        // Check file size limit (10MB = 10 * 1024 * 1024 bytes)
-        // #todo: push these constants up into config.
-        const MAX_BLOB_FILE_SIZE: usize = 10 * 1024 * 1024;
-        const MAX_FS_FILE_SIZE: usize = 100 * 1024 * 1024;
+        // File size validation is now handled by validate_with_limits method
+        // This method is kept for backward compatibility but uses default limits
+        self.validate_with_limits(10 * 1024 * 1024, 1024 * 1024 * 1024)
+    }
 
-        let mut max_file_size: usize = MAX_BLOB_FILE_SIZE;
-
-        if !self.local_path.is_none() {
-            max_file_size = MAX_FS_FILE_SIZE;
+    /// Validate creation parameters with custom file size limits
+    pub fn validate_with_limits(&self, max_blob_size: u64, max_fs_size: u64) -> Result<(), String> {
+        if self.sha256.is_empty() {
+            return Err("SHA256 hash is required".to_string());
         }
 
+        if self.sha256.len() != 64 {
+            return Err("SHA256 hash must be 64 characters".to_string());
+        }
+
+        // Check that we have either data or local_path
+        let has_data = self.data.is_some() && !self.data.as_ref().unwrap().is_empty();
+        if !has_data && self.local_path.is_none() {
+            return Err("Either data or local_path must be provided".to_string());
+        }
+
+        // Determine which limit to use based on storage type
+        let max_file_size = if self.local_path.is_some() {
+            max_fs_size
+        } else {
+            max_blob_size
+        };
+
         if let Some(ref data) = self.data {
-            if data.len() > max_file_size {
+            if data.len() > max_file_size as usize {
                 return Err(format!(
-                    "File size {} bytes exceeds maximum allowed size of {} bytes (10MB)",
+                    "File size {} bytes exceeds maximum allowed size of {} bytes",
                     data.len(),
                     max_file_size
                 ));
@@ -245,7 +287,7 @@ impl CreateMediaBlob {
         if let Some(size) = self.size {
             if size > max_file_size as i64 {
                 return Err(format!(
-                    "File size FIELD {} bytes exceeds maximum allowed size of {} bytes (10MB)",
+                    "File size FIELD {} bytes exceeds maximum allowed size of {} bytes",
                     size, max_file_size
                 ));
             }

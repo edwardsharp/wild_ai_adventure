@@ -3,6 +3,7 @@
 //! This module provides database access layer for media blobs,
 //! including CRUD operations and queries.
 
+use crate::config::MediaConfig;
 use crate::database::DatabaseConnection;
 use crate::error::WebauthnError;
 use crate::media::models::{CreateMediaBlob, MediaBlob, MediaBlobQuery, MediaBlobStats};
@@ -50,13 +51,22 @@ impl<'a> MediaRepository<'a> {
     }
 
     /// Create a new media blob
-    pub async fn create(&self, params: CreateMediaBlob) -> Result<MediaBlob, WebauthnError> {
-        // Validate input
-        params.validate().map_err(|e| {
-            warn!("zomg>>>> bad media_blob {}", e);
+    pub async fn create(
+        &self,
+        params: CreateMediaBlob,
+        media_config: &MediaConfig,
+    ) -> Result<MediaBlob, WebauthnError> {
+        // Validate input with config-based limits
+        params
+            .validate_with_limits(
+                media_config.max_blob_file_size,
+                media_config.max_fs_file_size,
+            )
+            .map_err(|e| {
+                warn!("zomg>>>> bad media_blob {}", e);
 
-            WebauthnError::BadRequest
-        })?;
+                WebauthnError::BadRequest
+            })?;
 
         info!("Creating media blob with SHA256: {}", params.sha256);
 

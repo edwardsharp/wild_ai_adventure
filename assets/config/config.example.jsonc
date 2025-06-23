@@ -54,7 +54,7 @@
 
   // Session management settings
   "sessions": {
-    "max_age_seconds": 3600, // Session duration (1 hour)
+    "max_age_seconds": 3600, // Session duration in seconds (1 hour). Set to 0 or negative for sessions that never expire.
     "secure": false, // Use secure cookies (set true for HTTPS)
     "same_site": "strict", // SameSite attribute: "strict", "lax", or "none"
     "http_only": true // Prevent JavaScript access to session cookies
@@ -99,6 +99,12 @@
 
     // Session storage: where to store user session data
     "sessions": "memory" // "memory" for in-memory storage, "postgres" for PostgreSQL database
+  },
+
+  // Media and file upload configuration
+  "media": {
+    "max_blob_file_size": 10485760, // Maximum size for blobs in database (10MB = 10 * 1024 * 1024 bytes)
+    "max_fs_file_size": 1073741824 // Maximum size for files on filesystem (1GB = 1024 * 1024 * 1024 bytes)
   },
 
   // Development-specific settings (only active when environment = "development")

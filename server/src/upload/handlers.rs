@@ -182,17 +182,20 @@ pub async fn upload_large_file(
     };
 
     let repo = MediaRepository::new(&db);
-    let media_blob = repo.create(media_blob_params).await.map_err(|e| {
-        error!("Failed to create media blob record: {}", e);
-        // Clean up the file if database insert fails
-        if let Err(cleanup_err) = std::fs::remove_file(&file_path) {
-            error!(
-                "Failed to cleanup file after database error: {}",
-                cleanup_err
-            );
-        }
-        AppError::InternalServerError("Failed to create media record".to_string())
-    })?;
+    let media_blob = repo
+        .create(media_blob_params, &config.media)
+        .await
+        .map_err(|e| {
+            error!("Failed to create media blob record: {}", e);
+            // Clean up the file if database insert fails
+            if let Err(cleanup_err) = std::fs::remove_file(&file_path) {
+                error!(
+                    "Failed to cleanup file after database error: {}",
+                    cleanup_err
+                );
+            }
+            AppError::InternalServerError("Failed to create media record".to_string())
+        })?;
 
     info!(
         "Successfully uploaded large file: {} (ID: {})",

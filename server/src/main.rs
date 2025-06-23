@@ -192,6 +192,13 @@ async fn main() {
         _ => SameSite::Strict,
     };
 
+    // Handle session expiry: <= 0 means never expire, otherwise use configured value
+    let session_duration = if config.sessions.max_age_seconds <= 0 {
+        i64::MAX // Never expire
+    } else {
+        config.sessions.max_age_seconds
+    };
+
     // Build main router with all routes
     let mut app = build_routes(&config)
         .layer(Extension(config.clone()))
@@ -220,7 +227,7 @@ async fn main() {
                 .with_same_site(same_site)
                 .with_secure(config.sessions.secure)
                 .with_http_only(config.sessions.http_only)
-                .with_expiry(Expiry::OnInactivity(Duration::seconds(i64::MAX)));
+                .with_expiry(Expiry::OnInactivity(Duration::seconds(session_duration)));
             app.merge(build_assets_fallback_service(&config))
                 .layer(layer)
         }
@@ -230,7 +237,7 @@ async fn main() {
                 .with_same_site(same_site)
                 .with_secure(config.sessions.secure)
                 .with_http_only(config.sessions.http_only)
-                .with_expiry(Expiry::OnInactivity(Duration::seconds(i64::MAX)));
+                .with_expiry(Expiry::OnInactivity(Duration::seconds(session_duration)));
             app.merge(build_assets_fallback_service(&config))
                 .layer(layer)
         }

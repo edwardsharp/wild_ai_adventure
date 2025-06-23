@@ -3,6 +3,7 @@
 //! Provides authenticated WebSocket endpoints that integrate with the existing
 //! auth system and handle real-time communication for media blob sharing.
 
+use crate::config::AppConfig;
 use crate::database::DatabaseConnection;
 use crate::media::{CreateMediaBlob, MediaBlobQuery, MediaRepository, MediaService};
 use crate::websocket::messages::{WebSocketMessage, WebSocketResponse};
@@ -71,6 +72,7 @@ pub async fn websocket_handler(
     session: Session,
     Extension(connection_manager): Extension<ConnectionManager>,
     Extension(db): Extension<DatabaseConnection>,
+    Extension(config): Extension<AppConfig>,
 ) -> Response {
     // Check if user is authenticated by looking for user_id in session
     let user_id = session.get::<Uuid>("user_id").await.ok().flatten();
@@ -88,7 +90,7 @@ pub async fn websocket_handler(
 
     // Upgrade to WebSocket and handle the connection
     ws.on_upgrade(move |socket| {
-        handle_websocket_connection(socket, user_id, connection_manager, db)
+        handle_websocket_connection(socket, user_id, connection_manager, db, config)
     })
 }
 
@@ -98,6 +100,7 @@ pub async fn handle_websocket_connection(
     user_id: Option<Uuid>,
     connection_manager: ConnectionManager,
     db: DatabaseConnection,
+    config: AppConfig,
 ) {
     let connection_id = format!("conn_{}", Uuid::new_v4());
     info!(
@@ -140,7 +143,10 @@ pub async fn handle_websocket_connection(
 
                 match WebSocketMessage::from_json(&text) {
                     Ok(parsed_msg) => {
-                        if let Some(response) = handle_message(parsed_msg, user_id, &db).await {
+                        if let Some(response) =
+                            handle_message(parsed_msg, user_id, &db, &config, &connection_manager)
+                                .await
+                        {
                             if let Ok(response_json) = response.to_json() {
                                 if let Err(e) = socket
                                     .send(axum::extract::ws::Message::Text(response_json.into()))
@@ -197,6 +203,8 @@ async fn handle_message(
     message: WebSocketMessage,
     user_id: Option<Uuid>,
     db: &DatabaseConnection,
+    config: &AppConfig,
+    _connection_manager: &ConnectionManager,
 ) -> Option<WebSocketResponse> {
     match &message {
         WebSocketMessage::UploadMediaBlob { blob } => {
@@ -307,7 +315,7 @@ async fn handle_message(
                 metadata: blob.metadata,
             };
 
-            match service.create_blob(create_params).await {
+            match service.create_blob(create_params, &config.media).await {
                 Ok(created_blob) => {
                     info!("Successfully created media blob: {}", created_blob.id);
                     Some(WebSocketResponse::MediaBlob { blob: created_blob })
