@@ -19,6 +19,7 @@ export type { WebSocketStatusProps } from './websocket-status';
 import './webauthn-component';
 import './websocket-handler';
 import './websocket-status';
+import './websocket-demo';
 import './simple-test';
 
 // Component registration confirmation
@@ -26,6 +27,7 @@ const REGISTERED_COMPONENTS = [
   'webauthn-auth',
   'websocket-handler',
   'websocket-status',
+  'websocket-demo',
   'simple-test',
 ] as const;
 
@@ -42,6 +44,11 @@ declare global {
         'auto-login'?: boolean;
       };
       'websocket-handler': {
+        websocketUrl?: string;
+        autoConnect?: boolean;
+        showDebugLog?: boolean;
+      };
+      'websocket-demo': {
         websocketUrl?: string;
         autoConnect?: boolean;
         showDebugLog?: boolean;
@@ -90,5 +97,6 @@ console.log('🧩 Web Components Library loaded - Available components:', [
   'webauthn-auth',
   'websocket-handler',
   'websocket-status',
+  'websocket-demo',
   'simple-test',
 ]);

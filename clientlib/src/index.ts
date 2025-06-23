@@ -60,6 +60,35 @@ export type {
   WebSocketResponse,
 } from './websocket-types.js';
 
+// Modular WebSocket components
+export { WebSocketConnection } from './websocket-connection.js';
+export type {
+  ConnectionStatus as WsConnectionStatus,
+  ConnectionStatusEvent,
+  WebSocketConnectionOptions,
+  WebSocketMessage as WsMessage,
+} from './websocket-connection.js';
+
+export { MediaBlobManager } from './media-blob-manager.js';
+export type {
+  MediaBlob as ManagedMediaBlob,
+  MediaBlobData,
+  BlobDisplayInfo,
+} from './media-blob-manager.js';
+
+export { FileUploadHandler } from './file-upload.js';
+export type {
+  UploadFile,
+  ProcessedBlob,
+  FileUploadOptions,
+} from './file-upload.js';
+
+export { WebSocketDemoClient } from './websocket-demo-client.js';
+export type {
+  WebSocketDemoClientOptions,
+  DemoClientEvent,
+} from './websocket-demo-client.js';
+
 // Zod schemas for external validation
 export {
   WebAuthnPublicKeyCredentialCreationOptionsSchema,

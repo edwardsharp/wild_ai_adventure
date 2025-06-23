@@ -18,67 +18,29 @@ function inlineHtmlTemplate(): import('vite').Plugin {
           file.type === 'chunk' && file.fileName.includes('all-components')
       );
 
+      const demoAsset = Object.values(bundle).find(
+        (file) =>
+          file.type === 'chunk' && file.fileName.includes('websocket-demo')
+      );
+
       // Generate WebAuthn standalone HTML
       if (jsAsset && jsAsset.type === 'chunk') {
-        const webauthnHtml = [
-          '<!DOCTYPE html>',
-          '<html lang="en">',
-          '<head>',
-          '  <meta charset="UTF-8" />',
-          '  <meta name="viewport" content="width=device-width, initial-scale=1.0" />',
-          '  <title>WebAuthn Component Test</title>',
-          '  <style>',
-          '    body {',
-          '      font-family: sans-serif;',
-          '      padding: 2rem;',
-          '      background: black;',
-          '      color: white;',
-          '    }',
-          '    .container {',
-          '      max-width: 800px;',
-          '      margin: 0 auto;',
-          '    }',
-          '  </style>',
-          '</head>',
-          '<body>',
-          '  <div class="container">',
-          '    <h1>🔐 WebAuthn Component Test</h1>',
-          '    <webauthn-auth',
-          '      base-url="http://localhost:8080"',
-          '      theme="dark">',
-          '    </webauthn-auth>',
-          '',
-          '    <h2>Links</h2>',
-          '    <ul>',
-          '      <li><a href="/public/welcome.html">Public Welcome</a></li>',
-          '      <li><a href="/private/dashboard.html">Private Dashboard</a></li>',
-          '    </ul>',
-          '  </div>',
-          '',
-          '  <script type="module">',
-          'PLACEHOLDER_JS_CODE',
-          '  </script>',
-          '',
-          '  <script>',
-          '    // Listen for WebAuthn events',
-          '    const webauthnElement = document.querySelector("webauthn-auth");',
-          '    if (webauthnElement) {',
-          '      webauthnElement.addEventListener("webauthn-login", (e) => {',
-          '        console.log("✅ Login successful:", e.detail.username);',
-          '      });',
-          '',
-          '      webauthnElement.addEventListener("webauthn-logout", (e) => {',
-          '        console.log("👋 User logged out");',
-          '      });',
-          '',
-          '      webauthnElement.addEventListener("webauthn-error", (e) => {',
-          '        console.error("❌ Auth error:", e.detail.error);',
-          '      });',
-          '    }',
-          '  </script>',
-          '</body>',
-          '</html>',
-        ].join('\n');
+        const webauthnHtml = `<!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WebAuthn Component Test</title>
+  </head>
+  <body>
+    <h1>🔐 WebAuthn Component Test</h1>
+    <webauthn-auth base-url="http://localhost:8080" theme="dark"></webauthn-auth>
+
+    <script type="module">
+  PLACEHOLDER_JS_CODE
+    </script>
+  </body>
+  </html>`;
 
         this.emitFile({
           type: 'asset',
@@ -101,30 +63,17 @@ function inlineHtmlTemplate(): import('vite').Plugin {
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>WebSocket Components Test</title>
-  <style>
-    body { font-family: sans-serif; padding: 2rem; background: #f5f5f5; }
-    .container { max-width: 1200px; margin: 0 auto; }
-  </style>
 </head>
 <body>
-  <div class="container">
-    <h1>🔌 WebSocket Components Test</h1>
-    <div style="margin-bottom: 2rem;">
-      <h2>Connection Status</h2>
-      <websocket-status status="disconnected" showText="true" showUserCount="true"></websocket-status>
-    </div>
-    <div>
-      <h2>WebSocket Handler</h2>
-      <websocket-handler websocketUrl="ws://localhost:8080/ws" autoConnect="false" showDebugLog="true"></websocket-handler>
-    </div>
-  </div>
+  <h1>🔌 WebSocket Components Test</h1>
+  <h2>Connection Status</h2>
+  <websocket-status status="disconnected" showText="true" showUserCount="true"></websocket-status>
+  <h2>WebSocket Handler</h2>
+  <websocket-handler websocketUrl="ws://localhost:8080/ws" autoConnect="false" showDebugLog="true"></websocket-handler>
+
   <script type="module">`;
 
         const htmlAfter = `  </script>
-  <script>
-    document.addEventListener("status-change", (e) => console.log("Status:", e.detail));
-    document.addEventListener("media-blobs-received", (e) => console.log("Blobs:", e.detail));
-  </script>
 </body>
 </html>`;
 
@@ -138,6 +87,37 @@ function inlineHtmlTemplate(): import('vite').Plugin {
           type: 'asset',
           fileName: 'websocket-components-standalone.js',
           source: wsAsset.code,
+        });
+      }
+
+      // Generate WebSocket Demo standalone HTML
+      if (demoAsset && demoAsset.type === 'chunk') {
+        const demoHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WebSocket Demo - Modular Components</title>
+</head>
+<body>
+  <websocket-demo websocketUrl="ws://localhost:8080/ws" autoConnect="false" showDebugLog="true"></websocket-demo>
+
+  <script type="module">
+${demoAsset.code}
+  </script>
+</body>
+</html>`;
+
+        this.emitFile({
+          type: 'asset',
+          fileName: 'websocket-demo-standalone.html',
+          source: demoHtml,
+        });
+
+        this.emitFile({
+          type: 'asset',
+          fileName: 'websocket-demo-standalone.js',
+          source: demoAsset.code,
         });
       }
 
@@ -166,12 +146,14 @@ export default defineConfig({
       input: {
         webauthn: './src/webauthn-component.tsx',
         websocket: './src/websocket-handler.tsx',
+        'websocket-demo': './src/websocket-demo.tsx',
         'all-components': './src/index.tsx',
       },
       output: {
         entryFileNames: (chunkInfo) => {
           if (chunkInfo.name === 'webauthn') return 'webauthn-auth.js';
           if (chunkInfo.name === 'websocket') return 'websocket-components.js';
+          if (chunkInfo.name === 'websocket-demo') return 'websocket-demo.js';
           if (chunkInfo.name === 'all-components') return 'all-components.js';
           return '[name].js';
         },
