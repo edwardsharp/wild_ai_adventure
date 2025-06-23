@@ -4,6 +4,7 @@ use crate::storage::{AnalyticsService, SessionStore};
 use crate::wordlist::{initialize_wordlist, WordlistConfig};
 
 use std::sync::Arc;
+use tokio::fs;
 use webauthn_rs::prelude::*;
 
 /*
@@ -92,6 +93,20 @@ impl AppState {
             tracing::warn!("To fix this, run: cargo run --bin cli wordlist generate");
         } else {
             tracing::info!("Wordlist initialized successfully for invite code generation");
+        }
+
+        // Create upload directory for large files
+        if let Err(e) = fs::create_dir_all(&config.static_files.upload_directory).await {
+            tracing::warn!(
+                "Failed to create upload directory {}: {}",
+                config.static_files.upload_directory,
+                e
+            );
+        } else {
+            tracing::info!(
+                "Upload directory ready: {}",
+                config.static_files.upload_directory
+            );
         }
 
         Ok(AppState {

@@ -229,6 +229,9 @@ pub struct StaticFilesConfig {
     /// Main assets directory (contains js, css, images, etc.)
     #[serde(default = "default_assets_dir")]
     pub assets_directory: String,
+    /// Upload directory for large files (>10MB)
+    #[serde(default = "default_upload_dir")]
+    pub upload_directory: String,
 }
 
 /// Development configuration
@@ -372,6 +375,9 @@ fn default_private_dir() -> String {
 fn default_assets_dir() -> String {
     "assets".to_string()
 }
+fn default_upload_dir() -> String {
+    "assets/private/uploads".to_string()
+}
 
 fn default_true() -> bool {
     true
@@ -448,7 +454,13 @@ impl AppConfig {
             },
             logging: LoggingConfig {
                 level: default_log_level(),
-                access_log: None,
+                access_log: Some(AccessLogConfig {
+                    enabled: false,
+                    file_path: default_access_log_path(),
+                    format: default_access_log_format(),
+                    custom_template: None,
+                    also_log_to_tracing: false,
+                }),
             },
             analytics: AnalyticsConfig {
                 metrics: MetricsConfig {
@@ -461,6 +473,7 @@ impl AppConfig {
                 public_directory: default_public_dir(),
                 private_directory: default_private_dir(),
                 assets_directory: default_assets_dir(),
+                upload_directory: default_upload_dir(),
             },
             storage: StorageConfig::default(),
             development: DevelopmentConfig {
@@ -616,15 +629,16 @@ impl Default for AppConfig {
                 public_directory: default_public_dir(),
                 private_directory: default_private_dir(),
                 assets_directory: default_assets_dir(),
+                upload_directory: default_upload_dir(),
             },
             storage: StorageConfig::default(),
             development: DevelopmentConfig {
                 auto_generate_invites: false,
             },
             features: FeatureFlags {
-                registration_enabled: true,
-                invite_codes_required: true,
-                analytics_enabled: true,
+                registration_enabled: default_true(),
+                invite_codes_required: default_true(),
+                analytics_enabled: default_true(),
             },
         }
     }
