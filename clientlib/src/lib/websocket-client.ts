@@ -42,6 +42,8 @@ export interface WebSocketClientEvents {
   mediaBlobs: (data: { blobs: MediaBlob[]; total_count: number }) => void;
   /** Received single media blob */
   mediaBlob: (data: { blob: MediaBlob }) => void;
+  /** Received media blob data */
+  mediaBlobData: (data: { id: string; data: number[]; mime?: string }) => void;
   /** Received error message */
   error: (data: { message: string; code?: string }) => void;
   /** Connection status update from server */
@@ -175,6 +177,13 @@ export class WebSocketClient {
   }
 
   /**
+   * Request media blob data (binary content)
+   */
+  getMediaBlobData(id: string): boolean {
+    return this.send(createMessage.getMediaBlobData(id));
+  }
+
+  /**
    * Upload media blob
    */
   uploadMediaBlob(blob: MediaBlob): boolean {
@@ -244,6 +253,9 @@ export class WebSocketClient {
           break;
         case "MediaBlob":
           this.listeners.mediaBlob?.(response.data);
+          break;
+        case "MediaBlobData":
+          this.listeners.mediaBlobData?.(response.data);
           break;
         case "Error":
           this.listeners.error?.(response.data);

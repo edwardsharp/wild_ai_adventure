@@ -1,3 +1,4 @@
+/* @jsxImportSource solid-js */
 import { customElement } from "solid-element";
 import {
   createSignal,
@@ -93,7 +94,7 @@ customElement("webauthn-auth", { baseUrl: "", theme: "auto" }, (props) => {
     try {
       const status = await apiClient().authStatus();
       setIsAuthenticated(status.authenticated);
-      setCurrentUser(status.username || null);
+      setCurrentUser(status.user_id || null);
       return status.authenticated;
     } catch {
       setIsAuthenticated(false);

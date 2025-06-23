@@ -5,6 +5,7 @@
  * with a colored indicator (red/yellow/green) and optional text.
  */
 
+/* @jsxImportSource solid-js */
 import { customElement } from "solid-element";
 import { createSignal, createEffect, Show } from "solid-js";
 import { ConnectionStatus } from "../lib/websocket-types.js";

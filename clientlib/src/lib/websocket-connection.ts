@@ -6,6 +6,7 @@
  * Uses Zod schemas for type-safe message validation.
  */
 
+import { MediaBlob } from "./media-blob-manager.js";
 import {
   WebSocketMessage,
   validateIncomingMessage,

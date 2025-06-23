@@ -5,6 +5,8 @@
  * Components are automatically registered as custom elements when imported.
  */
 
+/* @jsxImportSource solid-js */
+
 // WebAuthn Components
 export { VERSION } from "./webauthn-component";
 export type { WebAuthnAuthProps } from "./webauthn-component";

@@ -63,12 +63,6 @@ export const WebSocketMessageSchema = z.discriminatedUnion("type", [
       id: UuidSchema,
     }),
   }),
-  z.object({
-    type: z.literal("GetMediaBlobData"),
-    data: z.object({
-      id: UuidSchema,
-    }),
-  }),
 ]);
 
 export type WebSocketMessage = z.infer<typeof WebSocketMessageSchema>;

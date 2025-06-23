@@ -6,6 +6,7 @@
  * and provides a simple interface for media blob handling.
  */
 
+/* @jsxImportSource solid-js */
 import { customElement } from "solid-element";
 import { createSignal, createEffect, Show, For } from "solid-js";
 import { ConnectionStatus, WebSocketStatus } from "./websocket-status";
@@ -632,7 +633,7 @@ const WebSocketHandler = (props: WebSocketHandlerProps) => {
               Ping
             </button>
             <button
-              onClick={getMediaBlobs}
+              onClick={() => getMediaBlobs()}
               disabled={status() !== ConnectionStatus.Connected}
             >
               Get Media Blobs

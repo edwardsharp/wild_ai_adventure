@@ -128,7 +128,7 @@ export class WebSocketDemoClient extends EventTarget {
    */
   loadBlobData(blobId: string): void {
     this.log("debug", `Loading blob data: ${blobId}`);
-    this.client.getMediaBlob(blobId);
+    this.client.getMediaBlobData(blobId);
   }
 
   /**
@@ -269,6 +269,10 @@ export class WebSocketDemoClient extends EventTarget {
       this.handleServerMessage({ type: "MediaBlob", data });
     });
 
+    this.client.on("mediaBlobData", (data) => {
+      this.handleServerMessage({ type: "MediaBlobData", data });
+    });
+
     this.client.on("connectionStatus", (data) => {
       this.handleServerMessage({ type: "ConnectionStatus", data });
     });
@@ -282,7 +286,7 @@ export class WebSocketDemoClient extends EventTarget {
 
     this.blobManager.addEventListener("blob-data-requested", (e: Event) => {
       const { id } = (e as CustomEvent).detail;
-      this.client.getMediaBlob(id);
+      this.client.getMediaBlobData(id);
     });
 
     this.blobManager.addEventListener("blob-data-cached", (e: Event) => {

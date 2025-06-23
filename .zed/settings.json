@@ -26,6 +26,32 @@
           "arguments": ["fmt", "--stdin", "{buffer_path}"]
         }
       }
+    },
+    "TypeScript": {
+      "language_servers": ["typescript-language-server"],
+      "code_actions_on_format": ["source.organizeImports"],
+      "format_on_save": "on"
+    },
+    "TSX": {
+      "language_servers": ["typescript-language-server"],
+      "code_actions_on_format": ["source.organizeImports"],
+      "format_on_save": "on"
+    }
+  },
+  "lsp": {
+    "typescript-language-server": {
+      "initialization_options": {
+        "preferences": {
+          "jsx": "preserve",
+          "jsxImportSource": "solid-js"
+        },
+        "typescript": {
+          "preferences": {
+            "jsx": "preserve",
+            "jsxImportSource": "solid-js"
+          }
+        }
+      }
     }
   },
   "file_types": {

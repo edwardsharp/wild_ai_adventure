@@ -5,6 +5,7 @@
  * components without heavy styling or complex UI logic.
  */
 
+/* @jsxImportSource solid-js */
 import { customElement } from "solid-element";
 import { createSignal, createEffect, For, Show, onCleanup } from "solid-js";
 import { WebSocketDemoClient } from "../lib/websocket-demo-client.js";
