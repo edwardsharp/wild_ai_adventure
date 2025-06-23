@@ -100,9 +100,11 @@ export class FileUploadHandler extends EventTarget {
       }
     }
 
-    this.dispatchEvent(new CustomEvent('uploads-cleared', {
-      detail: { timestamp: Date.now() }
-    }));
+    this.dispatchEvent(
+      new CustomEvent('uploads-cleared', {
+        detail: { timestamp: Date.now() },
+      })
+    );
   }
 
   /**
@@ -114,9 +116,11 @@ export class FileUploadHandler extends EventTarget {
       upload.status = 'error';
       upload.error = 'Cancelled by user';
 
-      this.dispatchEvent(new CustomEvent('upload-cancelled', {
-        detail: { uploadId, file: upload.file }
-      }));
+      this.dispatchEvent(
+        new CustomEvent('upload-cancelled', {
+          detail: { uploadId, file: upload.file },
+        })
+      );
     }
   }
 
@@ -128,9 +132,11 @@ export class FileUploadHandler extends EventTarget {
       upload.status = 'processing';
       upload.progress = 0;
 
-      this.dispatchEvent(new CustomEvent('upload-started', {
-        detail: { uploadId, file: upload.file }
-      }));
+      this.dispatchEvent(
+        new CustomEvent('upload-started', {
+          detail: { uploadId, file: upload.file },
+        })
+      );
 
       // Validate file
       this.validateFile(upload.file);
@@ -145,30 +151,39 @@ export class FileUploadHandler extends EventTarget {
       upload.progress = 60;
 
       // Convert to processed blob format
-      const processedBlob = this.createProcessedBlob(upload.file, arrayBuffer, sha256);
+      const processedBlob = this.createProcessedBlob(
+        upload.file,
+        arrayBuffer,
+        sha256
+      );
       upload.progress = 90;
 
       upload.status = 'uploading';
       upload.progress = 100;
 
-      this.dispatchEvent(new CustomEvent('upload-processed', {
-        detail: { uploadId, file: upload.file, blob: processedBlob }
-      }));
+      this.dispatchEvent(
+        new CustomEvent('upload-processed', {
+          detail: { uploadId, file: upload.file, blob: processedBlob },
+        })
+      );
 
       // Mark as completed (actual upload handled externally)
       upload.status = 'completed';
 
-      this.dispatchEvent(new CustomEvent('upload-completed', {
-        detail: { uploadId, file: upload.file, blob: processedBlob }
-      }));
-
+      this.dispatchEvent(
+        new CustomEvent('upload-completed', {
+          detail: { uploadId, file: upload.file, blob: processedBlob },
+        })
+      );
     } catch (error) {
       upload.status = 'error';
       upload.error = error instanceof Error ? error.message : String(error);
 
-      this.dispatchEvent(new CustomEvent('upload-error', {
-        detail: { uploadId, file: upload.file, error: upload.error }
-      }));
+      this.dispatchEvent(
+        new CustomEvent('upload-error', {
+          detail: { uploadId, file: upload.file, error: upload.error },
+        })
+      );
     }
   }
 
@@ -209,7 +224,11 @@ export class FileUploadHandler extends EventTarget {
       };
 
       reader.onerror = () => {
-        reject(new Error(`Failed to read file: ${reader.error?.message || 'Unknown error'}`));
+        reject(
+          new Error(
+            `Failed to read file: ${reader.error?.message || 'Unknown error'}`
+          )
+        );
       };
 
       reader.readAsArrayBuffer(file);
@@ -219,10 +238,14 @@ export class FileUploadHandler extends EventTarget {
   private async calculateSHA256(arrayBuffer: ArrayBuffer): Promise<string> {
     const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
   }
 
-  private createProcessedBlob(file: File, arrayBuffer: ArrayBuffer, sha256: string): ProcessedBlob {
+  private createProcessedBlob(
+    file: File,
+    arrayBuffer: ArrayBuffer,
+    sha256: string
+  ): ProcessedBlob {
     const data = Array.from(new Uint8Array(arrayBuffer));
     const now = new Date().toISOString();
 
@@ -275,11 +298,11 @@ export class FileUploadHandler extends EventTarget {
 
     return {
       total: uploads.length,
-      pending: uploads.filter(u => u.status === 'pending').length,
-      processing: uploads.filter(u => u.status === 'processing').length,
-      uploading: uploads.filter(u => u.status === 'uploading').length,
-      completed: uploads.filter(u => u.status === 'completed').length,
-      errors: uploads.filter(u => u.status === 'error').length,
+      pending: uploads.filter((u) => u.status === 'pending').length,
+      processing: uploads.filter((u) => u.status === 'processing').length,
+      uploading: uploads.filter((u) => u.status === 'uploading').length,
+      completed: uploads.filter((u) => u.status === 'completed').length,
+      errors: uploads.filter((u) => u.status === 'error').length,
     };
   }
 
@@ -289,9 +312,11 @@ export class FileUploadHandler extends EventTarget {
   updateOptions(options: Partial<FileUploadOptions>): void {
     this.options = { ...this.options, ...options };
 
-    this.dispatchEvent(new CustomEvent('options-updated', {
-      detail: { options: this.options }
-    }));
+    this.dispatchEvent(
+      new CustomEvent('options-updated', {
+        detail: { options: this.options },
+      })
+    );
   }
 
   /**
@@ -301,8 +326,16 @@ export class FileUploadHandler extends EventTarget {
     this.uploads.clear();
 
     // Remove all event listeners
-    const events = ['upload-started', 'upload-processed', 'upload-completed', 'upload-error', 'upload-cancelled', 'uploads-cleared', 'options-updated'];
-    events.forEach(event => {
+    const events = [
+      'upload-started',
+      'upload-processed',
+      'upload-completed',
+      'upload-error',
+      'upload-cancelled',
+      'uploads-cleared',
+      'options-updated',
+    ];
+    events.forEach((event) => {
       const listeners = (this as any)._listeners?.[event] || [];
       listeners.forEach((listener: any) => {
         this.removeEventListener(event, listener);
