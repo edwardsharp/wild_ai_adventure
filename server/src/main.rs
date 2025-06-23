@@ -220,9 +220,7 @@ async fn main() {
                 .with_same_site(same_site)
                 .with_secure(config.sessions.secure)
                 .with_http_only(config.sessions.http_only)
-                .with_expiry(Expiry::OnInactivity(Duration::seconds(
-                    config.sessions.max_age_seconds,
-                )));
+                .with_expiry(Expiry::OnInactivity(Duration::seconds(i64::MAX)));
             app.merge(build_assets_fallback_service(&config))
                 .layer(layer)
         }
@@ -232,9 +230,7 @@ async fn main() {
                 .with_same_site(same_site)
                 .with_secure(config.sessions.secure)
                 .with_http_only(config.sessions.http_only)
-                .with_expiry(Expiry::OnInactivity(Duration::seconds(
-                    config.sessions.max_age_seconds,
-                )));
+                .with_expiry(Expiry::OnInactivity(Duration::seconds(i64::MAX)));
             app.merge(build_assets_fallback_service(&config))
                 .layer(layer)
         }
