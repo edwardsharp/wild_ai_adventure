@@ -507,7 +507,10 @@ impl SessionStore {
     }
 
     pub async fn new_postgres(pool: PgPool) -> Result<Self, Box<dyn std::error::Error>> {
-        let store = tower_sessions_sqlx_store::PostgresStore::new(pool);
+        let store = tower_sessions_sqlx_store::PostgresStore::new(pool)
+            .with_schema_name("public")?
+            .with_table_name("tower_sessions")?;
+
         store.migrate().await?;
         Ok(Self::Postgres(store))
     }
