@@ -21,7 +21,7 @@ export const MediaBlobSchema = z.object({
   size: z.number().int().optional(),
   mime: z.string().optional(),
   source_client_id: z.string().optional(),
-  local_path: z.string().optional(),
+  local_path: z.string().nullish(),
   metadata: z.record(z.any()).default({}), // JSONB as Record<string, any>
   created_at: DateTimeSchema,
   updated_at: DateTimeSchema,

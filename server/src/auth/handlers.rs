@@ -471,15 +471,70 @@ pub async fn logout(session: Session) -> Result<impl IntoResponse, WebauthnError
 }
 
 /// Check authentication status
-pub async fn auth_status(session: Session) -> Result<impl IntoResponse, WebauthnError> {
+pub async fn auth_status(
+    session: Session,
+    Extension(app_state): Extension<AppState>,
+) -> Result<impl IntoResponse, WebauthnError> {
     let user_id: Option<Uuid> = session.get("user_id").await?;
 
-    let response = serde_json::json!({
-        "authenticated": user_id.is_some(),
-        "user_id": user_id
+    let empty_response = serde_json::json!({
+        "authenticated": false,
+        "user_id": null,
+        "username": null,
+        "role": null
     });
 
-    Ok(Json(response))
+    if let Some(user_id) = user_id {
+        // Get user details from database
+        let repository = AuthRepository::new(&app_state.database);
+
+        match repository.get_user_by_id(user_id).await {
+            Ok(Some(user)) => {
+                let response = serde_json::json!({
+                    "authenticated": true,
+                    "user_id": user_id,
+                    "username": user.username,
+                    "role": user.role
+                });
+                Ok(Json(response))
+            }
+            _ => Ok(Json(empty_response)), // Ok(None) => {
+                                           //     tracing::warn!("User {} found in session but not in database", user_id);
+                                           //     // Clear the invalid session
+                                           //     // let _ = session.remove_value("user_id").await;
+                                           //     // Err(StatusCode::UNAUTHORIZED)
+                                           // }
+                                           // Err(e) => {
+                                           //     tracing::error!("Database error while getting user {}: {}", user_id, e);
+                                           //     Err(StatusCode::INTERNAL_SERVER_ERROR)
+                                           // }
+        }
+
+        // match repository.get_user_by_id(user_id).await {
+        //     Ok(user) => {
+        //         let response = serde_json::json!({
+        //             "authenticated": true,
+        //             "user_id": user_id,
+        //             "username": user.unwrap().username,
+        //             "role": user.unwrap().role
+        //         });
+        //         Ok(Json(response))
+        //     }
+        //     Err(_) => {
+        //         // User not found in database, clear session
+        //         session.remove("user_id").await?;
+        //         let response = serde_json::json!({
+        //             "authenticated": false,
+        //             "user_id": null,
+        //             "username": null,
+        //             "role": null
+        //         });
+        //         Ok(Json(response))
+        //     }
+        // }
+    } else {
+        Ok(Json(empty_response))
+    }
 }
 
 pub async fn finish_authentication(

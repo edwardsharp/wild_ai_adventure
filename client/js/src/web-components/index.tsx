@@ -23,6 +23,7 @@ import "./websocket-handler";
 import "./websocket-status";
 import "./websocket-demo";
 import "./simple-test";
+import "./smart-file-upload";
 
 // Component registration confirmation
 const REGISTERED_COMPONENTS = [
@@ -31,6 +32,7 @@ const REGISTERED_COMPONENTS = [
   "websocket-status",
   "websocket-demo",
   "simple-test",
+  "smart-file-upload",
 ] as const;
 
 export { REGISTERED_COMPONENTS };
@@ -58,6 +60,16 @@ declare global {
 
       "simple-test": {
         message?: string;
+      };
+
+      "smart-file-upload": {
+        baseUrl?: string;
+        websocketConnection?: any;
+        sizeThreshold?: number;
+        showDebug?: boolean;
+        multiple?: boolean;
+        accept?: string;
+        disabled?: boolean;
       };
     }
   }
@@ -101,4 +113,5 @@ console.log("🧩 Web Components Library loaded - Available components:", [
   "websocket-status",
   "websocket-demo",
   "simple-test",
+  "smart-file-upload",
 ]);

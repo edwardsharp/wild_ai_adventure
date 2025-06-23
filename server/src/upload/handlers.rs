@@ -43,35 +43,37 @@ pub async fn upload_large_file(
     let mut file_data: Option<Vec<u8>> = None;
 
     // Process multipart form data
-    while let Some(field) = multipart
-        .next_field()
-        .await
-        .map_err(|e| AppError::BadRequest(format!("Failed to read multipart field: {}", e)))?
-    {
+    info!("Starting multipart processing for upload");
+
+    while let Some(field) = multipart.next_field().await.map_err(|e| {
+        error!("Failed to read multipart field: {}", e);
+        AppError::BadRequest(format!("Error parsing multipart request: {}", e))
+    })? {
         let name = field.name().unwrap_or("").to_string();
+        info!("Processing multipart field: {}", name);
 
         match name.as_str() {
             "metadata" => {
-                let data = field
-                    .bytes()
-                    .await
-                    .map_err(|e| AppError::BadRequest(format!("Failed to read metadata: {}", e)))?;
+                let data = field.bytes().await.map_err(|e| {
+                    error!("Failed to read metadata field: {}", e);
+                    AppError::BadRequest(format!("Failed to read metadata: {}", e))
+                })?;
 
-                upload_request =
-                    Some(serde_json::from_slice(&data).map_err(|e| {
-                        AppError::BadRequest(format!("Invalid metadata JSON: {}", e))
-                    })?);
+                info!("Received metadata field, {} bytes", data.len());
+                upload_request = Some(serde_json::from_slice(&data).map_err(|e| {
+                    error!("Failed to parse metadata JSON: {}", e);
+                    AppError::BadRequest(format!("Invalid metadata JSON: {}", e))
+                })?);
             }
             "file" => {
-                file_data = Some(
-                    field
-                        .bytes()
-                        .await
-                        .map_err(|e| {
-                            AppError::BadRequest(format!("Failed to read file data: {}", e))
-                        })?
-                        .to_vec(),
-                );
+                info!("Processing file field");
+                let file_bytes = field.bytes().await.map_err(|e| {
+                    error!("Failed to read file data: {}", e);
+                    AppError::BadRequest(format!("Failed to read file data: {}", e))
+                })?;
+
+                info!("Received file data, {} bytes", file_bytes.len());
+                file_data = Some(file_bytes.to_vec());
             }
             _ => {
                 warn!("Unexpected multipart field: {}", name);
@@ -134,6 +136,11 @@ pub async fn upload_large_file(
     // Generate storage filename and path
     let storage_filename = upload_request.generate_storage_filename();
     let file_path = upload_config.upload_directory.join(&storage_filename);
+
+    println!(
+        "ZOMG GOT AN UPLOAD!!! storage_filename:{}, and then file_path:{:?}",
+        &storage_filename, &file_path
+    );
 
     // Write file to disk
     let mut file = fs::File::create(&file_path).await.map_err(|e| {

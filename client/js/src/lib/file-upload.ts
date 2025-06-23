@@ -1,275 +1,452 @@
 /**
- * File Upload Handler
+ * HTTP File Upload Handler
  *
- * Handles file upload processing, validation, SHA256 calculation,
- * and conversion to the blob format expected by the WebSocket server.
+ * Handles large file uploads (>10MB) via HTTP POST to the /api/upload endpoint.
+ * This is for admin users only and stores files to disk rather than the database.
  */
 
-export interface UploadFile {
-  file: File;
-  id: string;
-  progress: number;
-  status: "pending" | "processing" | "uploading" | "completed" | "error";
-  error?: string;
+import { z } from "zod";
+
+/**
+ * Upload request metadata schema
+ */
+export const UploadRequestSchema = z.object({
+  filename: z.string().min(1),
+  mime_type: z.string().optional(),
+  sha256: z.string().length(64),
+  size: z.number().int().positive(),
+  metadata: z.record(z.any()).default({}),
+});
+
+export type UploadRequest = z.infer<typeof UploadRequestSchema>;
+
+/**
+ * Upload response schema
+ */
+export const UploadResponseSchema = z.object({
+  id: z.string().uuid(),
+  local_path: z.string().nullish(),
+  sha256: z.string(),
+  size: z.number().int().positive(),
+  mime_type: z.string().optional(),
+  created_at: z.string().datetime(),
+});
+
+export type UploadResponse = z.infer<typeof UploadResponseSchema>;
+
+/**
+ * Upload info schema (for GET endpoints)
+ */
+export const UploadInfoSchema = z.object({
+  id: z.string().uuid(),
+  local_path: z.string().nullish(),
+  sha256: z.string(),
+  size: z.number().int().optional(),
+  mime: z.string().optional(),
+  source_client_id: z.string().optional(),
+  metadata: z.record(z.any()).default({}),
+  created_at: z.string().datetime(),
+  updated_at: z.string().datetime(),
+});
+
+export type UploadInfo = z.infer<typeof UploadInfoSchema>;
+
+/**
+ * Upload list response schema
+ */
+export const UploadListResponseSchema = z.object({
+  uploads: z.array(UploadInfoSchema),
+  total_count: z.number().int().min(0),
+  limit: z.number().int().optional(),
+  offset: z.number().int().min(0),
+});
+
+export type UploadListResponse = z.infer<typeof UploadListResponseSchema>;
+
+/**
+ * Upload error types
+ */
+export enum UploadErrorType {
+  FileTooSmall = "FILE_TOO_SMALL",
+  FileTooLarge = "FILE_TOO_LARGE",
+  InvalidFile = "INVALID_FILE",
+  HashCalculationFailed = "HASH_CALCULATION_FAILED",
+  NetworkError = "NETWORK_ERROR",
+  ServerError = "SERVER_ERROR",
+  Unauthorized = "UNAUTHORIZED",
+  Forbidden = "FORBIDDEN",
+  Conflict = "CONFLICT",
 }
 
-export interface ProcessedBlob {
-  id: string;
-  data: number[];
-  sha256: string;
-  size: number;
-  mime: string;
-  source_client_id: string;
-  local_path: string;
-  metadata: Record<string, unknown>;
-  created_at: string;
-  updated_at: string;
+export class UploadError extends Error {
+  constructor(
+    public type: UploadErrorType,
+    message: string,
+    public originalError?: Error
+  ) {
+    super(message);
+    this.name = "UploadError";
+  }
 }
 
-export interface FileUploadOptions {
-  maxFileSize?: number; // in bytes, default 10MB
-  allowedMimeTypes?: string[]; // if provided, only these types are allowed
-  clientId?: string;
-  chunkSize?: number; // for future chunked uploads
+/**
+ * Upload progress information
+ */
+export interface UploadProgress {
+  uploadId: string;
+  stage: "preparing" | "hashing" | "uploading" | "completed" | "error";
+  progress: number; // 0-100
+  bytesUploaded?: number;
+  totalBytes?: number;
+  error?: UploadError;
 }
 
+/**
+ * Upload configuration
+ */
+export interface UploadConfig {
+  /** Base URL for the API (e.g., 'http://localhost:3000') */
+  baseUrl: string;
+  /** Minimum file size for large uploads (default: 10MB) */
+  minFileSize: number;
+  /** Maximum file size allowed (default: 1GB) */
+  maxFileSize: number;
+  /** Timeout for upload requests in milliseconds (default: 5 minutes) */
+  timeoutMs: number;
+  /** Include credentials in requests (default: true) */
+  credentials: boolean;
+}
+
+/**
+ * HTTP File Upload Handler for large files (>10MB)
+ */
 export class FileUploadHandler extends EventTarget {
-  private uploads = new Map<string, UploadFile>();
-  private options: Required<FileUploadOptions>;
+  private config: Required<UploadConfig>;
+  private activeUploads = new Map<string, AbortController>();
 
-  constructor(options: FileUploadOptions = {}) {
+  constructor(config: Partial<UploadConfig> = {}) {
     super();
 
-    this.options = {
-      maxFileSize: 10 * 1024 * 1024, // 10MB default
-      allowedMimeTypes: [],
-      clientId: "web-client",
-      chunkSize: 64 * 1024, // 64KB chunks for future use
-      ...options,
+    this.config = {
+      baseUrl: "http://localhost:3000",
+      minFileSize: 10 * 1024 * 1024, // 10MB
+      maxFileSize: 1024 * 1024 * 1024, // 1GB
+      timeoutMs: 5 * 60 * 1000, // 5 minutes
+      credentials: true,
+      ...config,
     };
   }
 
   /**
-   * Add files for upload processing
+   * Upload a large file
    */
-  async addFiles(files: FileList | File[]): Promise<string[]> {
-    const fileArray = Array.from(files);
-    const uploadIds: string[] = [];
+  async uploadFile(
+    file: File,
+    metadata: Record<string, any> = {}
+  ): Promise<UploadResponse> {
+    const uploadId = crypto.randomUUID();
 
-    for (const file of fileArray) {
-      const uploadId = crypto.randomUUID();
-      uploadIds.push(uploadId);
+    try {
+      // Validate file size
+      this.validateFile(file);
 
-      const upload: UploadFile = {
-        file,
-        id: uploadId,
+      // Create abort controller for this upload
+      const abortController = new AbortController();
+      this.activeUploads.set(uploadId, abortController);
+
+      // Emit progress: preparing
+      this.emitProgress({
+        uploadId,
+        stage: "preparing",
         progress: 0,
-        status: "pending",
+        totalBytes: file.size,
+      });
+
+      // Calculate SHA256 hash
+      this.emitProgress({
+        uploadId,
+        stage: "hashing",
+        progress: 10,
+        totalBytes: file.size,
+      });
+
+      const sha256 = await this.calculateSHA256(file);
+
+      this.emitProgress({
+        uploadId,
+        stage: "hashing",
+        progress: 50,
+        totalBytes: file.size,
+      });
+
+      // Prepare upload request
+      const uploadRequest: UploadRequest = {
+        filename: file.name,
+        mime_type: file.type || undefined,
+        sha256,
+        size: file.size,
+        metadata,
       };
 
-      this.uploads.set(uploadId, upload);
+      // Validate request
+      UploadRequestSchema.parse(uploadRequest);
 
-      // Start processing immediately
-      this.processFile(uploadId);
-    }
+      this.emitProgress({
+        uploadId,
+        stage: "uploading",
+        progress: 60,
+        totalBytes: file.size,
+      });
 
-    return uploadIds;
-  }
+      // Create form data
+      const formData = new FormData();
+      formData.append("metadata", JSON.stringify(uploadRequest));
+      formData.append("file", file);
 
-  /**
-   * Get upload status
-   */
-  getUpload(uploadId: string): UploadFile | undefined {
-    return this.uploads.get(uploadId);
-  }
+      // Make upload request
+      const response = await fetch(`${this.config.baseUrl}/api/upload`, {
+        method: "POST",
+        body: formData,
+        credentials: this.config.credentials ? "include" : "omit",
+        signal: abortController.signal,
+      });
 
-  /**
-   * Get all uploads
-   */
-  getAllUploads(): UploadFile[] {
-    return Array.from(this.uploads.values());
-  }
+      this.emitProgress({
+        uploadId,
+        stage: "uploading",
+        progress: 90,
+        bytesUploaded: file.size,
+        totalBytes: file.size,
+      });
 
-  /**
-   * Remove completed or failed uploads
-   */
-  clearCompleted(): void {
-    for (const [id, upload] of this.uploads.entries()) {
-      if (upload.status === "completed" || upload.status === "error") {
-        this.uploads.delete(id);
+      if (!response.ok) {
+        throw await this.handleErrorResponse(response);
       }
+
+      const result = await response.json();
+      const uploadResponse = UploadResponseSchema.parse(result);
+
+      this.emitProgress({
+        uploadId,
+        stage: "completed",
+        progress: 100,
+        bytesUploaded: file.size,
+        totalBytes: file.size,
+      });
+
+      return uploadResponse;
+    } catch (error) {
+      const uploadError =
+        error instanceof UploadError
+          ? error
+          : new UploadError(
+              UploadErrorType.ServerError,
+              error instanceof Error ? error.message : String(error),
+              error instanceof Error ? error : undefined
+            );
+
+      this.emitProgress({
+        uploadId,
+        stage: "error",
+        progress: 0,
+        error: uploadError,
+      });
+
+      throw uploadError;
+    } finally {
+      this.activeUploads.delete(uploadId);
+    }
+  }
+
+  /**
+   * Get upload information by ID
+   */
+  async getUploadInfo(id: string): Promise<UploadInfo> {
+    const response = await fetch(`${this.config.baseUrl}/api/upload/${id}`, {
+      method: "GET",
+      credentials: this.config.credentials ? "include" : "omit",
+    });
+
+    if (!response.ok) {
+      throw await this.handleErrorResponse(response);
     }
 
+    const result = await response.json();
+    return UploadInfoSchema.parse(result);
+  }
+
+  /**
+   * List uploads with pagination
+   */
+  async listUploads(
+    options: { limit?: number; offset?: number } = {}
+  ): Promise<UploadListResponse> {
+    const searchParams = new URLSearchParams();
+    if (options.limit !== undefined) {
+      searchParams.set("limit", options.limit.toString());
+    }
+    if (options.offset !== undefined) {
+      searchParams.set("offset", options.offset.toString());
+    }
+
+    const url = `${this.config.baseUrl}/api/uploads${searchParams.toString() ? `?${searchParams}` : ""}`;
+
+    const response = await fetch(url, {
+      method: "GET",
+      credentials: this.config.credentials ? "include" : "omit",
+    });
+
+    if (!response.ok) {
+      throw await this.handleErrorResponse(response);
+    }
+
+    const result = await response.json();
+    return UploadListResponseSchema.parse(result);
+  }
+
+  /**
+   * Delete an upload by ID
+   */
+  async deleteUpload(id: string): Promise<void> {
+    const response = await fetch(`${this.config.baseUrl}/api/upload/${id}`, {
+      method: "DELETE",
+      credentials: this.config.credentials ? "include" : "omit",
+    });
+
+    if (!response.ok) {
+      throw await this.handleErrorResponse(response);
+    }
+  }
+
+  /**
+   * Cancel an active upload
+   */
+  cancelUpload(uploadId: string): boolean {
+    const controller = this.activeUploads.get(uploadId);
+    if (controller) {
+      controller.abort();
+      this.activeUploads.delete(uploadId);
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Cancel all active uploads
+   */
+  cancelAllUploads(): void {
+    for (const controller of this.activeUploads.values()) {
+      controller.abort();
+    }
+    this.activeUploads.clear();
+  }
+
+  /**
+   * Get the number of active uploads
+   */
+  getActiveUploadCount(): number {
+    return this.activeUploads.size;
+  }
+
+  /**
+   * Update configuration
+   */
+  updateConfig(config: Partial<UploadConfig>): void {
+    this.config = { ...this.config, ...config };
+  }
+
+  private validateFile(file: File): void {
+    if (file.size < this.config.minFileSize) {
+      throw new UploadError(
+        UploadErrorType.FileTooSmall,
+        `File size ${this.formatFileSize(file.size)} is below the minimum of ${this.formatFileSize(this.config.minFileSize)}`
+      );
+    }
+
+    if (file.size > this.config.maxFileSize) {
+      throw new UploadError(
+        UploadErrorType.FileTooLarge,
+        `File size ${this.formatFileSize(file.size)} exceeds the maximum of ${this.formatFileSize(this.config.maxFileSize)}`
+      );
+    }
+
+    if (file.size === 0) {
+      throw new UploadError(UploadErrorType.InvalidFile, "File is empty");
+    }
+
+    // Check for dangerous filenames
+    if (
+      file.name.includes("..") ||
+      file.name.includes("/") ||
+      file.name.includes("\\")
+    ) {
+      throw new UploadError(UploadErrorType.InvalidFile, "Invalid filename");
+    }
+  }
+
+  private async calculateSHA256(file: File): Promise<string> {
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const hashBuffer = await crypto.subtle.digest("SHA-256", arrayBuffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+    } catch (error) {
+      throw new UploadError(
+        UploadErrorType.HashCalculationFailed,
+        "Failed to calculate file hash",
+        error instanceof Error ? error : undefined
+      );
+    }
+  }
+
+  private async handleErrorResponse(response: Response): Promise<UploadError> {
+    let errorMessage: string;
+    let errorType: UploadErrorType;
+
+    try {
+      const errorData = await response.json();
+      errorMessage =
+        errorData.error || errorData.message || `HTTP ${response.status}`;
+    } catch {
+      errorMessage = `HTTP ${response.status} ${response.statusText}`;
+    }
+
+    switch (response.status) {
+      case 400:
+        errorType = UploadErrorType.InvalidFile;
+        break;
+      case 401:
+        errorType = UploadErrorType.Unauthorized;
+        break;
+      case 403:
+        errorType = UploadErrorType.Forbidden;
+        break;
+      case 409:
+        errorType = UploadErrorType.Conflict;
+        break;
+      case 413:
+        errorType = UploadErrorType.FileTooLarge;
+        break;
+      default:
+        errorType =
+          response.status >= 500
+            ? UploadErrorType.ServerError
+            : UploadErrorType.NetworkError;
+    }
+
+    return new UploadError(errorType, errorMessage);
+  }
+
+  private emitProgress(progress: UploadProgress): void {
     this.dispatchEvent(
-      new CustomEvent("uploads-cleared", {
-        detail: { timestamp: Date.now() },
+      new CustomEvent("upload-progress", {
+        detail: progress,
       })
     );
   }
 
-  /**
-   * Cancel an upload
-   */
-  cancelUpload(uploadId: string): void {
-    const upload = this.uploads.get(uploadId);
-    if (upload && upload.status !== "completed") {
-      upload.status = "error";
-      upload.error = "Cancelled by user";
-
-      this.dispatchEvent(
-        new CustomEvent("upload-cancelled", {
-          detail: { uploadId, file: upload.file },
-        })
-      );
-    }
-  }
-
-  private async processFile(uploadId: string): Promise<void> {
-    const upload = this.uploads.get(uploadId);
-    if (!upload) return;
-
-    try {
-      upload.status = "processing";
-      upload.progress = 0;
-
-      this.dispatchEvent(
-        new CustomEvent("upload-started", {
-          detail: { uploadId, file: upload.file },
-        })
-      );
-
-      // Validate file
-      this.validateFile(upload.file);
-      upload.progress = 10;
-
-      // Read file data
-      const arrayBuffer = await this.readFile(upload.file);
-      upload.progress = 30;
-
-      // Calculate SHA256
-      const sha256 = await this.calculateSHA256(arrayBuffer);
-      upload.progress = 60;
-
-      // Convert to processed blob format
-      const processedBlob = this.createProcessedBlob(
-        upload.file,
-        arrayBuffer,
-        sha256
-      );
-      upload.progress = 90;
-
-      upload.status = "uploading";
-      upload.progress = 100;
-
-      this.dispatchEvent(
-        new CustomEvent("upload-processed", {
-          detail: { uploadId, file: upload.file, blob: processedBlob },
-        })
-      );
-
-      // Mark as completed (actual upload handled externally)
-      upload.status = "completed";
-
-      this.dispatchEvent(
-        new CustomEvent("upload-completed", {
-          detail: { uploadId, file: upload.file, blob: processedBlob },
-        })
-      );
-    } catch (error) {
-      upload.status = "error";
-      upload.error = error instanceof Error ? error.message : String(error);
-
-      this.dispatchEvent(
-        new CustomEvent("upload-error", {
-          detail: { uploadId, file: upload.file, error: upload.error },
-        })
-      );
-    }
-  }
-
-  private validateFile(file: File): void {
-    // Check file size
-    if (file.size > this.options.maxFileSize) {
-      throw new Error(
-        `File "${file.name}" is too large (${this.formatFileSize(file.size)}). Maximum size is ${this.formatFileSize(this.options.maxFileSize)}.`
-      );
-    }
-
-    // Check MIME type if restrictions are set
-    if (this.options.allowedMimeTypes.length > 0) {
-      const mimeType = file.type || "application/octet-stream";
-      if (!this.options.allowedMimeTypes.includes(mimeType)) {
-        throw new Error(
-          `File type "${mimeType}" is not allowed. Allowed types: ${this.options.allowedMimeTypes.join(", ")}`
-        );
-      }
-    }
-
-    // Check for empty file
-    if (file.size === 0) {
-      throw new Error(`File "${file.name}" is empty.`);
-    }
-  }
-
-  private readFile(file: File): Promise<ArrayBuffer> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-
-      reader.onload = () => {
-        if (reader.result instanceof ArrayBuffer) {
-          resolve(reader.result);
-        } else {
-          reject(new Error("Failed to read file as ArrayBuffer"));
-        }
-      };
-
-      reader.onerror = () => {
-        reject(
-          new Error(
-            `Failed to read file: ${reader.error?.message || "Unknown error"}`
-          )
-        );
-      };
-
-      reader.readAsArrayBuffer(file);
-    });
-  }
-
-  private async calculateSHA256(arrayBuffer: ArrayBuffer): Promise<string> {
-    const hashBuffer = await crypto.subtle.digest("SHA-256", arrayBuffer);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
-  }
-
-  private createProcessedBlob(
-    file: File,
-    arrayBuffer: ArrayBuffer,
-    sha256: string
-  ): ProcessedBlob {
-    const data = Array.from(new Uint8Array(arrayBuffer));
-    const now = new Date().toISOString();
-
-    return {
-      id: crypto.randomUUID(),
-      data,
-      sha256,
-      size: file.size,
-      mime: file.type || "application/octet-stream",
-      source_client_id: this.options.clientId,
-      local_path: file.name,
-      metadata: {
-        originalName: file.name,
-        lastModified: file.lastModified,
-        uploadedAt: now,
-        userAgent: navigator.userAgent,
-      },
-      created_at: now,
-      updated_at: now,
-    };
-  }
-
   private formatFileSize(bytes: number): string {
-    if (!bytes) return "Unknown size";
+    if (!bytes) return "0 B";
 
     const units = ["B", "KB", "MB", "GB"];
     let size = bytes;
@@ -284,65 +461,27 @@ export class FileUploadHandler extends EventTarget {
   }
 
   /**
-   * Get upload statistics
+   * Static helper to check if a file should use HTTP upload
    */
-  getStats(): {
-    total: number;
-    pending: number;
-    processing: number;
-    uploading: number;
-    completed: number;
-    errors: number;
-  } {
-    const uploads = Array.from(this.uploads.values());
-
-    return {
-      total: uploads.length,
-      pending: uploads.filter((u) => u.status === "pending").length,
-      processing: uploads.filter((u) => u.status === "processing").length,
-      uploading: uploads.filter((u) => u.status === "uploading").length,
-      completed: uploads.filter((u) => u.status === "completed").length,
-      errors: uploads.filter((u) => u.status === "error").length,
-    };
+  static shouldUseHttpUpload(file: File, minSize = 10 * 1024 * 1024): boolean {
+    return file.size >= minSize;
   }
 
   /**
-   * Update options
+   * Static helper to format file sizes
    */
-  updateOptions(options: Partial<FileUploadOptions>): void {
-    this.options = { ...this.options, ...options };
+  static formatFileSize(bytes: number): string {
+    if (!bytes) return "0 B";
 
-    this.dispatchEvent(
-      new CustomEvent("options-updated", {
-        detail: { options: this.options },
-      })
-    );
-  }
+    const units = ["B", "KB", "MB", "GB"];
+    let size = bytes;
+    let unitIndex = 0;
 
-  /**
-   * Clean up resources
-   */
-  destroy(): void {
-    this.uploads.clear();
+    while (size >= 1024 && unitIndex < units.length - 1) {
+      size /= 1024;
+      unitIndex++;
+    }
 
-    // Remove all event listeners
-    const events = [
-      "upload-started",
-      "upload-processed",
-      "upload-completed",
-      "upload-error",
-      "upload-cancelled",
-      "uploads-cleared",
-      "options-updated",
-    ];
-    events.forEach((event) => {
-      // Remove all listeners for each event type
-      const listeners =
-        (this as unknown as { _listeners?: Record<string, unknown[]> })
-          ._listeners?.[event] || [];
-      listeners.forEach((listener: unknown) => {
-        this.removeEventListener(event, listener as EventListener);
-      });
-    });
+    return `${size.toFixed(1)} ${units[unitIndex]}`;
   }
 }

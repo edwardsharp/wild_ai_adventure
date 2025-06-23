@@ -35,15 +35,19 @@ export interface BlobDisplayInfo {
   createdAt: string;
   metadata: string;
   thumbnailHtml: string;
+  fileUrl?: string; // Full URL for accessing large files
+  storageType: "database" | "disk"; // How the file is stored
 }
 
 export class MediaBlobManager extends EventTarget {
   private blobs: MediaBlob[] = [];
   private blobDataCache = new Map<string, string>(); // blob ID -> data URL
   private loadingBlobs = new Set<string>();
+  private baseUrl: string;
 
-  constructor() {
+  constructor(baseUrl: string = "http://localhost:8080") {
     super();
+    this.baseUrl = baseUrl.replace(/\/$/, ""); // Remove trailing slash
   }
 
   /**
@@ -157,6 +161,9 @@ export class MediaBlobManager extends EventTarget {
    * Generate display information for a blob
    */
   getBlobDisplayInfo(blob: MediaBlob): BlobDisplayInfo {
+    const storageType = this.getStorageType(blob);
+    const fileUrl = this.getFileUrl(blob);
+
     return {
       id: blob.id,
       mime: blob.mime || "Unknown type",
@@ -170,6 +177,8 @@ export class MediaBlobManager extends EventTarget {
           ? JSON.stringify(blob.metadata)
           : "",
       thumbnailHtml: this.generateThumbnailHtml(blob),
+      fileUrl,
+      storageType,
     };
   }
 
@@ -180,6 +189,8 @@ export class MediaBlobManager extends EventTarget {
     const mime = blob.mime || "";
     const cachedData = this.getCachedDataUrl(blob.id);
     const isLoading = this.isLoading(blob.id);
+    const storageType = this.getStorageType(blob);
+    const fileUrl = this.getFileUrl(blob);
 
     const baseStyle =
       "width: 80px; height: 80px; border-radius: 4px; object-fit: cover;";
@@ -187,7 +198,12 @@ export class MediaBlobManager extends EventTarget {
       "display: flex; align-items: center; justify-content: center; background: #f0f0f0; font-size: 0.7em; border-radius: 4px; cursor: pointer;";
 
     if (mime.startsWith("image/")) {
-      if (cachedData) {
+      // For large files stored on disk, use the direct URL
+      if (storageType === "disk" && fileUrl) {
+        return `<img src="${fileUrl}" alt="Thumbnail" style="${baseStyle}" loading="lazy">`;
+      }
+      // For small files in database, use cached data or load on demand
+      else if (cachedData) {
         return `<img src="${cachedData}" alt="Thumbnail" style="${baseStyle}" loading="lazy">`;
       } else if (isLoading) {
         return `<div style="${baseStyle} ${placeholderStyle}">Loading...</div>`;
@@ -195,7 +211,12 @@ export class MediaBlobManager extends EventTarget {
         return `<div style="${baseStyle} ${placeholderStyle}" onclick="window.loadBlobData('${blob.id}')">LOAD IMAGE</div>`;
       }
     } else if (mime.startsWith("video/")) {
-      if (cachedData) {
+      // For large files stored on disk, use the direct URL
+      if (storageType === "disk" && fileUrl) {
+        return `<video style="${baseStyle}" controls muted><source src="${fileUrl}" type="${mime}"></video>`;
+      }
+      // For small files in database, use cached data or load on demand
+      else if (cachedData) {
         return `<video style="${baseStyle}" controls muted><source src="${cachedData}" type="${mime}"></video>`;
       } else if (isLoading) {
         return `<div style="${baseStyle} ${placeholderStyle}">Loading...</div>`;
@@ -271,7 +292,41 @@ export class MediaBlobManager extends EventTarget {
   /**
    * Format file size in human-readable format
    */
-  formatFileSize(bytes: number): string {
+  /**
+   * Determine storage type for a blob
+   */
+  private getStorageType(blob: MediaBlob): "database" | "disk" {
+    // Large files have local_path set (data is stripped by server for efficiency)
+    if (blob.local_path) {
+      return "disk";
+    }
+    // Small files have no local_path (data may be stripped by server)
+    return "database";
+  }
+
+  /**
+   * Get full URL for accessing a blob file
+   */
+  private getFileUrl(blob: MediaBlob): string | undefined {
+    if (blob.local_path) {
+      // local_path is stored as relative path like "private/uploads/abc123.jpg"
+      // Convert to full URL like "http://localhost:8080/private/uploads/abc123.jpg"
+      const cleanPath = blob.local_path.startsWith("/")
+        ? blob.local_path.substring(1)
+        : blob.local_path;
+      return `${this.baseUrl}/${cleanPath}`;
+    }
+    return undefined;
+  }
+
+  /**
+   * Update base URL for file access
+   */
+  updateBaseUrl(baseUrl: string): void {
+    this.baseUrl = baseUrl.replace(/\/$/, ""); // Remove trailing slash
+  }
+
+  private formatFileSize(bytes: number): string {
     if (!bytes) return "Unknown size";
 
     const units = ["B", "KB", "MB", "GB"];

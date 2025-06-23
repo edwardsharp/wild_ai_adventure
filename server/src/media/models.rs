@@ -84,6 +84,29 @@ impl MediaBlob {
         }
     }
 
+    /// Get the full URL for accessing this blob if it has a local_path
+    pub fn get_full_url(&self, base_url: &str) -> Option<String> {
+        if let Some(ref local_path) = self.local_path {
+            // local_path is stored as relative path like "private/uploads/abc123.jpg"
+            // Convert to full URL like "http://localhost:8080/private/uploads/abc123.jpg"
+            let clean_base = base_url.trim_end_matches('/');
+            let clean_path = local_path.trim_start_matches('/');
+            Some(format!("{}/{}", clean_base, clean_path))
+        } else {
+            None
+        }
+    }
+
+    /// Check if this blob is a large file stored on disk
+    pub fn is_large_file(&self) -> bool {
+        self.local_path.is_some() && self.data.is_none()
+    }
+
+    /// Check if this blob is a small file stored in database
+    pub fn is_small_file(&self) -> bool {
+        self.data.is_some() && self.local_path.is_none()
+    }
+
     /// Get the blob without the binary data (for efficient serialization)
     pub fn without_data(&self) -> Self {
         let mut blob = self.clone();
@@ -149,11 +172,11 @@ impl MediaBlob {
             }
         }
 
-        // Also check the size field if provided
+        // Also check the size field if provided (but only when there's no local_path)
         if let Some(size) = self.size {
-            if size > MAX_FILE_SIZE as i64 {
+            if self.local_path.is_none() && size > MAX_FILE_SIZE as i64 {
                 return Err(format!(
-                    "File size {} bytes exceeds maximum allowed size of {} bytes (10MB)",
+                    "File size FIELD {} bytes exceeds maximum allowed size of {} bytes (10MB)",
                     size, MAX_FILE_SIZE
                 ));
             }
@@ -198,23 +221,32 @@ impl CreateMediaBlob {
         }
 
         // Check file size limit (10MB = 10 * 1024 * 1024 bytes)
-        const MAX_FILE_SIZE: usize = 10 * 1024 * 1024;
+        // #todo: push these constants up into config.
+        const MAX_BLOB_FILE_SIZE: usize = 10 * 1024 * 1024;
+        const MAX_FS_FILE_SIZE: usize = 100 * 1024 * 1024;
+
+        let mut max_file_size: usize = MAX_BLOB_FILE_SIZE;
+
+        if !self.local_path.is_none() {
+            max_file_size = MAX_FS_FILE_SIZE;
+        }
+
         if let Some(ref data) = self.data {
-            if data.len() > MAX_FILE_SIZE {
+            if data.len() > max_file_size {
                 return Err(format!(
                     "File size {} bytes exceeds maximum allowed size of {} bytes (10MB)",
                     data.len(),
-                    MAX_FILE_SIZE
+                    max_file_size
                 ));
             }
         }
 
         // Also check the size field if provided
         if let Some(size) = self.size {
-            if size > MAX_FILE_SIZE as i64 {
+            if size > max_file_size as i64 {
                 return Err(format!(
-                    "File size {} bytes exceeds maximum allowed size of {} bytes (10MB)",
-                    size, MAX_FILE_SIZE
+                    "File size FIELD {} bytes exceeds maximum allowed size of {} bytes (10MB)",
+                    size, max_file_size
                 ));
             }
         }

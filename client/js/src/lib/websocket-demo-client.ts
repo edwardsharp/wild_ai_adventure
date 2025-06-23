@@ -16,11 +16,14 @@ import {
   type MediaBlob,
   type MediaBlobData,
 } from "./media-blob-manager.js";
-import { FileUploadHandler, type FileUploadOptions } from "./file-upload.js";
+import {
+  WebSocketFileUploadHandler,
+  type WebSocketFileUploadOptions,
+} from "./websocket-file-upload.js";
 
 export interface WebSocketDemoClientOptions {
   websocket?: WebSocketClientConfig;
-  fileUpload?: FileUploadOptions;
+  fileUpload?: WebSocketFileUploadOptions;
   autoGetMediaBlobs?: boolean;
   logLevel?: "none" | "error" | "warn" | "info" | "debug";
 }
@@ -34,7 +37,7 @@ export interface DemoClientEvent {
 export class WebSocketDemoClient extends EventTarget {
   private client: WebSocketClient;
   private blobManager: MediaBlobManager;
-  private uploadHandler: FileUploadHandler;
+  private uploadHandler: WebSocketFileUploadHandler;
   private eventLog: DemoClientEvent[] = [];
   private options: WebSocketDemoClientOptions;
 
@@ -56,7 +59,7 @@ export class WebSocketDemoClient extends EventTarget {
 
     this.blobManager = new MediaBlobManager();
 
-    this.uploadHandler = new FileUploadHandler({
+    this.uploadHandler = new WebSocketFileUploadHandler({
       clientId: "demo-client",
       ...this.options.fileUpload,
     });
@@ -173,6 +176,13 @@ export class WebSocketDemoClient extends EventTarget {
    */
   getBlobDisplayInfo(blob: MediaBlob) {
     return this.blobManager.getBlobDisplayInfo(blob);
+  }
+
+  /**
+   * Get the blob manager instance
+   */
+  get mediaManager(): MediaBlobManager {
+    return this.blobManager;
   }
 
   /**

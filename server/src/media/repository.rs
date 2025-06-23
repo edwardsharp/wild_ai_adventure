@@ -52,7 +52,11 @@ impl<'a> MediaRepository<'a> {
     /// Create a new media blob
     pub async fn create(&self, params: CreateMediaBlob) -> Result<MediaBlob, WebauthnError> {
         // Validate input
-        params.validate().map_err(|_e| WebauthnError::BadRequest)?;
+        params.validate().map_err(|e| {
+            warn!("zomg>>>> bad media_blob {}", e);
+
+            WebauthnError::BadRequest
+        })?;
 
         info!("Creating media blob with SHA256: {}", params.sha256);
 
@@ -92,6 +96,7 @@ impl<'a> MediaRepository<'a> {
             }
             Err(e) => {
                 error!("Failed to create media blob: {}", e);
+                println!("onoz blob Failed to create media blob: {}", e);
                 Err(WebauthnError::SqlxError(e))
             }
         }

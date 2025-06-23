@@ -73,7 +73,7 @@ pub async fn require_authentication(
 /// Middleware that requires admin role
 pub async fn require_admin(
     Extension(user): Extension<AuthenticatedUser>,
-    request: Request,
+    mut request: Request,
     next: Next,
 ) -> Result<Response, StatusCode> {
     if !user.is_admin() {
@@ -86,6 +86,10 @@ pub async fn require_admin(
     }
 
     tracing::debug!("Admin access granted for user {}", user.user().username);
+
+    // Add the AuthenticatedUser back to the request for handlers to use
+    request.extensions_mut().insert(user);
+
     Ok(next.run(request).await)
 }
 

@@ -4,6 +4,7 @@
 //! that are restricted to admin users only.
 
 use axum::{
+    extract::DefaultBodyLimit,
     middleware,
     routing::{delete, get, post},
     Router,
@@ -20,14 +21,16 @@ pub fn build_upload_routes(_config: &AppConfig) -> Router {
     let admin_routes = Router::new()
         // Upload a large file (POST /api/upload) - Admin only
         .route("/api/upload", post(upload_large_file))
-        // Delete an uploaded file (DELETE /api/upload/:id) - Admin only
-        .route("/api/upload/:id", delete(delete_upload))
-        .layer(middleware::from_fn(require_admin));
+        // Delete an uploaded file (DELETE /api/upload/{id}) - Admin only
+        .route("/api/upload/{id}", delete(delete_upload))
+        .layer(DefaultBodyLimit::max(1024 * 1024 * 1024)) // 1GB limit for uploads
+        .layer(middleware::from_fn(require_admin))
+        .layer(middleware::from_fn(require_authentication));
 
     // Authenticated user routes (GET)
     let user_routes = Router::new()
-        // Get info about a specific upload (GET /api/upload/:id) - Any authenticated user
-        .route("/api/upload/:id", get(get_upload_info))
+        // Get info about a specific upload (GET /api/upload/{id}) - Any authenticated user
+        .route("/api/upload/{id}", get(get_upload_info))
         // List all uploads with pagination (GET /api/uploads) - Any authenticated user
         .route("/api/uploads", get(list_uploads))
         .layer(middleware::from_fn(require_authentication));

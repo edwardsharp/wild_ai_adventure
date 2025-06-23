@@ -19,7 +19,7 @@ pub fn build_auth_routes(config: &AppConfig) -> Router {
         .route("/login_start/{username}", post(start_authentication))
         .route("/login_finish", post(finish_authentication))
         .route("/logout", post(logout))
-        .route("/auth/status", get(auth_status));
+        .route("/api/whoami", get(auth_status));
 
     // Add registration routes if enabled in config
     if config.features.registration_enabled {

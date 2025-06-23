@@ -79,12 +79,26 @@ export type {
   BlobDisplayInfo,
 } from "./media-blob-manager.js";
 
+// HTTP File Upload (for large files >10MB, admin only)
 export { FileUploadHandler } from "./file-upload.js";
 export type {
-  UploadFile,
-  ProcessedBlob,
-  FileUploadOptions,
+  UploadRequest,
+  UploadResponse,
+  UploadInfo,
+  UploadListResponse,
+  UploadProgress,
+  UploadConfig,
+  UploadError,
+  UploadErrorType,
 } from "./file-upload.js";
+
+// WebSocket File Upload (for small files <10MB via WebSocket)
+export { WebSocketFileUploadHandler } from "./websocket-file-upload.js";
+export type {
+  WebSocketUploadFile,
+  WebSocketProcessedBlob,
+  WebSocketFileUploadOptions,
+} from "./websocket-file-upload.js";
 
 export { WebSocketDemoClient } from "./websocket-demo-client.js";
 export type {

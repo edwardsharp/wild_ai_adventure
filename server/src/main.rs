@@ -212,6 +212,7 @@ async fn main() {
 
     // Build main router with all routes
     let mut app = build_routes(&config)
+        .layer(Extension(config.clone()))
         .layer(Extension(app_state.database.clone()))
         .layer(Extension(app_state))
         .layer(axum_middleware::from_fn(security_logging));
