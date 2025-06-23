@@ -256,6 +256,12 @@
                 flex-shrink: 0;
             }
 
+            .media-blob-thumbnail audio {
+                width: 100%;
+                height: 100%;
+                border-radius: 4px;
+            }
+
             .media-blob-actions {
                 display: flex;
                 flex-direction: column;
@@ -331,7 +337,8 @@
                 <button id="file-upload-btn" disabled>Upload Files</button>
                 <button id="clear-log-btn">Clear Log</button>
                 <div style="font-size: 12px; color: #6b7280; margin-top: 8px">
-                    Maximum file size: 10MB per file
+                    Maximum file size: 10MB per file (images, videos, audio,
+                    documents)
                 </div>
             </div>
         </div>
@@ -747,6 +754,12 @@
                             return `<video class="media-blob-thumbnail" controls muted><source src="${cachedData}" type="${mime}"></video>`;
                         } else {
                             return `<div class="media-blob-thumbnail media-blob-placeholder" data-blob-id="${blob.id}" style="display: flex; align-items: center; justify-content: center; background: #f0f0f0; font-size: 0.7em; cursor: pointer;" onclick="window.demoClient.loadMediaBlobData('${blob.id}')">LOAD VIDEO</div>`;
+                        }
+                    } else if (mime.startsWith("audio/")) {
+                        if (cachedData) {
+                            return `<audio class="media-blob-thumbnail" controls style="width: 80px; height: 80px;"><source src="${cachedData}" type="${mime}"></audio>`;
+                        } else {
+                            return `<div class="media-blob-thumbnail media-blob-placeholder" data-blob-id="${blob.id}" style="display: flex; align-items: center; justify-content: center; background: #f0f0f0; font-size: 0.7em; cursor: pointer;" onclick="window.demoClient.loadMediaBlobData('${blob.id}')">LOAD AUDIO</div>`;
                         }
                     } else if (mime === "application/pdf") {
                         return `<div class="media-blob-thumbnail" style="display: flex; align-items: center; justify-content: center; background: #f0f0f0; font-size: 0.7em;">PDF</div>`;
