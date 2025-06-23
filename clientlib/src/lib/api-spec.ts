@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from "zod";
 
 // WebAuthn specific schemas
 export const WebAuthnPublicKeyCredentialCreationOptionsSchema = z.object({
@@ -56,12 +56,12 @@ export const WebAuthnAssertionSchema = z.object({
 
 // API Specification - this describes all available routes and their schemas
 export const API_SPEC = {
-  baseUrl: 'http://localhost:8080',
+  baseUrl: "http://localhost:8080",
   endpoints: {
     registerStart: {
-      method: 'POST' as const,
-      path: '/register_start/{username}',
-      pathParams: ['username'] as const,
+      method: "POST" as const,
+      path: "/register_start/{username}",
+      pathParams: ["username"] as const,
       queryParams: z.object({
         invite_code: z.string().optional(),
       }),
@@ -71,8 +71,8 @@ export const API_SPEC = {
       }),
     },
     registerFinish: {
-      method: 'POST' as const,
-      path: '/register_finish',
+      method: "POST" as const,
+      path: "/register_finish",
       requestSchema: WebAuthnCredentialSchema,
       responseSchema: z
         .object({
@@ -81,17 +81,17 @@ export const API_SPEC = {
         .optional(),
     },
     loginStart: {
-      method: 'POST' as const,
-      path: '/login_start/{username}',
-      pathParams: ['username'] as const,
+      method: "POST" as const,
+      path: "/login_start/{username}",
+      pathParams: ["username"] as const,
       requestSchema: z.void(),
       responseSchema: z.object({
         publicKey: WebAuthnPublicKeyCredentialRequestOptionsSchema,
       }),
     },
     loginFinish: {
-      method: 'POST' as const,
-      path: '/login_finish',
+      method: "POST" as const,
+      path: "/login_finish",
       requestSchema: WebAuthnAssertionSchema,
       responseSchema: z
         .object({
@@ -100,8 +100,8 @@ export const API_SPEC = {
         .optional(),
     },
     logout: {
-      method: 'POST' as const,
-      path: '/logout',
+      method: "POST" as const,
+      path: "/logout",
       requestSchema: z.void(),
       responseSchema: z
         .object({
@@ -110,14 +110,14 @@ export const API_SPEC = {
         .optional(),
     },
     health: {
-      method: 'GET' as const,
-      path: '/health',
+      method: "GET" as const,
+      path: "/health",
       requestSchema: z.void(),
       responseSchema: z.void(),
     },
     authStatus: {
-      method: 'GET' as const,
-      path: '/auth/status',
+      method: "GET" as const,
+      path: "/auth/status",
       requestSchema: z.void(),
       responseSchema: z.object({
         authenticated: z.boolean(),
@@ -129,8 +129,8 @@ export const API_SPEC = {
 
 // Type helpers for working with the API spec
 export type ApiSpec = typeof API_SPEC;
-export type EndpointName = keyof ApiSpec['endpoints'];
-export type EndpointConfig<T extends EndpointName> = ApiSpec['endpoints'][T];
+export type EndpointName = keyof ApiSpec["endpoints"];
+export type EndpointConfig<T extends EndpointName> = ApiSpec["endpoints"][T];
 
 // Inferred types from schemas
 export type RegisterStartRequest = z.infer<

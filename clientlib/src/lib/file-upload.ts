@@ -9,7 +9,7 @@ export interface UploadFile {
   file: File;
   id: string;
   progress: number;
-  status: 'pending' | 'processing' | 'uploading' | 'completed' | 'error';
+  status: "pending" | "processing" | "uploading" | "completed" | "error";
   error?: string;
 }
 
@@ -21,7 +21,7 @@ export interface ProcessedBlob {
   mime: string;
   source_client_id: string;
   local_path: string;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;
 }
@@ -43,7 +43,7 @@ export class FileUploadHandler extends EventTarget {
     this.options = {
       maxFileSize: 10 * 1024 * 1024, // 10MB default
       allowedMimeTypes: [],
-      clientId: 'web-client',
+      clientId: "web-client",
       chunkSize: 64 * 1024, // 64KB chunks for future use
       ...options,
     };
@@ -64,7 +64,7 @@ export class FileUploadHandler extends EventTarget {
         file,
         id: uploadId,
         progress: 0,
-        status: 'pending',
+        status: "pending",
       };
 
       this.uploads.set(uploadId, upload);
@@ -95,13 +95,13 @@ export class FileUploadHandler extends EventTarget {
    */
   clearCompleted(): void {
     for (const [id, upload] of this.uploads.entries()) {
-      if (upload.status === 'completed' || upload.status === 'error') {
+      if (upload.status === "completed" || upload.status === "error") {
         this.uploads.delete(id);
       }
     }
 
     this.dispatchEvent(
-      new CustomEvent('uploads-cleared', {
+      new CustomEvent("uploads-cleared", {
         detail: { timestamp: Date.now() },
       })
     );
@@ -112,12 +112,12 @@ export class FileUploadHandler extends EventTarget {
    */
   cancelUpload(uploadId: string): void {
     const upload = this.uploads.get(uploadId);
-    if (upload && upload.status !== 'completed') {
-      upload.status = 'error';
-      upload.error = 'Cancelled by user';
+    if (upload && upload.status !== "completed") {
+      upload.status = "error";
+      upload.error = "Cancelled by user";
 
       this.dispatchEvent(
-        new CustomEvent('upload-cancelled', {
+        new CustomEvent("upload-cancelled", {
           detail: { uploadId, file: upload.file },
         })
       );
@@ -129,11 +129,11 @@ export class FileUploadHandler extends EventTarget {
     if (!upload) return;
 
     try {
-      upload.status = 'processing';
+      upload.status = "processing";
       upload.progress = 0;
 
       this.dispatchEvent(
-        new CustomEvent('upload-started', {
+        new CustomEvent("upload-started", {
           detail: { uploadId, file: upload.file },
         })
       );
@@ -158,29 +158,29 @@ export class FileUploadHandler extends EventTarget {
       );
       upload.progress = 90;
 
-      upload.status = 'uploading';
+      upload.status = "uploading";
       upload.progress = 100;
 
       this.dispatchEvent(
-        new CustomEvent('upload-processed', {
+        new CustomEvent("upload-processed", {
           detail: { uploadId, file: upload.file, blob: processedBlob },
         })
       );
 
       // Mark as completed (actual upload handled externally)
-      upload.status = 'completed';
+      upload.status = "completed";
 
       this.dispatchEvent(
-        new CustomEvent('upload-completed', {
+        new CustomEvent("upload-completed", {
           detail: { uploadId, file: upload.file, blob: processedBlob },
         })
       );
     } catch (error) {
-      upload.status = 'error';
+      upload.status = "error";
       upload.error = error instanceof Error ? error.message : String(error);
 
       this.dispatchEvent(
-        new CustomEvent('upload-error', {
+        new CustomEvent("upload-error", {
           detail: { uploadId, file: upload.file, error: upload.error },
         })
       );
@@ -197,10 +197,10 @@ export class FileUploadHandler extends EventTarget {
 
     // Check MIME type if restrictions are set
     if (this.options.allowedMimeTypes.length > 0) {
-      const mimeType = file.type || 'application/octet-stream';
+      const mimeType = file.type || "application/octet-stream";
       if (!this.options.allowedMimeTypes.includes(mimeType)) {
         throw new Error(
-          `File type "${mimeType}" is not allowed. Allowed types: ${this.options.allowedMimeTypes.join(', ')}`
+          `File type "${mimeType}" is not allowed. Allowed types: ${this.options.allowedMimeTypes.join(", ")}`
         );
       }
     }
@@ -219,14 +219,14 @@ export class FileUploadHandler extends EventTarget {
         if (reader.result instanceof ArrayBuffer) {
           resolve(reader.result);
         } else {
-          reject(new Error('Failed to read file as ArrayBuffer'));
+          reject(new Error("Failed to read file as ArrayBuffer"));
         }
       };
 
       reader.onerror = () => {
         reject(
           new Error(
-            `Failed to read file: ${reader.error?.message || 'Unknown error'}`
+            `Failed to read file: ${reader.error?.message || "Unknown error"}`
           )
         );
       };
@@ -236,9 +236,9 @@ export class FileUploadHandler extends EventTarget {
   }
 
   private async calculateSHA256(arrayBuffer: ArrayBuffer): Promise<string> {
-    const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", arrayBuffer);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+    return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
   }
 
   private createProcessedBlob(
@@ -254,7 +254,7 @@ export class FileUploadHandler extends EventTarget {
       data,
       sha256,
       size: file.size,
-      mime: file.type || 'application/octet-stream',
+      mime: file.type || "application/octet-stream",
       source_client_id: this.options.clientId,
       local_path: file.name,
       metadata: {
@@ -269,9 +269,9 @@ export class FileUploadHandler extends EventTarget {
   }
 
   private formatFileSize(bytes: number): string {
-    if (!bytes) return 'Unknown size';
+    if (!bytes) return "Unknown size";
 
-    const units = ['B', 'KB', 'MB', 'GB'];
+    const units = ["B", "KB", "MB", "GB"];
     let size = bytes;
     let unitIndex = 0;
 
@@ -298,11 +298,11 @@ export class FileUploadHandler extends EventTarget {
 
     return {
       total: uploads.length,
-      pending: uploads.filter((u) => u.status === 'pending').length,
-      processing: uploads.filter((u) => u.status === 'processing').length,
-      uploading: uploads.filter((u) => u.status === 'uploading').length,
-      completed: uploads.filter((u) => u.status === 'completed').length,
-      errors: uploads.filter((u) => u.status === 'error').length,
+      pending: uploads.filter((u) => u.status === "pending").length,
+      processing: uploads.filter((u) => u.status === "processing").length,
+      uploading: uploads.filter((u) => u.status === "uploading").length,
+      completed: uploads.filter((u) => u.status === "completed").length,
+      errors: uploads.filter((u) => u.status === "error").length,
     };
   }
 
@@ -313,7 +313,7 @@ export class FileUploadHandler extends EventTarget {
     this.options = { ...this.options, ...options };
 
     this.dispatchEvent(
-      new CustomEvent('options-updated', {
+      new CustomEvent("options-updated", {
         detail: { options: this.options },
       })
     );
@@ -327,18 +327,21 @@ export class FileUploadHandler extends EventTarget {
 
     // Remove all event listeners
     const events = [
-      'upload-started',
-      'upload-processed',
-      'upload-completed',
-      'upload-error',
-      'upload-cancelled',
-      'uploads-cleared',
-      'options-updated',
+      "upload-started",
+      "upload-processed",
+      "upload-completed",
+      "upload-error",
+      "upload-cancelled",
+      "uploads-cleared",
+      "options-updated",
     ];
     events.forEach((event) => {
-      const listeners = (this as any)._listeners?.[event] || [];
-      listeners.forEach((listener: any) => {
-        this.removeEventListener(event, listener);
+      // Remove all listeners for each event type
+      const listeners =
+        (this as unknown as { _listeners?: Record<string, unknown[]> })
+          ._listeners?.[event] || [];
+      listeners.forEach((listener: unknown) => {
+        this.removeEventListener(event, listener as EventListener);
       });
     });
   }

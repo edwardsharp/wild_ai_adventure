@@ -11,10 +11,10 @@ import {
   safeParseWebSocketResponse,
   createMessage,
   MediaBlob,
-} from './websocket-types.js';
+} from "./websocket-types.js";
 
 // Re-export types for convenience
-export { ConnectionStatus } from './websocket-types.js';
+export { ConnectionStatus } from "./websocket-types.js";
 
 export interface WebSocketClientConfig {
   /** WebSocket URL (e.g., 'ws://localhost:3000/ws') */
@@ -100,7 +100,7 @@ export class WebSocketClient {
    */
   connect(): void {
     if (this.socket?.readyState === WebSocket.OPEN) {
-      this.log('Already connected');
+      this.log("Already connected");
       return;
     }
 
@@ -111,7 +111,7 @@ export class WebSocketClient {
       this.socket = new WebSocket(this.config.url);
       this.setupSocketListeners();
     } catch (error) {
-      this.log('Connection error:', error);
+      this.log("Connection error:", error);
       this.setStatus(ConnectionStatus.Error);
       this.scheduleReconnect();
     }
@@ -121,12 +121,12 @@ export class WebSocketClient {
    * Disconnect from WebSocket server
    */
   disconnect(): void {
-    this.log('Disconnecting...');
+    this.log("Disconnecting...");
     this.clearReconnectTimer();
     this.clearPingInterval();
 
     if (this.socket) {
-      this.socket.close(1000, 'Client disconnect');
+      this.socket.close(1000, "Client disconnect");
       this.socket = null;
     }
 
@@ -138,17 +138,17 @@ export class WebSocketClient {
    */
   send(message: WebSocketMessage): boolean {
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
-      this.log('Cannot send message: not connected');
+      this.log("Cannot send message: not connected");
       return false;
     }
 
     try {
       const json = JSON.stringify(message);
       this.socket.send(json);
-      this.log('Sent message:', message);
+      this.log("Sent message:", message);
       return true;
     } catch (error) {
-      this.log('Send error:', error);
+      this.log("Send error:", error);
       return false;
     }
   }
@@ -185,7 +185,7 @@ export class WebSocketClient {
     if (!this.socket) return;
 
     this.socket.onopen = () => {
-      this.log('Connected');
+      this.log("Connected");
       this.setStatus(ConnectionStatus.Connected);
       this.reconnectAttempts = 0;
       this.startPing();
@@ -202,7 +202,7 @@ export class WebSocketClient {
     };
 
     this.socket.onerror = (error) => {
-      this.log('Socket error:', error);
+      this.log("Socket error:", error);
       this.setStatus(ConnectionStatus.Error);
     };
 
@@ -212,7 +212,7 @@ export class WebSocketClient {
   }
 
   private handleMessage(rawMessage: string): void {
-    this.log('Received raw message:', rawMessage);
+    this.log("Received raw message:", rawMessage);
     this.listeners.rawMessage?.(rawMessage);
 
     try {
@@ -223,40 +223,40 @@ export class WebSocketClient {
         const error = new Error(
           `Message parse error: ${parseResult.error.message}`
         );
-        this.log('Parse error:', error);
+        this.log("Parse error:", error);
         this.listeners.parseError?.(error, rawMessage);
         return;
       }
 
       const response = parseResult.data;
-      this.log('Parsed message:', response);
+      this.log("Parsed message:", response);
 
       // Dispatch to specific handlers
       switch (response.type) {
-        case 'Welcome':
+        case "Welcome":
           this.listeners.welcome?.(response.data);
           break;
-        case 'Pong':
-          this.log('Received pong');
+        case "Pong":
+          this.log("Received pong");
           break;
-        case 'MediaBlobs':
+        case "MediaBlobs":
           this.listeners.mediaBlobs?.(response.data);
           break;
-        case 'MediaBlob':
+        case "MediaBlob":
           this.listeners.mediaBlob?.(response.data);
           break;
-        case 'Error':
+        case "Error":
           this.listeners.error?.(response.data);
           break;
-        case 'ConnectionStatus':
+        case "ConnectionStatus":
           this.listeners.connectionStatus?.(response.data);
           break;
         default:
-          this.log('Unknown message type:', response);
+          this.log("Unknown message type:", response);
       }
     } catch (error) {
       const parseError = new Error(`JSON parse error: ${error}`);
-      this.log('JSON parse error:', parseError);
+      this.log("JSON parse error:", parseError);
       this.listeners.parseError?.(parseError, rawMessage);
     }
   }
@@ -276,7 +276,7 @@ export class WebSocketClient {
       this.config.maxReconnectAttempts > 0 &&
       this.reconnectAttempts >= this.config.maxReconnectAttempts
     ) {
-      this.log('Max reconnection attempts reached');
+      this.log("Max reconnection attempts reached");
       return;
     }
 
@@ -316,7 +316,7 @@ export class WebSocketClient {
 
   private log(...args: unknown[]): void {
     if (this.config.debug) {
-      console.log('[WebSocketClient]', ...args);
+      console.log("[WebSocketClient]", ...args);
     }
   }
 }

@@ -1,26 +1,26 @@
-import { customElement } from 'solid-element';
+import { customElement } from "solid-element";
 import {
   createSignal,
   createEffect,
   onMount,
   Show,
   createMemo,
-} from 'solid-js';
+} from "solid-js";
 
 // Import the API client from parent clientlib
-import { ApiClient, ApiError } from '../lib/api-client.js';
+import { ApiClient, ApiError } from "../lib/api-client.js";
 
 // WebAuthn types
-type UserVerificationRequirement = 'required' | 'preferred' | 'discouraged';
+type UserVerificationRequirement = "required" | "preferred" | "discouraged";
 
 export interface WebAuthnAuthProps {
   baseUrl?: string;
-  theme?: 'light' | 'dark' | 'auto';
+  theme?: "light" | "dark" | "auto";
 }
 
 // Base64 utility functions for WebAuthn
 const base64ToUint8Array = (base64: string): Uint8Array => {
-  const binaryString = atob(base64.replace(/-/g, '+').replace(/_/g, '/'));
+  const binaryString = atob(base64.replace(/-/g, "+").replace(/_/g, "/"));
   const bytes = new Uint8Array(binaryString.length);
   for (let i = 0; i < binaryString.length; i++) {
     bytes[i] = binaryString.charCodeAt(i);
@@ -29,42 +29,42 @@ const base64ToUint8Array = (base64: string): Uint8Array => {
 };
 
 const uint8ArrayToBase64 = (uint8Array: Uint8Array): string => {
-  let binaryString = '';
+  let binaryString = "";
   for (let i = 0; i < uint8Array.length; i++) {
     binaryString += String.fromCharCode(uint8Array[i]!);
   }
   return btoa(binaryString)
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=/g, '');
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=/g, "");
 };
 
-customElement('webauthn-auth', { baseUrl: '', theme: 'auto' }, (props) => {
-  const [username, setUsername] = createSignal('');
-  const [inviteCode, setInviteCode] = createSignal('');
+customElement("webauthn-auth", { baseUrl: "", theme: "auto" }, (props) => {
+  const [username, setUsername] = createSignal("");
+  const [inviteCode, setInviteCode] = createSignal("");
   const [isAuthenticated, setIsAuthenticated] = createSignal(false);
   const [currentUser, setCurrentUser] = createSignal<string | null>(null);
   const [isLoading, setIsLoading] = createSignal(false);
-  const [message, setMessage] = createSignal('');
+  const [message, setMessage] = createSignal("");
   const [messageType, setMessageType] = createSignal<
-    'info' | 'success' | 'error'
-  >('info');
-  const [mode, setMode] = createSignal<'login' | 'register'>('login');
+    "info" | "success" | "error"
+  >("info");
+  const [mode, setMode] = createSignal<"login" | "register">("login");
 
   const apiClient = createMemo(
     () =>
       new ApiClient({
-        baseUrl: props.baseUrl || 'http://localhost:8080',
+        baseUrl: props.baseUrl || "http://localhost:8080",
       })
   );
 
   const showMessage = (
     msg: string,
-    type: 'info' | 'success' | 'error' = 'info'
+    type: "info" | "success" | "error" = "info"
   ) => {
     setMessage(msg);
     setMessageType(type);
-    setTimeout(() => setMessage(''), 5000);
+    setTimeout(() => setMessage(""), 5000);
   };
 
   const handleError = (error: unknown) => {
@@ -73,15 +73,15 @@ customElement('webauthn-auth', { baseUrl: '', theme: 'auto' }, (props) => {
         ? `${error.message} (${error.status})`
         : error instanceof Error
           ? error.message
-          : 'An unknown error occurred';
+          : "An unknown error occurred";
 
-    showMessage(errorMessage, 'error');
+    showMessage(errorMessage, "error");
 
     // Dispatch custom event for error
-    const element = document.querySelector('webauthn-auth');
+    const element = document.querySelector("webauthn-auth");
     if (element) {
       element.dispatchEvent(
-        new CustomEvent('webauthn-error', {
+        new CustomEvent("webauthn-error", {
           detail: { error: errorMessage },
           bubbles: true,
         })
@@ -104,7 +104,7 @@ customElement('webauthn-auth', { baseUrl: '', theme: 'auto' }, (props) => {
 
   const handleRegister = async () => {
     if (!username() || !inviteCode()) {
-      showMessage('Please enter both username and invite code', 'error');
+      showMessage("Please enter both username and invite code", "error");
       return;
     }
 
@@ -151,7 +151,7 @@ customElement('webauthn-auth', { baseUrl: '', theme: 'auto' }, (props) => {
       )) as PublicKeyCredential;
 
       if (!credential) {
-        throw new Error('Failed to create credential');
+        throw new Error("Failed to create credential");
       }
 
       // Finish registration
@@ -173,14 +173,14 @@ customElement('webauthn-auth', { baseUrl: '', theme: 'auto' }, (props) => {
         },
       });
 
-      showMessage('Registration successful!', 'success');
+      showMessage("Registration successful!", "success");
       await checkAuthStatus();
 
       // Dispatch custom event for login
-      const element = document.querySelector('webauthn-auth');
+      const element = document.querySelector("webauthn-auth");
       if (element) {
         element.dispatchEvent(
-          new CustomEvent('webauthn-login', {
+          new CustomEvent("webauthn-login", {
             detail: { username: username() },
             bubbles: true,
           })
@@ -195,7 +195,7 @@ customElement('webauthn-auth', { baseUrl: '', theme: 'auto' }, (props) => {
 
   const handleLogin = async () => {
     if (!username()) {
-      showMessage('Please enter a username', 'error');
+      showMessage("Please enter a username", "error");
       return;
     }
 
@@ -226,7 +226,7 @@ customElement('webauthn-auth', { baseUrl: '', theme: 'auto' }, (props) => {
       )) as PublicKeyCredential;
 
       if (!assertion) {
-        throw new Error('Failed to get assertion');
+        throw new Error("Failed to get assertion");
       }
 
       // Finish login
@@ -263,14 +263,14 @@ customElement('webauthn-auth', { baseUrl: '', theme: 'auto' }, (props) => {
         },
       });
 
-      showMessage('Login successful!', 'success');
+      showMessage("Login successful!", "success");
       await checkAuthStatus();
 
       // Dispatch custom event for login
-      const element = document.querySelector('webauthn-auth');
+      const element = document.querySelector("webauthn-auth");
       if (element) {
         element.dispatchEvent(
-          new CustomEvent('webauthn-login', {
+          new CustomEvent("webauthn-login", {
             detail: { username: username() },
             bubbles: true,
           })
@@ -289,15 +289,15 @@ customElement('webauthn-auth', { baseUrl: '', theme: 'auto' }, (props) => {
       await apiClient().logout();
       setIsAuthenticated(false);
       setCurrentUser(null);
-      setUsername('');
-      setInviteCode('');
-      showMessage('Logged out successfully', 'success');
+      setUsername("");
+      setInviteCode("");
+      showMessage("Logged out successfully", "success");
 
       // Dispatch custom event for logout
-      const element = document.querySelector('webauthn-auth');
+      const element = document.querySelector("webauthn-auth");
       if (element) {
         element.dispatchEvent(
-          new CustomEvent('webauthn-logout', {
+          new CustomEvent("webauthn-logout", {
             bubbles: true,
           })
         );
@@ -310,10 +310,10 @@ customElement('webauthn-auth', { baseUrl: '', theme: 'auto' }, (props) => {
   };
 
   const handleEnterKey = (event: KeyboardEvent) => {
-    if (event.key === 'Enter') {
-      if (mode() === 'register' && username() && inviteCode()) {
+    if (event.key === "Enter") {
+      if (mode() === "register" && username() && inviteCode()) {
         handleRegister();
-      } else if (mode() === 'login' && username()) {
+      } else if (mode() === "login" && username()) {
         handleLogin();
       }
     }
@@ -321,9 +321,9 @@ customElement('webauthn-auth', { baseUrl: '', theme: 'auto' }, (props) => {
 
   const updateMode = () => {
     if (username() && inviteCode()) {
-      setMode('register');
+      setMode("register");
     } else if (username()) {
-      setMode('login');
+      setMode("login");
     }
   };
 
@@ -338,9 +338,9 @@ customElement('webauthn-auth', { baseUrl: '', theme: 'auto' }, (props) => {
   });
 
   const getThemeClass = () => {
-    const theme = props.theme || 'auto';
-    if (theme === 'auto') {
-      return 'webauthn-theme-auto';
+    const theme = props.theme || "auto";
+    if (theme === "auto") {
+      return "webauthn-theme-auto";
     }
     return `webauthn-theme-${theme}`;
   };
@@ -349,23 +349,23 @@ customElement('webauthn-auth', { baseUrl: '', theme: 'auto' }, (props) => {
     <div
       class={`webauthn-auth ${getThemeClass()}`}
       style={{
-        'max-width': '400px',
-        margin: '0 auto',
-        padding: '1.5rem',
-        border: '1px solid #e1e5e9',
-        'border-radius': '8px',
-        background: props.theme === 'dark' ? '#1a1a1a' : 'white',
-        color: props.theme === 'dark' ? 'white' : 'black',
-        'font-family':
+        "max-width": "400px",
+        margin: "0 auto",
+        padding: "1.5rem",
+        border: "1px solid #e1e5e9",
+        "border-radius": "8px",
+        background: props.theme === "dark" ? "#1a1a1a" : "white",
+        color: props.theme === "dark" ? "white" : "black",
+        "font-family":
           '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
       }}
     >
       <h2
         style={{
-          'text-align': 'center',
-          'margin-bottom': '1.5rem',
-          'font-size': '1.5rem',
-          'font-weight': '600',
+          "text-align": "center",
+          "margin-bottom": "1.5rem",
+          "font-size": "1.5rem",
+          "font-weight": "600",
         }}
       >
         WebAuthn Authentication
@@ -374,22 +374,22 @@ customElement('webauthn-auth', { baseUrl: '', theme: 'auto' }, (props) => {
       <Show when={message()}>
         <div
           style={{
-            padding: '0.75rem',
-            'border-radius': '6px',
-            'margin-bottom': '1rem',
-            'font-size': '0.875rem',
+            padding: "0.75rem",
+            "border-radius": "6px",
+            "margin-bottom": "1rem",
+            "font-size": "0.875rem",
             background:
-              messageType() === 'error'
-                ? '#fee2e2'
-                : messageType() === 'success'
-                  ? '#dcfce7'
-                  : '#dbeafe',
+              messageType() === "error"
+                ? "#fee2e2"
+                : messageType() === "success"
+                  ? "#dcfce7"
+                  : "#dbeafe",
             color:
-              messageType() === 'error'
-                ? '#991b1b'
-                : messageType() === 'success'
-                  ? '#166534'
-                  : '#1e40af',
+              messageType() === "error"
+                ? "#991b1b"
+                : messageType() === "success"
+                  ? "#166534"
+                  : "#1e40af",
           }}
         >
           {message()}
@@ -400,17 +400,17 @@ customElement('webauthn-auth', { baseUrl: '', theme: 'auto' }, (props) => {
         when={!isAuthenticated()}
         fallback={
           <div>
-            <div style={{ 'text-align': 'center', 'margin-bottom': '1rem' }}>
+            <div style={{ "text-align": "center", "margin-bottom": "1rem" }}>
               <p>
-                Welcome,{' '}
-                <span style={{ 'font-weight': '600' }}>{currentUser()}</span>!
+                Welcome,{" "}
+                <span style={{ "font-weight": "600" }}>{currentUser()}</span>!
               </p>
               <p
                 style={{
-                  'font-size': '0.875rem',
-                  color: '#6b7280',
-                  'text-align': 'center',
-                  'margin-top': '0.5rem',
+                  "font-size": "0.875rem",
+                  color: "#6b7280",
+                  "text-align": "center",
+                  "margin-top": "0.5rem",
                 }}
               >
                 You are successfully authenticated.
@@ -418,20 +418,20 @@ customElement('webauthn-auth', { baseUrl: '', theme: 'auto' }, (props) => {
             </div>
             <button
               style={{
-                padding: '0.75rem 1.5rem',
-                border: 'none',
-                'border-radius': '6px',
-                'font-size': '1rem',
-                'font-weight': '500',
-                cursor: isLoading() ? 'not-allowed' : 'pointer',
-                transition: 'all 0.2s',
-                'min-height': '48px',
-                display: 'flex',
-                'align-items': 'center',
-                'justify-content': 'center',
-                gap: '0.5rem',
-                background: '#ef4444',
-                color: 'white',
+                padding: "0.75rem 1.5rem",
+                border: "none",
+                "border-radius": "6px",
+                "font-size": "1rem",
+                "font-weight": "500",
+                cursor: isLoading() ? "not-allowed" : "pointer",
+                transition: "all 0.2s",
+                "min-height": "48px",
+                display: "flex",
+                "align-items": "center",
+                "justify-content": "center",
+                gap: "0.5rem",
+                background: "#ef4444",
+                color: "white",
               }}
               onClick={handleLogout}
               disabled={isLoading()}
@@ -439,12 +439,12 @@ customElement('webauthn-auth', { baseUrl: '', theme: 'auto' }, (props) => {
               <Show when={isLoading()}>
                 <div
                   style={{
-                    width: '20px',
-                    height: '20px',
-                    border: '2px solid transparent',
-                    'border-top': '2px solid currentColor',
-                    'border-radius': '50%',
-                    animation: 'spin 1s linear infinite',
+                    width: "20px",
+                    height: "20px",
+                    border: "2px solid transparent",
+                    "border-top": "2px solid currentColor",
+                    "border-radius": "50%",
+                    animation: "spin 1s linear infinite",
                   }}
                 />
               </Show>
@@ -454,16 +454,16 @@ customElement('webauthn-auth', { baseUrl: '', theme: 'auto' }, (props) => {
         }
       >
         <div
-          style={{ display: 'flex', 'flex-direction': 'column', gap: '1rem' }}
+          style={{ display: "flex", "flex-direction": "column", gap: "1rem" }}
         >
           <input
             style={{
-              padding: '0.75rem',
-              border: '1px solid #d1d5db',
-              'border-radius': '6px',
-              'font-size': '1rem',
-              background: props.theme === 'dark' ? '#2a2a2a' : 'white',
-              color: props.theme === 'dark' ? 'white' : 'black',
+              padding: "0.75rem",
+              border: "1px solid #d1d5db",
+              "border-radius": "6px",
+              "font-size": "1rem",
+              background: props.theme === "dark" ? "#2a2a2a" : "white",
+              color: props.theme === "dark" ? "white" : "black",
             }}
             type="text"
             placeholder="Username"
@@ -475,12 +475,12 @@ customElement('webauthn-auth', { baseUrl: '', theme: 'auto' }, (props) => {
 
           <input
             style={{
-              padding: '0.75rem',
-              border: '1px solid #d1d5db',
-              'border-radius': '6px',
-              'font-size': '1rem',
-              background: props.theme === 'dark' ? '#2a2a2a' : 'white',
-              color: props.theme === 'dark' ? 'white' : 'black',
+              padding: "0.75rem",
+              border: "1px solid #d1d5db",
+              "border-radius": "6px",
+              "font-size": "1rem",
+              background: props.theme === "dark" ? "#2a2a2a" : "white",
+              color: props.theme === "dark" ? "white" : "black",
             }}
             type="text"
             placeholder="Invite or account link code (optional)"
@@ -490,29 +490,29 @@ customElement('webauthn-auth', { baseUrl: '', theme: 'auto' }, (props) => {
             disabled={isLoading()}
           />
 
-          <Show when={mode() === 'register'}>
+          <Show when={mode() === "register"}>
             <button
               style={{
-                padding: '0.75rem 1.5rem',
-                border: 'none',
-                'border-radius': '6px',
-                'font-size': '1rem',
-                'font-weight': '500',
+                padding: "0.75rem 1.5rem",
+                border: "none",
+                "border-radius": "6px",
+                "font-size": "1rem",
+                "font-weight": "500",
                 cursor:
                   isLoading() || !username() || !inviteCode()
-                    ? 'not-allowed'
-                    : 'pointer',
-                transition: 'all 0.2s',
-                'min-height': '48px',
-                display: 'flex',
-                'align-items': 'center',
-                'justify-content': 'center',
-                gap: '0.5rem',
+                    ? "not-allowed"
+                    : "pointer",
+                transition: "all 0.2s",
+                "min-height": "48px",
+                display: "flex",
+                "align-items": "center",
+                "justify-content": "center",
+                gap: "0.5rem",
                 background:
                   isLoading() || !username() || !inviteCode()
-                    ? '#9ca3af'
-                    : '#10b981',
-                color: 'white',
+                    ? "#9ca3af"
+                    : "#10b981",
+                color: "white",
               }}
               onClick={handleRegister}
               disabled={isLoading() || !username() || !inviteCode()}
@@ -520,12 +520,12 @@ customElement('webauthn-auth', { baseUrl: '', theme: 'auto' }, (props) => {
               <Show when={isLoading()}>
                 <div
                   style={{
-                    width: '20px',
-                    height: '20px',
-                    border: '2px solid transparent',
-                    'border-top': '2px solid currentColor',
-                    'border-radius': '50%',
-                    animation: 'spin 1s linear infinite',
+                    width: "20px",
+                    height: "20px",
+                    border: "2px solid transparent",
+                    "border-top": "2px solid currentColor",
+                    "border-radius": "50%",
+                    animation: "spin 1s linear infinite",
                   }}
                 />
               </Show>
@@ -533,33 +533,33 @@ customElement('webauthn-auth', { baseUrl: '', theme: 'auto' }, (props) => {
             </button>
             <p
               style={{
-                'font-size': '0.875rem',
-                color: '#6b7280',
-                'text-align': 'center',
-                'margin-top': '0.5rem',
+                "font-size": "0.875rem",
+                color: "#6b7280",
+                "text-align": "center",
+                "margin-top": "0.5rem",
               }}
             >
               Ready to register with invite code (Press Enter)
             </p>
           </Show>
 
-          <Show when={mode() === 'login'}>
+          <Show when={mode() === "login"}>
             <button
               style={{
-                padding: '0.75rem 1.5rem',
-                border: 'none',
-                'border-radius': '6px',
-                'font-size': '1rem',
-                'font-weight': '500',
-                cursor: isLoading() || !username() ? 'not-allowed' : 'pointer',
-                transition: 'all 0.2s',
-                'min-height': '48px',
-                display: 'flex',
-                'align-items': 'center',
-                'justify-content': 'center',
-                gap: '0.5rem',
-                background: isLoading() || !username() ? '#9ca3af' : '#3b82f6',
-                color: 'white',
+                padding: "0.75rem 1.5rem",
+                border: "none",
+                "border-radius": "6px",
+                "font-size": "1rem",
+                "font-weight": "500",
+                cursor: isLoading() || !username() ? "not-allowed" : "pointer",
+                transition: "all 0.2s",
+                "min-height": "48px",
+                display: "flex",
+                "align-items": "center",
+                "justify-content": "center",
+                gap: "0.5rem",
+                background: isLoading() || !username() ? "#9ca3af" : "#3b82f6",
+                color: "white",
               }}
               onClick={handleLogin}
               disabled={isLoading() || !username()}
@@ -567,12 +567,12 @@ customElement('webauthn-auth', { baseUrl: '', theme: 'auto' }, (props) => {
               <Show when={isLoading()}>
                 <div
                   style={{
-                    width: '20px',
-                    height: '20px',
-                    border: '2px solid transparent',
-                    'border-top': '2px solid currentColor',
-                    'border-radius': '50%',
-                    animation: 'spin 1s linear infinite',
+                    width: "20px",
+                    height: "20px",
+                    border: "2px solid transparent",
+                    "border-top": "2px solid currentColor",
+                    "border-radius": "50%",
+                    animation: "spin 1s linear infinite",
                   }}
                 />
               </Show>
@@ -580,15 +580,15 @@ customElement('webauthn-auth', { baseUrl: '', theme: 'auto' }, (props) => {
             </button>
             <p
               style={{
-                'font-size': '0.875rem',
-                color: '#6b7280',
-                'text-align': 'center',
-                'margin-top': '0.5rem',
+                "font-size": "0.875rem",
+                color: "#6b7280",
+                "text-align": "center",
+                "margin-top": "0.5rem",
               }}
             >
               {username()
-                ? 'Ready to login (Press Enter, or add invite code to register)'
-                : 'Enter your username to login, or username + invite code to register'}
+                ? "Ready to login (Press Enter, or add invite code to register)"
+                : "Enter your username to login, or username + invite code to register"}
             </p>
           </Show>
         </div>
@@ -598,4 +598,4 @@ customElement('webauthn-auth', { baseUrl: '', theme: 'auto' }, (props) => {
 });
 
 // Export version info
-export const VERSION = '1.0.0';
+export const VERSION = "1.0.0";

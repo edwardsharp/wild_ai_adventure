@@ -13,7 +13,7 @@ export interface MediaBlob {
   mime: string;
   source_client_id?: string;
   local_path?: string;
-  metadata?: Record<string, any>;
+  metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;
 }
@@ -55,7 +55,7 @@ export class MediaBlobManager extends EventTarget {
     // Auto-load images for thumbnails
     this.blobs.forEach((blob) => {
       if (
-        blob.mime?.startsWith('image/') &&
+        blob.mime?.startsWith("image/") &&
         !this.isCached(blob.id) &&
         !this.isLoading(blob.id)
       ) {
@@ -64,7 +64,7 @@ export class MediaBlobManager extends EventTarget {
     });
 
     this.dispatchEvent(
-      new CustomEvent('blobs-updated', {
+      new CustomEvent("blobs-updated", {
         detail: { blobs: this.blobs, count: this.blobs.length },
       })
     );
@@ -93,7 +93,7 @@ export class MediaBlobManager extends EventTarget {
     // Convert data array to Uint8Array and create blob
     const uint8Array = new Uint8Array(blobData.data);
     const blob = new Blob([uint8Array], {
-      type: blobData.mime || 'application/octet-stream',
+      type: blobData.mime || "application/octet-stream",
     });
     const dataUrl = URL.createObjectURL(blob);
 
@@ -102,7 +102,7 @@ export class MediaBlobManager extends EventTarget {
     this.loadingBlobs.delete(blobData.id);
 
     this.dispatchEvent(
-      new CustomEvent('blob-data-cached', {
+      new CustomEvent("blob-data-cached", {
         detail: { id: blobData.id, dataUrl, mime: blobData.mime },
       })
     );
@@ -147,7 +147,7 @@ export class MediaBlobManager extends EventTarget {
     this.markAsLoading(blobId);
 
     this.dispatchEvent(
-      new CustomEvent('blob-data-requested', {
+      new CustomEvent("blob-data-requested", {
         detail: { id: blobId },
       })
     );
@@ -159,16 +159,16 @@ export class MediaBlobManager extends EventTarget {
   getBlobDisplayInfo(blob: MediaBlob): BlobDisplayInfo {
     return {
       id: blob.id,
-      mime: blob.mime || 'Unknown type',
+      mime: blob.mime || "Unknown type",
       size: this.formatFileSize(blob.size),
       sha256: blob.sha256,
-      clientId: blob.source_client_id || 'Unknown',
-      path: blob.local_path || 'None',
+      clientId: blob.source_client_id || "Unknown",
+      path: blob.local_path || "None",
       createdAt: new Date(blob.created_at).toLocaleString(),
       metadata:
         Object.keys(blob.metadata || {}).length > 0
           ? JSON.stringify(blob.metadata)
-          : '',
+          : "",
       thumbnailHtml: this.generateThumbnailHtml(blob),
     };
   }
@@ -177,16 +177,16 @@ export class MediaBlobManager extends EventTarget {
    * Generate thumbnail HTML for a blob
    */
   generateThumbnailHtml(blob: MediaBlob): string {
-    const mime = blob.mime || '';
+    const mime = blob.mime || "";
     const cachedData = this.getCachedDataUrl(blob.id);
     const isLoading = this.isLoading(blob.id);
 
     const baseStyle =
-      'width: 80px; height: 80px; border-radius: 4px; object-fit: cover;';
+      "width: 80px; height: 80px; border-radius: 4px; object-fit: cover;";
     const placeholderStyle =
-      'display: flex; align-items: center; justify-content: center; background: #f0f0f0; font-size: 0.7em; border-radius: 4px; cursor: pointer;';
+      "display: flex; align-items: center; justify-content: center; background: #f0f0f0; font-size: 0.7em; border-radius: 4px; cursor: pointer;";
 
-    if (mime.startsWith('image/')) {
+    if (mime.startsWith("image/")) {
       if (cachedData) {
         return `<img src="${cachedData}" alt="Thumbnail" style="${baseStyle}" loading="lazy">`;
       } else if (isLoading) {
@@ -194,7 +194,7 @@ export class MediaBlobManager extends EventTarget {
       } else {
         return `<div style="${baseStyle} ${placeholderStyle}" onclick="window.loadBlobData('${blob.id}')">LOAD IMAGE</div>`;
       }
-    } else if (mime.startsWith('video/')) {
+    } else if (mime.startsWith("video/")) {
       if (cachedData) {
         return `<video style="${baseStyle}" controls muted><source src="${cachedData}" type="${mime}"></video>`;
       } else if (isLoading) {
@@ -202,7 +202,7 @@ export class MediaBlobManager extends EventTarget {
       } else {
         return `<div style="${baseStyle} ${placeholderStyle}" onclick="window.loadBlobData('${blob.id}')">LOAD VIDEO</div>`;
       }
-    } else if (mime.startsWith('audio/')) {
+    } else if (mime.startsWith("audio/")) {
       if (cachedData) {
         return `<audio style="${baseStyle}" controls><source src="${cachedData}" type="${mime}"></audio>`;
       } else if (isLoading) {
@@ -210,7 +210,7 @@ export class MediaBlobManager extends EventTarget {
       } else {
         return `<div style="${baseStyle} ${placeholderStyle}" onclick="window.loadBlobData('${blob.id}')">LOAD AUDIO</div>`;
       }
-    } else if (mime === 'application/pdf') {
+    } else if (mime === "application/pdf") {
       return `<div style="${baseStyle} ${placeholderStyle}">PDF</div>`;
     } else {
       return `<div style="${baseStyle} ${placeholderStyle}">FILE</div>`;
@@ -231,7 +231,7 @@ export class MediaBlobManager extends EventTarget {
     const downloadName = filename || blob?.local_path || `blob-${blobId}`;
 
     // Create download link
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = cachedData;
     a.download = downloadName;
     document.body.appendChild(a);
@@ -239,7 +239,7 @@ export class MediaBlobManager extends EventTarget {
     document.body.removeChild(a);
 
     this.dispatchEvent(
-      new CustomEvent('blob-downloaded', {
+      new CustomEvent("blob-downloaded", {
         detail: { id: blobId, filename: downloadName },
       })
     );
@@ -257,10 +257,10 @@ export class MediaBlobManager extends EventTarget {
       return false;
     }
 
-    window.open(cachedData, '_blank');
+    window.open(cachedData, "_blank");
 
     this.dispatchEvent(
-      new CustomEvent('blob-viewed', {
+      new CustomEvent("blob-viewed", {
         detail: { id: blobId },
       })
     );
@@ -272,9 +272,9 @@ export class MediaBlobManager extends EventTarget {
    * Format file size in human-readable format
    */
   formatFileSize(bytes: number): string {
-    if (!bytes) return 'Unknown size';
+    if (!bytes) return "Unknown size";
 
-    const units = ['B', 'KB', 'MB', 'GB'];
+    const units = ["B", "KB", "MB", "GB"];
     let size = bytes;
     let unitIndex = 0;
 
@@ -299,7 +299,7 @@ export class MediaBlobManager extends EventTarget {
     this.loadingBlobs.clear();
 
     this.dispatchEvent(
-      new CustomEvent('cache-cleared', {
+      new CustomEvent("cache-cleared", {
         detail: { timestamp: Date.now() },
       })
     );
@@ -329,17 +329,20 @@ export class MediaBlobManager extends EventTarget {
 
     // Remove all event listeners
     const events = [
-      'blobs-updated',
-      'blob-data-cached',
-      'blob-data-requested',
-      'blob-downloaded',
-      'blob-viewed',
-      'cache-cleared',
+      "blobs-updated",
+      "blob-data-cached",
+      "blob-data-requested",
+      "blob-downloaded",
+      "blob-viewed",
+      "cache-cleared",
     ];
     events.forEach((event) => {
-      const listeners = (this as any)._listeners?.[event] || [];
-      listeners.forEach((listener: any) => {
-        this.removeEventListener(event, listener);
+      // Remove all listeners for each event type
+      const listeners =
+        (this as unknown as { _listeners?: Record<string, unknown[]> })
+          ._listeners?.[event] || [];
+      listeners.forEach((listener: unknown) => {
+        this.removeEventListener(event, listener as EventListener);
       });
     });
   }

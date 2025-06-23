@@ -1,5 +1,5 @@
-import { z } from 'zod';
-import { API_SPEC } from './api-spec.js';
+import { z } from "zod";
+import { API_SPEC } from "./api-spec.js";
 import type {
   RegisterStartResponse,
   RegisterFinishRequest,
@@ -10,7 +10,7 @@ import type {
   LogoutResponse,
   AuthStatusResponse,
   HealthResponse,
-} from './api-spec.js';
+} from "./api-spec.js";
 
 // Error handling
 export class ApiError extends Error {
@@ -21,7 +21,7 @@ export class ApiError extends Error {
     public endpoint?: string
   ) {
     super(message);
-    this.name = 'ApiError';
+    this.name = "ApiError";
   }
 
   static async fromResponse(
@@ -57,7 +57,7 @@ export class ApiClient {
     this.baseUrl = config.baseUrl ?? API_SPEC.baseUrl;
     this.defaultHeaders = config.defaultHeaders ?? {};
     this.timeout = config.timeout ?? 30000;
-    this.credentials = config.credentials ?? 'include';
+    this.credentials = config.credentials ?? "include";
   }
 
   // Header management
@@ -144,7 +144,7 @@ export class ApiClient {
     }
 
     const requestHeaders = {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
       ...this.defaultHeaders,
       ...headers,
     };
@@ -173,9 +173,9 @@ export class ApiClient {
       }
 
       let data: unknown;
-      const contentType = response.headers.get('content-type');
+      const contentType = response.headers.get("content-type");
 
-      if (contentType?.includes('application/json')) {
+      if (contentType?.includes("application/json")) {
         data = await response.json();
       } else {
         const text = await response.text();
@@ -195,17 +195,17 @@ export class ApiClient {
         throw error;
       }
 
-      if (error instanceof DOMException && error.name === 'AbortError') {
+      if (error instanceof DOMException && error.name === "AbortError") {
         throw new ApiError(
           `Request timeout after ${this.timeout}ms`,
           408,
-          'Request Timeout',
+          "Request Timeout",
           endpoint
         );
       }
 
       throw new ApiError(
-        `Network error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        `Network error: ${error instanceof Error ? error.message : "Unknown error"}`,
         0,
         String(error),
         endpoint
@@ -224,7 +224,7 @@ export class ApiClient {
     return this.request(config.method, url, {
       requestSchema: config.requestSchema,
       responseSchema: config.responseSchema,
-      endpoint: 'registerStart',
+      endpoint: "registerStart",
     });
   }
 
@@ -238,7 +238,7 @@ export class ApiClient {
       body: request,
       requestSchema: config.requestSchema,
       responseSchema: config.responseSchema,
-      endpoint: 'registerFinish',
+      endpoint: "registerFinish",
     });
   }
 
@@ -250,7 +250,7 @@ export class ApiClient {
     return this.request(config.method, url, {
       requestSchema: config.requestSchema,
       responseSchema: config.responseSchema,
-      endpoint: 'loginStart',
+      endpoint: "loginStart",
     });
   }
 
@@ -262,7 +262,7 @@ export class ApiClient {
       body: request,
       requestSchema: config.requestSchema,
       responseSchema: config.responseSchema,
-      endpoint: 'loginFinish',
+      endpoint: "loginFinish",
     });
   }
 
@@ -274,7 +274,7 @@ export class ApiClient {
     return this.request(config.method, url, {
       requestSchema: config.requestSchema,
       responseSchema: config.responseSchema,
-      endpoint: 'logout',
+      endpoint: "logout",
     });
   }
 
@@ -285,7 +285,7 @@ export class ApiClient {
     return this.request(config.method, url, {
       requestSchema: config.requestSchema,
       responseSchema: config.responseSchema,
-      endpoint: 'authStatus',
+      endpoint: "authStatus",
     });
   }
 
@@ -297,7 +297,7 @@ export class ApiClient {
     return this.request(config.method, url, {
       requestSchema: config.requestSchema,
       responseSchema: config.responseSchema,
-      endpoint: 'health',
+      endpoint: "health",
     });
   }
 }
@@ -323,6 +323,6 @@ export type {
   AuthStatusResponse,
   WebAuthnCredential,
   WebAuthnAssertion,
-} from './api-spec.js';
+} from "./api-spec.js";
 
-export { API_SPEC } from './api-spec.js';
+export { API_SPEC } from "./api-spec.js";

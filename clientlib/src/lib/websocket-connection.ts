@@ -11,13 +11,13 @@ import {
   validateIncomingMessage,
   validateOutgoingMessage,
   createMessage,
-} from './websocket-types.js';
+} from "./websocket-types.js";
 
 export type WebSocketConnectionStatus =
-  | 'disconnected'
-  | 'connecting'
-  | 'connected'
-  | 'error';
+  | "disconnected"
+  | "connecting"
+  | "connected"
+  | "error";
 
 export interface ConnectionStatusEvent {
   status: WebSocketConnectionStatus;
@@ -37,12 +37,12 @@ export interface WebSocketConnectionOptions {
 
 export class WebSocketConnection extends EventTarget {
   private socket: WebSocket | null = null;
-  private status: WebSocketConnectionStatus = 'disconnected';
+  private status: WebSocketConnectionStatus = "disconnected";
   private options: Required<WebSocketConnectionOptions>;
   private reconnectAttempts = 0;
   private reconnectTimer?: number;
   private pingTimer?: number;
-  private connectionId = '';
+  private connectionId = "";
   private userCount = 0;
 
   constructor(options: WebSocketConnectionOptions) {
@@ -68,13 +68,13 @@ export class WebSocketConnection extends EventTarget {
         return;
       }
 
-      this.setStatus('connecting');
+      this.setStatus("connecting");
 
       try {
         this.socket = new WebSocket(this.options.url);
         this.setupSocketListeners(resolve, reject);
       } catch (error) {
-        this.setStatus('error');
+        this.setStatus("error");
         reject(error);
       }
     });
@@ -88,7 +88,7 @@ export class WebSocketConnection extends EventTarget {
     this.options.autoReconnect = false; // Disable auto-reconnect for manual disconnect
 
     if (this.socket) {
-      this.socket.close(1000, 'Manual disconnect');
+      this.socket.close(1000, "Manual disconnect");
     }
   }
 
@@ -98,8 +98,8 @@ export class WebSocketConnection extends EventTarget {
   send(message: WebSocketMessage): boolean {
     if (!this.isConnected()) {
       this.dispatchEvent(
-        new CustomEvent('error', {
-          detail: { error: 'Cannot send message: not connected' },
+        new CustomEvent("error", {
+          detail: { error: "Cannot send message: not connected" },
         })
       );
       return false;
@@ -109,9 +109,9 @@ export class WebSocketConnection extends EventTarget {
     const validation = validateOutgoingMessage(message);
     if (!validation.success) {
       const error = `Message validation failed: ${validation.error}`;
-      this.log('error', error, validation.details);
+      this.log("error", error, validation.details);
       this.dispatchEvent(
-        new CustomEvent('validation-error', {
+        new CustomEvent("validation-error", {
           detail: { error, details: validation.details, message },
         })
       );
@@ -122,9 +122,9 @@ export class WebSocketConnection extends EventTarget {
       const json = JSON.stringify(validation.data);
       this.socket!.send(json);
 
-      this.log('debug', 'Message sent', validation.data);
+      this.log("debug", "Message sent", validation.data);
       this.dispatchEvent(
-        new CustomEvent('message-sent', {
+        new CustomEvent("message-sent", {
           detail: { message: validation.data },
         })
       );
@@ -132,9 +132,9 @@ export class WebSocketConnection extends EventTarget {
       return true;
     } catch (error) {
       const errorMessage = `Send error: ${error}`;
-      this.log('error', errorMessage);
+      this.log("error", errorMessage);
       this.dispatchEvent(
-        new CustomEvent('error', {
+        new CustomEvent("error", {
           detail: { error: errorMessage },
         })
       );
@@ -190,7 +190,7 @@ export class WebSocketConnection extends EventTarget {
     };
 
     this.dispatchEvent(
-      new CustomEvent('status-change', {
+      new CustomEvent("status-change", {
         detail: event,
       })
     );
@@ -198,12 +198,12 @@ export class WebSocketConnection extends EventTarget {
 
   private setupSocketListeners(
     resolve: () => void,
-    reject: (error: any) => void
+    reject: (error: unknown) => void
   ): void {
     if (!this.socket) return;
 
     this.socket.onopen = () => {
-      this.setStatus('connected');
+      this.setStatus("connected");
       this.reconnectAttempts = 0;
       this.setupPingTimer();
       resolve();
@@ -211,11 +211,11 @@ export class WebSocketConnection extends EventTarget {
 
     this.socket.onclose = (event) => {
       this.clearTimers();
-      this.setStatus('disconnected');
+      this.setStatus("disconnected");
       this.socket = null;
 
       this.dispatchEvent(
-        new CustomEvent('connection-closed', {
+        new CustomEvent("connection-closed", {
           detail: { code: event.code, reason: event.reason },
         })
       );
@@ -230,10 +230,10 @@ export class WebSocketConnection extends EventTarget {
     };
 
     this.socket.onerror = (error) => {
-      this.setStatus('error');
+      this.setStatus("error");
 
       this.dispatchEvent(
-        new CustomEvent('connection-error', {
+        new CustomEvent("connection-error", {
           detail: { error },
         })
       );
@@ -249,16 +249,16 @@ export class WebSocketConnection extends EventTarget {
   }
 
   private handleMessage(rawMessage: string): void {
-    this.log('debug', 'Raw message received', { length: rawMessage.length });
+    this.log("debug", "Raw message received", { length: rawMessage.length });
 
     // Validate and parse incoming message
     const validation = validateIncomingMessage(rawMessage);
 
     if (!validation.success) {
       const error = `Message validation failed: ${validation.error}`;
-      this.log('error', error, validation.details);
+      this.log("error", error, validation.details);
       this.dispatchEvent(
-        new CustomEvent('validation-error', {
+        new CustomEvent("validation-error", {
           detail: {
             error,
             details: validation.details,
@@ -271,63 +271,70 @@ export class WebSocketConnection extends EventTarget {
     }
 
     const response = validation.data;
-    this.log('debug', 'Message parsed successfully', response);
+    this.log("debug", "Message parsed successfully", response);
 
     // Handle built-in message types
     switch (response.type) {
-      case 'Welcome':
+      case "Welcome": {
         this.connectionId = response.data.connection_id;
-        this.log('info', 'Welcome received', {
+        this.log("info", "Welcome received", {
           connectionId: this.connectionId,
         });
         break;
+      }
 
-      case 'ConnectionStatus':
+      case "ConnectionStatus": {
         this.userCount = response.data.user_count;
-        this.log('info', 'Connection status updated', {
+        this.log("info", "Connection status updated", {
           userCount: this.userCount,
         });
         // Re-emit status change with updated user count
         this.setStatus(this.status);
         break;
+      }
 
-      case 'Pong':
-        this.log('debug', 'Pong received');
+      case "Pong": {
+        this.log("debug", "Pong received");
         this.dispatchEvent(
-          new CustomEvent('pong', {
+          new CustomEvent("pong", {
             detail: { timestamp: Date.now() },
           })
         );
         break;
+      }
 
-      case 'Error':
+      case "Error": {
         const errorMessage = response.data.message;
-        this.log('error', 'Server error received', { error: errorMessage });
+        this.log("error", "Server error received", { error: errorMessage });
         this.dispatchEvent(
-          new CustomEvent('server-error', {
+          new CustomEvent("server-error", {
             detail: { error: errorMessage, code: response.data.code },
           })
         );
         break;
+      }
 
-      case 'MediaBlobs':
-        this.log('info', 'Media blobs received', {
+      case "MediaBlobs": {
+        this.log("info", "Media blobs received", {
           count: response.data.blobs.length,
         });
         break;
+      }
 
-      case 'MediaBlob':
-        this.log('info', 'Media blob received', { id: response.data.blob.id });
+      case "MediaBlob": {
+        this.log("info", "Media blob received", { id: response.data.blob.id });
         break;
+      }
 
-      case 'MediaBlobData':
-        this.log('info', 'Media blob data received', { id: response.data.id });
+      case "MediaBlobData": {
+        this.log("info", "Media blob data received", { id: response.data.id });
         break;
+      }
     }
 
     // Always emit the validated message for custom handling
     this.dispatchEvent(
-      new CustomEvent('message', {
+      new CustomEvent("message", {
         detail: { message: response, raw: rawMessage },
       })
     );
@@ -337,7 +344,7 @@ export class WebSocketConnection extends EventTarget {
     this.reconnectAttempts++;
 
     this.dispatchEvent(
-      new CustomEvent('reconnecting', {
+      new CustomEvent("reconnecting", {
         detail: {
           attempt: this.reconnectAttempts,
           maxAttempts: this.options.maxReconnectAttempts,
@@ -390,16 +397,16 @@ export class WebSocketConnection extends EventTarget {
     return this.send(createMessage.getMediaBlobData(id));
   }
 
-  uploadMediaBlob(blob: any): boolean {
+  uploadMediaBlob(blob: MediaBlob): boolean {
     return this.send(createMessage.uploadMediaBlob(blob));
   }
 
   private log(
-    level: 'debug' | 'info' | 'warn' | 'error',
+    level: "debug" | "info" | "warn" | "error",
     message: string,
-    data?: any
+    data?: unknown
   ): void {
-    if (!this.options.debug && level === 'debug') return;
+    if (!this.options.debug && level === "debug") return;
 
     const timestamp = new Date().toISOString();
     const logMessage = data
@@ -407,13 +414,13 @@ export class WebSocketConnection extends EventTarget {
       : `[${timestamp}] [WebSocketConnection] ${message}`;
 
     switch (level) {
-      case 'error':
+      case "error":
         console.error(logMessage);
         break;
-      case 'warn':
+      case "warn":
         console.warn(logMessage);
         break;
-      case 'debug':
+      case "debug":
         console.debug(logMessage);
         break;
       default:
@@ -432,22 +439,24 @@ export class WebSocketConnection extends EventTarget {
 
   private removeAllListeners(): void {
     const events = [
-      'status-change',
-      'message',
-      'connection-closed',
-      'connection-error',
-      'message-sent',
-      'error',
-      'pong',
-      'server-error',
-      'validation-error',
-      'reconnecting',
+      "status-change",
+      "message",
+      "connection-closed",
+      "connection-error",
+      "message-sent",
+      "error",
+      "pong",
+      "server-error",
+      "validation-error",
+      "reconnecting",
     ];
     events.forEach((event) => {
       // Remove all listeners for each event type
-      const listeners = (this as any)._listeners?.[event] || [];
-      listeners.forEach((listener: any) => {
-        this.removeEventListener(event, listener);
+      const listeners =
+        (this as unknown as { _listeners?: Record<string, unknown[]> })
+          ._listeners?.[event] || [];
+      listeners.forEach((listener: unknown) => {
+        this.removeEventListener(event, listener as EventListener);
       });
     });
   }

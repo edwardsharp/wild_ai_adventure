@@ -5,9 +5,9 @@
  * with a colored indicator (red/yellow/green) and optional text.
  */
 
-import { customElement } from 'solid-element';
-import { createSignal, createEffect, Show } from 'solid-js';
-import { ConnectionStatus } from '../lib/websocket-types.js';
+import { customElement } from "solid-element";
+import { createSignal, createEffect, Show } from "solid-js";
+import { ConnectionStatus } from "../lib/websocket-types.js";
 
 export { ConnectionStatus };
 
@@ -35,7 +35,7 @@ const WebSocketStatus = (props: WebSocketStatusProps) => {
     setLastStatusChange(Date.now());
 
     // Dispatch custom event when status changes
-    const event = new CustomEvent('status-change', {
+    const event = new CustomEvent("status-change", {
       detail: {
         status: currentStatus,
         timestamp: lastStatusChange(),
@@ -45,7 +45,7 @@ const WebSocketStatus = (props: WebSocketStatusProps) => {
 
     // We'll dispatch this on the host element
     setTimeout(() => {
-      const host = document.querySelector('websocket-status');
+      const host = document.querySelector("websocket-status");
       if (host) {
         host.dispatchEvent(event);
       }
@@ -55,15 +55,15 @@ const WebSocketStatus = (props: WebSocketStatusProps) => {
   const getStatusText = () => {
     switch (status()) {
       case ConnectionStatus.Disconnected:
-        return 'Offline';
+        return "Offline";
       case ConnectionStatus.Connecting:
-        return 'Connecting...';
+        return "Connecting...";
       case ConnectionStatus.Connected:
-        return 'Online';
+        return "Online";
       case ConnectionStatus.Error:
-        return 'Connection Error';
+        return "Connection Error";
       default:
-        return 'Unknown';
+        return "Unknown";
     }
   };
 
@@ -73,12 +73,12 @@ const WebSocketStatus = (props: WebSocketStatusProps) => {
   return (
     <div
       style={{
-        display: 'inline-flex',
-        'align-items': 'center',
-        gap: '8px',
-        'font-family':
+        display: "inline-flex",
+        "align-items": "center",
+        gap: "8px",
+        "font-family":
           '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-        'font-size': '14px',
+        "font-size": "14px",
       }}
     >
       <style>{`
@@ -161,7 +161,7 @@ const WebSocketStatus = (props: WebSocketStatusProps) => {
         }
       `}</style>
 
-      <div class={getIndicatorClass()}></div>
+      <div class={getIndicatorClass()} />
 
       <Show when={showText() && !compact()}>
         <span class={getTextClass()}>{getStatusText()}</span>
@@ -169,7 +169,7 @@ const WebSocketStatus = (props: WebSocketStatusProps) => {
 
       <Show when={showUserCount() && userCount() > 0 && !compact()}>
         <span class="user-count">
-          ({userCount()} user{userCount() !== 1 ? 's' : ''})
+          ({userCount()} user{userCount() !== 1 ? "s" : ""})
         </span>
       </Show>
     </div>
@@ -178,7 +178,7 @@ const WebSocketStatus = (props: WebSocketStatusProps) => {
 
 // Register as custom element
 customElement(
-  'websocket-status',
+  "websocket-status",
   {
     status: ConnectionStatus.Disconnected,
     showText: true,
@@ -195,7 +195,7 @@ export { WebSocketStatus };
 declare global {
   namespace JSX {
     interface IntrinsicElements {
-      'websocket-status': {
+      "websocket-status": {
         status?: ConnectionStatus;
         showText?: boolean;
         userCount?: number;

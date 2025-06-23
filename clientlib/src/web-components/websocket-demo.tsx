@@ -5,10 +5,10 @@
  * components without heavy styling or complex UI logic.
  */
 
-import { customElement } from 'solid-element';
-import { createSignal, createEffect, For, Show, onCleanup } from 'solid-js';
-import { WebSocketDemoClient } from '../lib/websocket-demo-client.js';
-import type { MediaBlob } from '../lib/media-blob-manager.js';
+import { customElement } from "solid-element";
+import { createSignal, createEffect, For, Show, onCleanup } from "solid-js";
+import { WebSocketDemoClient } from "../lib/websocket-demo-client.js";
+import type { MediaBlob } from "../lib/media-blob-manager.js";
 
 export interface WebSocketDemoProps {
   websocketUrl?: string;
@@ -18,48 +18,62 @@ export interface WebSocketDemoProps {
 
 const WebSocketDemo = (props: WebSocketDemoProps) => {
   const [client, setClient] = createSignal<WebSocketDemoClient | null>(null);
-  const [status, setStatus] = createSignal('disconnected');
+  const [status, setStatus] = createSignal("disconnected");
   const [userCount, setUserCount] = createSignal(0);
   const [blobs, setBlobs] = createSignal<MediaBlob[]>([]);
   const [logs, setLogs] = createSignal<string[]>([]);
   const [thumbnailRefresh, setThumbnailRefresh] = createSignal(0);
-  const [url, setUrl] = createSignal(
-    props.websocketUrl || 'ws://localhost:8080/ws'
-  );
+  const [url, setUrl] = createSignal("ws://localhost:8080/ws");
+
+  // Initialize URL from props
+  createEffect(() => {
+    const initialUrl = props.websocketUrl;
+    if (initialUrl) {
+      setUrl(initialUrl);
+    }
+  });
 
   // File upload ref
   let fileInputRef: HTMLInputElement | undefined;
 
   // Global function for loading blob data (called from thumbnail onclick)
-  (window as any).loadBlobData = (blobId: string) => {
-    client()?.loadBlobData(blobId);
-  };
+
+  (
+    window as unknown as { loadBlobData: (blobId: string) => void }
+  ).loadBlobData = // eslint-disable-next-line solid/reactivity
+    (blobId: string) => {
+      client()?.loadBlobData(blobId);
+    };
 
   // Initialize client
   createEffect(() => {
-    const wsClient = new WebSocketDemoClient(url(), {
-      logLevel: 'info',
+    const currentUrl = url();
+
+    const wsClient = new WebSocketDemoClient(currentUrl, {
+      logLevel: "info",
       autoGetMediaBlobs: true,
     });
 
     // Set up event listeners
-    wsClient.addEventListener('status-change', (e: any) => {
-      const { status: newStatus, userCount: newUserCount } = e.detail;
+
+    wsClient.addEventListener("status-change", (e: Event) => {
+      const { status: newStatus, userCount: newUserCount } = (e as CustomEvent)
+        .detail;
       setStatus(newStatus);
       setUserCount(newUserCount || 0);
     });
 
-    wsClient.addEventListener('blobs-updated', (e: any) => {
-      setBlobs(e.detail.blobs);
+    wsClient.addEventListener("blobs-updated", (e: Event) => {
+      setBlobs((e as CustomEvent).detail.blobs);
     });
 
-    wsClient.addEventListener('blob-data-cached', (e: any) => {
+    wsClient.addEventListener("blob-data-cached", () => {
       // Trigger thumbnail refresh
       setThumbnailRefresh((prev) => prev + 1);
     });
 
-    wsClient.addEventListener('log', (e: any) => {
-      const { message, data } = e.detail.data;
+    wsClient.addEventListener("log", (e: Event) => {
+      const { message, data } = (e as CustomEvent).detail.data;
       const logEntry = data ? `${message}: ${JSON.stringify(data)}` : message;
 
       setLogs((prev) => [...prev.slice(-49), logEntry]); // Keep last 50 entries
@@ -99,7 +113,7 @@ const WebSocketDemo = (props: WebSocketDemoProps) => {
     const files = target.files;
     if (files && files.length > 0) {
       client()?.uploadFiles(files);
-      target.value = ''; // Reset input
+      target.value = ""; // Reset input
     }
   };
 
@@ -126,19 +140,19 @@ const WebSocketDemo = (props: WebSocketDemoProps) => {
 
   const getStatusColor = () => {
     switch (status()) {
-      case 'connected':
-        return '#10b981';
-      case 'connecting':
-        return '#f59e0b';
-      case 'error':
-        return '#ef4444';
+      case "connected":
+        return "#10b981";
+      case "connecting":
+        return "#f59e0b";
+      case "error":
+        return "#ef4444";
       default:
-        return '#6b7280';
+        return "#6b7280";
     }
   };
 
   return (
-    <div style={{ padding: '1rem', 'font-family': 'sans-serif' }}>
+    <div style={{ padding: "1rem", "font-family": "sans-serif" }}>
       <style>{`
         .demo-section { margin-bottom: 2rem; }
         .controls { display: flex; gap: 0.75rem; margin-bottom: 1rem; flex-wrap: wrap; align-items: center; }
@@ -222,32 +236,32 @@ const WebSocketDemo = (props: WebSocketDemoProps) => {
             value={url()}
             onInput={(e) => setUrl(e.target.value)}
             placeholder="WebSocket URL"
-            disabled={status() === 'connected' || status() === 'connecting'}
+            disabled={status() === "connected" || status() === "connecting"}
           />
           <button
             class="primary"
             onClick={handleConnect}
-            disabled={status() === 'connected' || status() === 'connecting'}
+            disabled={status() === "connected" || status() === "connecting"}
           >
             Connect
           </button>
           <button
             onClick={handleDisconnect}
-            disabled={status() === 'disconnected'}
+            disabled={status() === "disconnected"}
           >
             Disconnect
           </button>
         </div>
 
-        <div style={{ 'margin-bottom': '1rem' }}>
+        <div style={{ "margin-bottom": "1rem" }}>
           <span
             class="status-indicator"
-            style={{ 'background-color': getStatusColor() }}
-          ></span>
+            style={{ "background-color": getStatusColor() }}
+          />
           Status: {status()}
           <Show when={userCount() > 0}>
-            {' '}
-            ({userCount()} user{userCount() !== 1 ? 's' : ''} online)
+            {" "}
+            ({userCount()} user{userCount() !== 1 ? "s" : ""} online)
           </Show>
         </div>
       </div>
@@ -255,15 +269,15 @@ const WebSocketDemo = (props: WebSocketDemoProps) => {
       <div class="demo-section">
         <h2 class="section-title">Actions</h2>
         <div class="controls">
-          <button onClick={handlePing} disabled={status() !== 'connected'}>
+          <button onClick={handlePing} disabled={status() !== "connected"}>
             Ping
           </button>
-          <button onClick={handleGetBlobs} disabled={status() !== 'connected'}>
+          <button onClick={handleGetBlobs} disabled={status() !== "connected"}>
             Get Media Blobs
           </button>
           <button
             onClick={handleUploadClick}
-            disabled={status() !== 'connected'}
+            disabled={status() !== "connected"}
           >
             Upload Files
           </button>
@@ -273,8 +287,8 @@ const WebSocketDemo = (props: WebSocketDemoProps) => {
             type="file"
             multiple
             onChange={handleFileUpload}
-            disabled={status() !== 'connected'}
-            style={{ display: 'none' }}
+            disabled={status() !== "connected"}
+            style={{ display: "none" }}
           />
         </div>
       </div>
@@ -307,11 +321,12 @@ const WebSocketDemo = (props: WebSocketDemoProps) => {
                           {displayInfo()?.mime} • {displayInfo()?.size}
                         </small>
                       </div>
-                      <div innerHTML={displayInfo()?.thumbnailHtml}></div>
+                      {/* eslint-disable-next-line solid/no-innerhtml */}
+                      <div innerHTML={displayInfo()?.thumbnailHtml} />
                     </div>
                     <div>
                       <small>
-                        Path: {blob.local_path || 'None'}
+                        Path: {blob.local_path || "None"}
                         <br />
                         Created: {new Date(blob.created_at).toLocaleString()}
                       </small>
@@ -344,7 +359,7 @@ const WebSocketDemo = (props: WebSocketDemoProps) => {
           <div class="log-container">
             <For each={logs()}>{(log) => <div>{log}</div>}</For>
             <Show when={logs().length === 0}>
-              <div style={{ color: '#6b7280', 'font-style': 'italic' }}>
+              <div style={{ color: "#6b7280", "font-style": "italic" }}>
                 No log entries yet...
               </div>
             </Show>
@@ -357,9 +372,9 @@ const WebSocketDemo = (props: WebSocketDemoProps) => {
 
 // Register as custom element
 customElement(
-  'websocket-demo',
+  "websocket-demo",
   {
-    websocketUrl: 'ws://localhost:8080/ws',
+    websocketUrl: "ws://localhost:8080/ws",
     autoConnect: false,
     showDebugLog: true,
   },
@@ -372,7 +387,7 @@ export { WebSocketDemo };
 declare global {
   namespace JSX {
     interface IntrinsicElements {
-      'websocket-demo': {
+      "websocket-demo": {
         websocketUrl?: string;
         autoConnect?: boolean;
         showDebugLog?: boolean;

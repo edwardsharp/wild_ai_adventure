@@ -6,25 +6,14 @@
  * and provides a simple interface for media blob handling.
  */
 
-import { customElement } from 'solid-element';
-import { createSignal, createEffect, Show, For } from 'solid-js';
-import { ConnectionStatus, WebSocketStatus } from './websocket-status';
-import './websocket-status';
+import { customElement } from "solid-element";
+import { createSignal, createEffect, Show, For } from "solid-js";
+import { ConnectionStatus, WebSocketStatus } from "./websocket-status";
+import "./websocket-status";
 
 // Import types from the clientlib
-import {
-  MediaBlob,
-  WebSocketMessage,
-  WebSocketResponse,
-  createMessage,
-  isWelcomeMessage,
-  isMediaBlobsMessage,
-  isMediaBlobMessage,
-  isErrorMessage,
-  isConnectionStatusMessage,
-  validateIncomingMessage,
-} from '../lib/websocket-types.js';
-import { WebSocketClient } from '../lib/websocket-client.js';
+import { MediaBlob } from "../lib/websocket-types.js";
+import { WebSocketClient } from "../lib/websocket-client.js";
 
 export interface WebSocketHandlerProps {
   websocketUrl?: string;
@@ -33,7 +22,7 @@ export interface WebSocketHandlerProps {
 }
 
 const WebSocketHandler = (props: WebSocketHandlerProps) => {
-  const websocketUrl = () => props.websocketUrl || 'ws://localhost:3000/ws';
+  const websocketUrl = () => props.websocketUrl || "ws://localhost:3000/ws";
   const autoConnect = () => props.autoConnect !== false;
   const showDebugLog = () => props.showDebugLog || false;
 
@@ -45,15 +34,17 @@ const WebSocketHandler = (props: WebSocketHandlerProps) => {
 
   const [debugLog, setDebugLog] = createSignal<string[]>([]);
   const [mediaBlobs, setMediaBlobs] = createSignal<MediaBlob[]>([]);
-  const [errorMessage, setErrorMessage] = createSignal<string>('');
+  const [errorMessage, setErrorMessage] = createSignal<string>("");
   const [userCount, setUserCount] = createSignal<number>(0);
   const [isDragOver, setIsDragOver] = createSignal<boolean>(false);
   const [isUploading, setIsUploading] = createSignal<boolean>(false);
-  const [uploadProgress, setUploadProgress] = createSignal<string>('');
+  const [uploadProgress, setUploadProgress] = createSignal<string>("");
 
   // Auto connect effect
   createEffect(() => {
-    if (autoConnect() && websocketUrl()) {
+    const shouldAutoConnect = autoConnect();
+    const url = websocketUrl();
+    if (shouldAutoConnect && url) {
       connect();
     }
   });
@@ -66,7 +57,7 @@ const WebSocketHandler = (props: WebSocketHandlerProps) => {
         : `[${timestamp}] ${message}`;
 
     setDebugLog((prev) => [...prev.slice(-99), logEntry]); // Keep last 100 entries
-    console.log('[WebSocketHandler]', message, ...args);
+    console.log("[WebSocketHandler]", message, ...args);
   };
 
   const updateStatus = (newStatus: ConnectionStatus) => {
@@ -75,13 +66,13 @@ const WebSocketHandler = (props: WebSocketHandlerProps) => {
       log(`Status changed to: ${newStatus}`);
 
       // Dispatch status change event
-      const event = new CustomEvent('status-change', {
+      const event = new CustomEvent("status-change", {
         detail: { status: newStatus },
         bubbles: true,
       });
 
       setTimeout(() => {
-        const host = document.querySelector('websocket-handler');
+        const host = document.querySelector("websocket-handler");
         if (host) {
           host.dispatchEvent(event);
         }
@@ -95,12 +86,12 @@ const WebSocketHandler = (props: WebSocketHandlerProps) => {
   };
 
   const clearError = () => {
-    setErrorMessage('');
+    setErrorMessage("");
   };
 
   const connect = () => {
     if (!websocketUrl()) {
-      setError('WebSocket URL not provided');
+      setError("WebSocket URL not provided");
       return;
     }
 
@@ -109,7 +100,7 @@ const WebSocketHandler = (props: WebSocketHandlerProps) => {
       currentClient &&
       currentClient.getStatus() === ConnectionStatus.Connected
     ) {
-      log('Already connected');
+      log("Already connected");
       return;
     }
 
@@ -134,7 +125,7 @@ const WebSocketHandler = (props: WebSocketHandlerProps) => {
   };
 
   const disconnect = () => {
-    log('Disconnecting...');
+    log("Disconnecting...");
 
     const currentClient = client();
     if (currentClient) {
@@ -146,27 +137,28 @@ const WebSocketHandler = (props: WebSocketHandlerProps) => {
   };
 
   const setupClientListeners = (wsClient: WebSocketClient) => {
-    wsClient.on('statusChange', (newStatus) => {
-      log('Status changed to:', newStatus);
+    // eslint-disable-next-line solid/reactivity
+    wsClient.on("statusChange", (newStatus) => {
+      log("Status changed to:", newStatus);
       updateStatus(newStatus);
       if (newStatus === ConnectionStatus.Connected) {
         clearError();
       }
     });
 
-    wsClient.on('welcome', (data) => {
-      log('Welcome received', data);
+    wsClient.on("welcome", (data) => {
+      log("Welcome received", data);
     });
 
-    wsClient.on('mediaBlobs', (data) => {
-      log('Media blobs received:', {
+    wsClient.on("mediaBlobs", (data) => {
+      log("Media blobs received:", {
         count: data.blobs.length,
         total_count: data.total_count,
       });
       setMediaBlobs(data.blobs);
 
       // Dispatch event
-      const blobsEvent = new CustomEvent('media-blobs-received', {
+      const blobsEvent = new CustomEvent("media-blobs-received", {
         detail: {
           blobs: data.blobs,
           totalCount: data.total_count,
@@ -174,35 +166,36 @@ const WebSocketHandler = (props: WebSocketHandlerProps) => {
         bubbles: true,
       });
       setTimeout(() => {
-        const host = document.querySelector('websocket-handler');
+        const host = document.querySelector("websocket-handler");
         if (host) {
           host.dispatchEvent(blobsEvent);
         }
       }, 0);
     });
 
-    wsClient.on('mediaBlob', (data) => {
-      log('Single media blob received:', data.blob.id);
+    wsClient.on("mediaBlob", (data) => {
+      log("Single media blob received:", data.blob.id);
     });
 
-    wsClient.on('error', (data) => {
-      log('Server error:', data.message);
+    wsClient.on("error", (data) => {
+      log("Server error:", data.message);
       setError(`Server error: ${data.message}`);
     });
 
-    wsClient.on('connectionStatus', (data) => {
-      log('Connection status update:', data);
+    wsClient.on("connectionStatus", (data) => {
+      log("Connection status update:", data);
       setUserCount(data.user_count);
     });
 
-    wsClient.on('parseError', (error, rawMessage) => {
-      log('Parse error:', error.message);
+    wsClient.on("parseError", (error) => {
+      log("Parse error:", error.message);
       setError(`Message parse error: ${error.message}`);
     });
 
-    wsClient.on('rawMessage', (message) => {
-      if (props.showDebugLog) {
-        log('Raw message received (length):', message.length);
+    // eslint-disable-next-line solid/reactivity
+    wsClient.on("rawMessage", () => {
+      if (showDebugLog()) {
+        log("Raw message received");
       }
     });
   };
@@ -213,11 +206,11 @@ const WebSocketHandler = (props: WebSocketHandlerProps) => {
     if (currentClient) {
       const success = currentClient.ping();
       if (!success) {
-        setError('Failed to send ping');
+        setError("Failed to send ping");
       }
       return success;
     }
-    setError('Cannot ping: not connected');
+    setError("Cannot ping: not connected");
     return false;
   };
 
@@ -226,11 +219,11 @@ const WebSocketHandler = (props: WebSocketHandlerProps) => {
     if (currentClient) {
       const success = currentClient.getMediaBlobs(limit, offset);
       if (!success) {
-        setError('Failed to request media blobs');
+        setError("Failed to request media blobs");
       }
       return success;
     }
-    setError('Cannot get media blobs: not connected');
+    setError("Cannot get media blobs: not connected");
     return false;
   };
 
@@ -239,11 +232,11 @@ const WebSocketHandler = (props: WebSocketHandlerProps) => {
     if (currentClient) {
       const success = currentClient.getMediaBlob(id);
       if (!success) {
-        setError('Failed to request media blob');
+        setError("Failed to request media blob");
       }
       return success;
     }
-    setError('Cannot get media blob: not connected');
+    setError("Cannot get media blob: not connected");
     return false;
   };
 
@@ -252,27 +245,27 @@ const WebSocketHandler = (props: WebSocketHandlerProps) => {
     if (currentClient) {
       const success = currentClient.uploadMediaBlob(blob);
       if (success) {
-        log('Sent UploadMediaBlob message', {
+        log("Sent UploadMediaBlob message", {
           blob_id: blob.id,
           blob_size: blob.size,
           blob_mime: blob.mime,
-          blob_sha256: blob.sha256.substring(0, 8) + '...',
+          blob_sha256: blob.sha256.substring(0, 8) + "...",
         });
       } else {
-        setError('Failed to upload media blob');
+        setError("Failed to upload media blob");
       }
       return success;
     }
-    setError('Cannot upload media blob: not connected');
+    setError("Cannot upload media blob: not connected");
     return false;
   };
 
   // File upload helpers
   const calculateSHA256 = async (file: File): Promise<string> => {
     const buffer = await file.arrayBuffer();
-    const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", buffer);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+    return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
   };
 
   const fileToBlob = async (file: File): Promise<MediaBlob> => {
@@ -285,8 +278,8 @@ const WebSocketHandler = (props: WebSocketHandlerProps) => {
       data,
       sha256,
       size: file.size,
-      mime: file.type || 'application/octet-stream',
-      source_client_id: 'web-component',
+      mime: file.type || "application/octet-stream",
+      source_client_id: "web-component",
       local_path: file.name,
       metadata: {
         originalName: file.name,
@@ -307,31 +300,31 @@ const WebSocketHandler = (props: WebSocketHandlerProps) => {
     try {
       log(`Starting upload for file: ${file.name} (${file.size} bytes)`);
 
-      setUploadProgress('Calculating SHA256...');
+      setUploadProgress("Calculating SHA256...");
       const blob = await fileToBlob(file);
 
-      setUploadProgress('Uploading to server...');
-      log('Uploading blob:', {
+      setUploadProgress("Uploading to server...");
+      log("Uploading blob:", {
         id: blob.id,
         size: blob.size,
         mime: blob.mime,
-        sha256: blob.sha256.substring(0, 8) + '...',
+        sha256: blob.sha256.substring(0, 8) + "...",
       });
       const success = uploadMediaBlob(blob);
 
       if (success) {
         setUploadProgress(`✅ ${file.name} uploaded successfully!`);
         log(`File upload successful: ${file.name}`);
-        setTimeout(() => setUploadProgress(''), 3000);
+        setTimeout(() => setUploadProgress(""), 3000);
       } else {
-        throw new Error('Failed to send upload message');
+        throw new Error("Failed to send upload message");
       }
     } catch (error) {
       const errorMsg = `Upload failed: ${error instanceof Error ? error.message : String(error)}`;
       setUploadProgress(`❌ ${errorMsg}`);
       setError(errorMsg);
-      log('Upload error', error);
-      setTimeout(() => setUploadProgress(''), 5000);
+      log("Upload error", error);
+      setTimeout(() => setUploadProgress(""), 5000);
     } finally {
       setIsUploading(false);
     }
@@ -344,7 +337,7 @@ const WebSocketHandler = (props: WebSocketHandlerProps) => {
       Array.from(files).forEach(uploadFile);
     }
     // Reset input
-    input.value = '';
+    input.value = "";
   };
 
   const handleDragOver = (event: DragEvent) => {
@@ -369,7 +362,7 @@ const WebSocketHandler = (props: WebSocketHandlerProps) => {
 
   // Expose methods for external use
   const exposeMethods = () => {
-    const element = document.querySelector('websocket-handler');
+    const element = document.querySelector("websocket-handler");
     if (element) {
       Object.assign(element, {
         ping,
@@ -389,8 +382,8 @@ const WebSocketHandler = (props: WebSocketHandlerProps) => {
   });
 
   const formatFileSize = (bytes?: number): string => {
-    if (!bytes) return 'Unknown size';
-    const units = ['B', 'KB', 'MB', 'GB'];
+    if (!bytes) return "Unknown size";
+    const units = ["B", "KB", "MB", "GB"];
     let size = bytes;
     let unitIndex = 0;
 
@@ -410,8 +403,8 @@ const WebSocketHandler = (props: WebSocketHandlerProps) => {
   return (
     <div
       style={{
-        display: 'block',
-        'font-family':
+        display: "block",
+        "font-family":
           '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
       }}
     >
@@ -672,12 +665,12 @@ const WebSocketHandler = (props: WebSocketHandlerProps) => {
         </Show>
 
         <Show when={showDebugLog()}>
-          <div class="debug-log">{debugLog().join('\n')}</div>
+          <div class="debug-log">{debugLog().join("\n")}</div>
         </Show>
 
         <Show when={status() === ConnectionStatus.Connected}>
           <div
-            class={`file-upload-section ${isDragOver() ? 'drag-over' : ''} ${isUploading() ? 'uploading' : ''}`}
+            class={`file-upload-section ${isDragOver() ? "drag-over" : ""} ${isUploading() ? "uploading" : ""}`}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
@@ -694,7 +687,7 @@ const WebSocketHandler = (props: WebSocketHandlerProps) => {
                 />
                 <label
                   for="file-input"
-                  class={`file-input-label ${isUploading() ? 'disabled' : ''}`}
+                  class={`file-input-label ${isUploading() ? "disabled" : ""}`}
                 >
                   <svg
                     class="upload-icon"
@@ -707,16 +700,16 @@ const WebSocketHandler = (props: WebSocketHandlerProps) => {
                       stroke-linejoin="round"
                       stroke-width="2"
                       d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                    ></path>
+                    />
                   </svg>
-                  {isUploading() ? 'Uploading...' : 'Choose Files'}
+                  {isUploading() ? "Uploading..." : "Choose Files"}
                 </label>
               </div>
 
               <div class="upload-hint">
                 {isDragOver()
-                  ? 'Drop files here to upload'
-                  : 'Drag & drop files here or click to select'}
+                  ? "Drop files here to upload"
+                  : "Drag & drop files here or click to select"}
               </div>
 
               <Show when={uploadProgress()}>
@@ -743,16 +736,16 @@ const WebSocketHandler = (props: WebSocketHandlerProps) => {
                   <div class="media-blob-header">
                     <div class="media-blob-id">{blob.id}</div>
                     <div class="media-blob-info">
-                      {blob.mime || 'Unknown type'} •{' '}
+                      {blob.mime || "Unknown type"} •{" "}
                       {formatFileSize(blob.size)}
                     </div>
                   </div>
                   <div class="media-blob-meta">
                     SHA256: {blob.sha256}
                     <br />
-                    Client: {blob.source_client_id || 'Unknown'}
+                    Client: {blob.source_client_id || "Unknown"}
                     <br />
-                    Path: {blob.local_path || 'None'}
+                    Path: {blob.local_path || "None"}
                     <br />
                     Created: {new Date(blob.created_at).toLocaleString()}
                     <Show when={Object.keys(blob.metadata).length > 0}>
@@ -772,9 +765,9 @@ const WebSocketHandler = (props: WebSocketHandlerProps) => {
 
 // Register as custom element
 customElement(
-  'websocket-handler',
+  "websocket-handler",
   {
-    websocketUrl: '',
+    websocketUrl: "",
     autoConnect: true,
     showDebugLog: true,
   },
@@ -787,7 +780,7 @@ export { WebSocketHandler };
 declare global {
   namespace JSX {
     interface IntrinsicElements {
-      'websocket-handler': {
+      "websocket-handler": {
         websocketUrl?: string;
         autoConnect?: boolean;
         showDebugLog?: boolean;

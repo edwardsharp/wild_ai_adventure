@@ -1,5 +1,5 @@
 // Main ClientLib exports - re-export everything from the lib directory
-export * from './lib/index.js';
+export * from "./lib/index.js";
 
 // Note: Web components are available in src/web-components/ but not exported here
 // to keep the core library separate from UI components.

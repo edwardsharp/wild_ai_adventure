@@ -1,8 +1,8 @@
-import { vi } from 'vitest';
-import { ApiClient, ApiError } from './api-client.js';
+import { vi } from "vitest";
+import { ApiClient, ApiError } from "./api-client.js";
 
 export class TestApiClient extends ApiClient {
-  constructor(baseUrl: string = 'http://localhost:8080') {
+  constructor(baseUrl: string = "http://localhost:8080") {
     super({ baseUrl });
   }
 
@@ -13,7 +13,7 @@ export class TestApiClient extends ApiClient {
   ): Promise<ApiError> {
     try {
       await operation();
-      throw new Error('Expected operation to throw an error');
+      throw new Error("Expected operation to throw an error");
     } catch (error) {
       if (!(error instanceof ApiError)) {
         throw error;
@@ -28,7 +28,7 @@ export class TestApiClient extends ApiClient {
   }
 
   // Helper for generating test data
-  generateTestUser(suffix: string = '') {
+  generateTestUser(suffix: string = "") {
     return {
       username: `testuser${suffix}`,
       displayName: `Test User${suffix}`,
@@ -88,7 +88,7 @@ export const testUtils = {
         await testUtils.delay(delayMs);
       }
     }
-    throw new Error('Should not reach here');
+    throw new Error("Should not reach here");
   },
 
   // Generate test WebAuthn credential data
@@ -99,7 +99,7 @@ export const testUtils = {
       attestationObject: testUtils.randomString(64),
       clientDataJSON: testUtils.randomString(128),
     },
-    type: 'public-key' as const,
+    type: "public-key" as const,
   }),
 
   // Generate test WebAuthn assertion data
@@ -112,7 +112,7 @@ export const testUtils = {
       signature: testUtils.randomString(64),
       userHandle: testUtils.randomString(16),
     },
-    type: 'public-key' as const,
+    type: "public-key" as const,
   }),
 
   // Create a test environment setup
@@ -122,7 +122,7 @@ export const testUtils = {
 
     // Capture console.error during tests
     console.error = (...args: unknown[]) => {
-      errorLogs.push(args.join(' '));
+      errorLogs.push(args.join(" "));
       originalConsoleError(...args);
     };
 
