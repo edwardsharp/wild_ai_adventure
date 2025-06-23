@@ -198,7 +198,19 @@ async fn handle_message(
     user_id: Option<Uuid>,
     db: &DatabaseConnection,
 ) -> Option<WebSocketResponse> {
-    info!("Processing WebSocket message: {:?}", message);
+    match &message {
+        WebSocketMessage::UploadMediaBlob { blob } => {
+            info!(
+                "Processing UploadMediaBlob message (size: {:?}, mime: {:?}, sha256: {})",
+                blob.size,
+                blob.mime,
+                &blob.sha256[..8]
+            );
+        }
+        _ => {
+            info!("Processing WebSocket message: {:?}", message);
+        }
+    }
 
     match message {
         WebSocketMessage::Ping => {

@@ -283,7 +283,13 @@
                 <button id="get-media-blobs-btn" disabled>
                     Get Media Blobs
                 </button>
-                <button id="mock-upload-btn" disabled>Mock Upload</button>
+                <input
+                    type="file"
+                    id="file-upload-input"
+                    multiple
+                    style="display: none"
+                />
+                <button id="file-upload-btn" disabled>Upload Files</button>
                 <button id="clear-log-btn">Clear Log</button>
             </div>
         </div>
@@ -301,6 +307,12 @@
                 <div class="empty-state">No media blobs received yet.</div>
             </div>
         </div>
+
+        <!-- Load WebSocket Components -->
+        <script
+            type="module"
+            src="/clientlib/web-component/dist/websocket-components-standalone.js"
+        ></script>
 
         <script type="module">
             // Simple WebSocket client implementation for demo
@@ -339,8 +351,10 @@
                     this.getMediaBlobsBtn = document.getElementById(
                         "get-media-blobs-btn",
                     );
-                    this.mockUploadBtn =
-                        document.getElementById("mock-upload-btn");
+                    this.fileUploadInput =
+                        document.getElementById("file-upload-input");
+                    this.fileUploadBtn =
+                        document.getElementById("file-upload-btn");
                     this.clearLogBtn = document.getElementById("clear-log-btn");
                 }
 
@@ -355,8 +369,11 @@
                     this.getMediaBlobsBtn.addEventListener("click", () =>
                         this.getMediaBlobs(),
                     );
-                    this.mockUploadBtn.addEventListener("click", () =>
-                        this.mockUpload(),
+                    this.fileUploadBtn.addEventListener("click", () =>
+                        this.fileUploadInput.click(),
+                    );
+                    this.fileUploadInput.addEventListener("change", (e) =>
+                        this.handleFileUpload(e),
                     );
                     this.clearLogBtn.addEventListener("click", () =>
                         this.clearLog(),
@@ -411,7 +428,7 @@
                     this.disconnectBtn.disabled = !connected;
                     this.pingBtn.disabled = !connected;
                     this.getMediaBlobsBtn.disabled = !connected;
-                    this.mockUploadBtn.disabled = !connected;
+                    this.fileUploadBtn.disabled = !connected;
                 }
 
                 setError(message) {
@@ -478,10 +495,11 @@
                 }
 
                 handleMessage(rawMessage) {
-                    this.log("Received message", rawMessage);
+                    this.log("Received message");
 
                     try {
                         const response = JSON.parse(rawMessage);
+                        this.log("Message type:", response.type);
 
                         switch (response.type) {
                             case "Welcome":
@@ -495,16 +513,22 @@
                                 break;
 
                             case "MediaBlobs":
-                                this.log("Media blobs received", response.data);
-                                this.mediaBlobs = response.data?.blobs || [];
+                                const blobsData = response.data;
+                                this.log("Media blobs received:", {
+                                    count: blobsData?.blobs?.length || 0,
+                                    total_count: blobsData?.total_count,
+                                });
+                                this.mediaBlobs = blobsData?.blobs || [];
                                 this.updateMediaBlobs();
                                 break;
 
                             case "MediaBlob":
-                                this.log(
-                                    "Single media blob received",
-                                    response.data,
-                                );
+                                const blob = response.data?.blob;
+                                this.log("Single media blob received:", {
+                                    id: blob?.id,
+                                    size: blob?.size,
+                                    mime: blob?.mime,
+                                });
                                 break;
 
                             case "Error":
@@ -527,12 +551,15 @@
                                 break;
 
                             default:
-                                this.log("Unknown message type", response);
+                                this.log(
+                                    "Unknown message type:",
+                                    response.type,
+                                );
                         }
                     } catch (error) {
                         this.log("Message parse error", {
                             error: error.toString(),
-                            rawMessage,
+                            messageLength: rawMessage.length,
                         });
                         this.setError(`Parse error: ${error.message}`);
                     }
@@ -606,7 +633,22 @@
                     try {
                         const json = JSON.stringify(message);
                         this.socket.send(json);
-                        this.log("Sent message", message);
+                        // Log safe version of message without blob data
+                        if (message.type === "UploadMediaBlob") {
+                            this.log("Sent UploadMediaBlob message", {
+                                type: message.type,
+                                blob_id: message.data?.blob?.id,
+                                blob_size: message.data?.blob?.size,
+                                blob_mime: message.data?.blob?.mime,
+                                blob_sha256:
+                                    message.data?.blob?.sha256?.substring(
+                                        0,
+                                        8,
+                                    ) + "...",
+                            });
+                        } else {
+                            this.log("Sent message", message);
+                        }
                         return true;
                     } catch (error) {
                         this.setError(`Send error: ${error.message}`);
@@ -625,34 +667,95 @@
                     });
                 }
 
-                mockUpload() {
-                    const mockBlob = {
-                        id: "00000000-0000-0000-0000-000000000000", // Will be generated by server
-                        sha256:
-                            "mock_" + Math.random().toString(36).substr(2, 9),
-                        size: Math.floor(Math.random() * 10000) + 1000,
-                        mime: "image/png",
-                        source_client_id: "demo-client",
-                        local_path: "/mock/path/image.png",
-                        metadata: {
-                            width: 800,
-                            height: 600,
-                            source: "demo",
-                        },
-                        created_at: new Date().toISOString(),
-                        updated_at: new Date().toISOString(),
-                    };
+                async handleFileUpload(event) {
+                    const files = event.target.files;
+                    if (!files || files.length === 0) return;
 
-                    this.sendMessage({
-                        type: "UploadMediaBlob",
-                        data: { blob: mockBlob },
-                    });
+                    for (const file of files) {
+                        try {
+                            this.log(
+                                `Starting upload: ${file.name} (${file.size} bytes)`,
+                            );
+
+                            // Calculate SHA256
+                            const arrayBuffer = await file.arrayBuffer();
+                            const hashBuffer = await crypto.subtle.digest(
+                                "SHA-256",
+                                arrayBuffer,
+                            );
+                            const hashArray = Array.from(
+                                new Uint8Array(hashBuffer),
+                            );
+                            const sha256 = hashArray
+                                .map((b) => b.toString(16).padStart(2, "0"))
+                                .join("");
+
+                            // Convert to data array
+                            const data = Array.from(
+                                new Uint8Array(arrayBuffer),
+                            );
+
+                            const blob = {
+                                id: crypto.randomUUID(),
+                                data,
+                                sha256,
+                                size: file.size,
+                                mime: file.type || "application/octet-stream",
+                                source_client_id: "demo-client",
+                                local_path: file.name,
+                                metadata: {
+                                    originalName: file.name,
+                                    lastModified: file.lastModified,
+                                    uploadedAt: new Date().toISOString(),
+                                },
+                                created_at: new Date().toISOString(),
+                                updated_at: new Date().toISOString(),
+                            };
+
+                            this.log("Uploading blob:", {
+                                id: blob.id,
+                                size: blob.size,
+                                mime: blob.mime,
+                                sha256: blob.sha256.substring(0, 8) + "...",
+                            });
+
+                            this.sendMessage({
+                                type: "UploadMediaBlob",
+                                data: { blob },
+                            });
+
+                            this.log(`Upload sent for: ${file.name}`);
+                        } catch (error) {
+                            this.log(
+                                `Upload failed for ${file.name}: ${error.message}`,
+                            );
+                            this.setError(`Upload failed: ${error.message}`);
+                        }
+                    }
+
+                    // Reset input
+                    event.target.value = "";
                 }
             }
 
             // Initialize demo when page loads
             document.addEventListener("DOMContentLoaded", () => {
                 window.demoClient = new DemoWebSocketClient();
+
+                // Listen for component events
+                document.addEventListener("media-blobs-received", (e) => {
+                    console.log("Component media blobs received:", e.detail);
+                    // Sync with our demo display
+                    window.demoClient.mediaBlobs = e.detail.blobs || [];
+                    window.demoClient.updateMediaBlobs();
+                });
+
+                document.addEventListener("status-change", (e) => {
+                    console.log("Component status change:", e.detail.status);
+                    // Sync our demo status with component
+                    const status = e.detail.status;
+                    window.demoClient.setStatus(status);
+                });
             });
         </script>
     </body>

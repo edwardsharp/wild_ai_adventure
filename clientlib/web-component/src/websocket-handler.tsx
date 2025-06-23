@@ -62,6 +62,9 @@ const WebSocketHandler = (props: WebSocketHandlerProps) => {
   const [mediaBlobs, setMediaBlobs] = createSignal<MediaBlob[]>([]);
   const [errorMessage, setErrorMessage] = createSignal<string>('');
   const [userCount, setUserCount] = createSignal<number>(0);
+  const [isDragOver, setIsDragOver] = createSignal<boolean>(false);
+  const [isUploading, setIsUploading] = createSignal<boolean>(false);
+  const [uploadProgress, setUploadProgress] = createSignal<string>('');
 
   // Auto connect effect
   createEffect(() => {
@@ -171,11 +174,11 @@ const WebSocketHandler = (props: WebSocketHandlerProps) => {
   };
 
   const handleMessage = (rawMessage: string) => {
-    log('Received raw message', rawMessage);
+    log('Received message');
 
     try {
       const response: WebSocketResponse = JSON.parse(rawMessage);
-      log('Parsed message', response);
+      log('Parsed message type:', response.type);
 
       switch (response.type) {
         case 'Welcome':
@@ -187,11 +190,14 @@ const WebSocketHandler = (props: WebSocketHandlerProps) => {
           break;
 
         case 'MediaBlobs': {
-          log('Media blobs received', response.data);
           const blobsData = response.data as {
             blobs?: MediaBlob[];
             total_count?: number;
           };
+          log('Media blobs received:', {
+            count: blobsData?.blobs?.length || 0,
+            total_count: blobsData?.total_count,
+          });
           setMediaBlobs(blobsData?.blobs || []);
 
           // Dispatch event
@@ -212,8 +218,12 @@ const WebSocketHandler = (props: WebSocketHandlerProps) => {
         }
 
         case 'MediaBlob': {
-          log('Single media blob received', response.data);
           const blobData = response.data as { blob?: MediaBlob };
+          log('Single media blob received:', {
+            id: blobData?.blob?.id,
+            size: blobData?.blob?.size,
+            mime: blobData?.blob?.mime,
+          });
 
           // Dispatch event
           const blobEvent = new CustomEvent('media-blob-received', {
@@ -244,12 +254,12 @@ const WebSocketHandler = (props: WebSocketHandlerProps) => {
         }
 
         default:
-          log('Unknown message type', response);
+          log('Unknown message type:', response.type);
       }
     } catch (error) {
       log('Failed to parse message', {
         error: error instanceof Error ? error.toString() : String(error),
-        rawMessage,
+        messageLength: rawMessage.length,
       });
       setError(`Message parse error: ${error}`);
     }
@@ -265,7 +275,20 @@ const WebSocketHandler = (props: WebSocketHandlerProps) => {
     try {
       const json = JSON.stringify(message);
       currentSocket.send(json);
-      log('Sent message', message);
+
+      // Log safe version of message without blob data
+      if (message.type === 'UploadMediaBlob') {
+        log('Sent UploadMediaBlob message', {
+          type: message.type,
+          blob_id: (message.data as any)?.blob?.id,
+          blob_size: (message.data as any)?.blob?.size,
+          blob_mime: (message.data as any)?.blob?.mime,
+          blob_sha256:
+            (message.data as any)?.blob?.sha256?.substring(0, 8) + '...',
+        });
+      } else {
+        log('Sent message', message);
+      }
       return true;
     } catch (error) {
       setError(`Send error: ${error}`);
@@ -294,6 +317,106 @@ const WebSocketHandler = (props: WebSocketHandlerProps) => {
       data: { blob },
     });
 
+  // File upload helpers
+  const calculateSHA256 = async (file: File): Promise<string> => {
+    const buffer = await file.arrayBuffer();
+    const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+  };
+
+  const fileToBlob = async (file: File): Promise<MediaBlob> => {
+    const sha256 = await calculateSHA256(file);
+    const arrayBuffer = await file.arrayBuffer();
+    const data = Array.from(new Uint8Array(arrayBuffer));
+
+    return {
+      id: crypto.randomUUID(),
+      data,
+      sha256,
+      size: file.size,
+      mime: file.type || 'application/octet-stream',
+      source_client_id: 'web-component',
+      local_path: file.name,
+      metadata: {
+        originalName: file.name,
+        lastModified: file.lastModified,
+        uploadedAt: new Date().toISOString(),
+      },
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+  };
+
+  const uploadFile = async (file: File) => {
+    if (!file) return;
+
+    setIsUploading(true);
+    setUploadProgress(`Preparing ${file.name}...`);
+
+    try {
+      log(`Starting upload for file: ${file.name} (${file.size} bytes)`);
+
+      setUploadProgress('Calculating SHA256...');
+      const blob = await fileToBlob(file);
+
+      setUploadProgress('Uploading to server...');
+      log('Uploading blob:', {
+        id: blob.id,
+        size: blob.size,
+        mime: blob.mime,
+        sha256: blob.sha256.substring(0, 8) + '...',
+      });
+      const success = uploadMediaBlob(blob);
+
+      if (success) {
+        setUploadProgress(`✅ ${file.name} uploaded successfully!`);
+        log(`File upload successful: ${file.name}`);
+        setTimeout(() => setUploadProgress(''), 3000);
+      } else {
+        throw new Error('Failed to send upload message');
+      }
+    } catch (error) {
+      const errorMsg = `Upload failed: ${error instanceof Error ? error.message : String(error)}`;
+      setUploadProgress(`❌ ${errorMsg}`);
+      setError(errorMsg);
+      log('Upload error', error);
+      setTimeout(() => setUploadProgress(''), 5000);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleFileSelect = (event: Event) => {
+    const input = event.target as HTMLInputElement;
+    const files = input.files;
+    if (files && files.length > 0) {
+      Array.from(files).forEach(uploadFile);
+    }
+    // Reset input
+    input.value = '';
+  };
+
+  const handleDragOver = (event: DragEvent) => {
+    event.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (event: DragEvent) => {
+    event.preventDefault();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (event: DragEvent) => {
+    event.preventDefault();
+    setIsDragOver(false);
+
+    const files = event.dataTransfer?.files;
+    if (files && files.length > 0) {
+      Array.from(files).forEach(uploadFile);
+    }
+  };
+
   // Expose methods for external use
   const exposeMethods = () => {
     const element = document.querySelector('websocket-handler');
@@ -303,6 +426,7 @@ const WebSocketHandler = (props: WebSocketHandlerProps) => {
         getMediaBlobs,
         getMediaBlob,
         uploadMediaBlob,
+        uploadFile,
         connect,
         disconnect,
       });
@@ -467,6 +591,91 @@ const WebSocketHandler = (props: WebSocketHandlerProps) => {
           border-radius: 6px;
           margin-bottom: 16px;
         }
+
+        .file-upload-section {
+          margin-top: 16px;
+          padding: 16px;
+          border: 2px dashed #d1d5db;
+          border-radius: 8px;
+          background: #f9fafb;
+          transition: all 0.2s;
+        }
+
+        .file-upload-section.drag-over {
+          border-color: #3b82f6;
+          background: #eff6ff;
+        }
+
+        .file-upload-section.uploading {
+          border-color: #10b981;
+          background: #ecfdf5;
+        }
+
+        .upload-controls {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 12px;
+        }
+
+        .file-input-wrapper {
+          position: relative;
+          overflow: hidden;
+          display: inline-block;
+        }
+
+        .file-input {
+          position: absolute;
+          left: -9999px;
+          opacity: 0;
+        }
+
+        .file-input-label {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 10px 20px;
+          background: #3b82f6;
+          color: white;
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 14px;
+          font-weight: 500;
+          transition: background 0.2s;
+        }
+
+        .file-input-label:hover {
+          background: #2563eb;
+        }
+
+        .file-input-label:disabled {
+          background: #9ca3af;
+          cursor: not-allowed;
+        }
+
+        .upload-hint {
+          color: #6b7280;
+          font-size: 14px;
+          text-align: center;
+          margin: 8px 0;
+        }
+
+        .upload-progress {
+          color: #374151;
+          font-size: 14px;
+          font-weight: 500;
+          text-align: center;
+          padding: 8px;
+          background: #f3f4f6;
+          border-radius: 4px;
+          margin-top: 8px;
+        }
+
+        .upload-icon {
+          display: inline-block;
+          width: 16px;
+          height: 16px;
+        }
       `}</style>
 
       <div class='container'>
@@ -514,6 +723,57 @@ const WebSocketHandler = (props: WebSocketHandlerProps) => {
 
         <Show when={showDebugLog()}>
           <div class='debug-log'>{debugLog().join('\n')}</div>
+        </Show>
+
+        <Show when={status() === ConnectionStatus.Connected}>
+          <div
+            class={`file-upload-section ${isDragOver() ? 'drag-over' : ''} ${isUploading() ? 'uploading' : ''}`}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
+            <div class='upload-controls'>
+              <div class='file-input-wrapper'>
+                <input
+                  type='file'
+                  id='file-input'
+                  class='file-input'
+                  multiple
+                  onChange={handleFileSelect}
+                  disabled={isUploading()}
+                />
+                <label
+                  for='file-input'
+                  class={`file-input-label ${isUploading() ? 'disabled' : ''}`}
+                >
+                  <svg
+                    class='upload-icon'
+                    fill='none'
+                    stroke='currentColor'
+                    viewBox='0 0 24 24'
+                  >
+                    <path
+                      stroke-linecap='round'
+                      stroke-linejoin='round'
+                      stroke-width='2'
+                      d='M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12'
+                    ></path>
+                  </svg>
+                  {isUploading() ? 'Uploading...' : 'Choose Files'}
+                </label>
+              </div>
+
+              <div class='upload-hint'>
+                {isDragOver()
+                  ? 'Drop files here to upload'
+                  : 'Drag & drop files here or click to select'}
+              </div>
+
+              <Show when={uploadProgress()}>
+                <div class='upload-progress'>{uploadProgress()}</div>
+              </Show>
+            </div>
+          </div>
         </Show>
 
         <div class='media-blobs'>

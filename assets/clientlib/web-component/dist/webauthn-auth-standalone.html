@@ -145,18 +145,18 @@ import{b as xt,d as kt,a as K,e as wt,o as St,f as Pt,t as ee,i as U,c as te,g a
 
   <script>
     // Listen for WebAuthn events
-    const webauthnElement = document.querySelector('webauthn-auth');
+    const webauthnElement = document.querySelector("webauthn-auth");
     if (webauthnElement) {
-      webauthnElement.addEventListener('webauthn-login', (e) => {
-        console.log('✅ Login successful:', e.detail.username);
+      webauthnElement.addEventListener("webauthn-login", (e) => {
+        console.log("✅ Login successful:", e.detail.username);
       });
 
-      webauthnElement.addEventListener('webauthn-logout', (e) => {
-        console.log('👋 User logged out');
+      webauthnElement.addEventListener("webauthn-logout", (e) => {
+        console.log("👋 User logged out");
       });
 
-      webauthnElement.addEventListener('webauthn-error', (e) => {
-        console.error('❌ Auth error:', e.detail.error);
+      webauthnElement.addEventListener("webauthn-error", (e) => {
+        console.error("❌ Auth error:", e.detail.error);
       });
     }
   </script>
