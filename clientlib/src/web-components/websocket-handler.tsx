@@ -12,34 +12,19 @@ import { ConnectionStatus, WebSocketStatus } from './websocket-status';
 import './websocket-status';
 
 // Import types from the clientlib
-interface MediaBlob {
-  id: string;
-  data?: number[];
-  sha256: string;
-  size?: number;
-  mime?: string;
-  source_client_id?: string;
-  local_path?: string;
-  metadata: Record<string, unknown>;
-  created_at: string;
-  updated_at: string;
-}
-
-interface WebSocketMessage {
-  type: 'Ping' | 'GetMediaBlobs' | 'UploadMediaBlob' | 'GetMediaBlob';
-  data?: unknown;
-}
-
-interface WebSocketResponse {
-  type:
-    | 'Welcome'
-    | 'Pong'
-    | 'MediaBlobs'
-    | 'MediaBlob'
-    | 'Error'
-    | 'ConnectionStatus';
-  data?: unknown;
-}
+import {
+  MediaBlob,
+  WebSocketMessage,
+  WebSocketResponse,
+  createMessage,
+  isWelcomeMessage,
+  isMediaBlobsMessage,
+  isMediaBlobMessage,
+  isErrorMessage,
+  isConnectionStatusMessage,
+  validateIncomingMessage,
+} from '../lib/websocket-types.js';
+import { WebSocketClient } from '../lib/websocket-client.js';
 
 export interface WebSocketHandlerProps {
   websocketUrl?: string;
@@ -48,16 +33,16 @@ export interface WebSocketHandlerProps {
 }
 
 const WebSocketHandler = (props: WebSocketHandlerProps) => {
-  // Props with defaults
-  const websocketUrl = () => props.websocketUrl ?? '';
-  const autoConnect = () => props.autoConnect ?? true;
-  const showDebugLog = () => props.showDebugLog ?? true;
+  const websocketUrl = () => props.websocketUrl || 'ws://localhost:3000/ws';
+  const autoConnect = () => props.autoConnect !== false;
+  const showDebugLog = () => props.showDebugLog || false;
 
   // State
+  const [client, setClient] = createSignal<WebSocketClient | null>(null);
   const [status, setStatus] = createSignal<ConnectionStatus>(
     ConnectionStatus.Disconnected
   );
-  const [socket, setSocket] = createSignal<WebSocket | null>(null);
+
   const [debugLog, setDebugLog] = createSignal<string[]>([]);
   const [mediaBlobs, setMediaBlobs] = createSignal<MediaBlob[]>([]);
   const [errorMessage, setErrorMessage] = createSignal<string>('');
@@ -119,7 +104,11 @@ const WebSocketHandler = (props: WebSocketHandlerProps) => {
       return;
     }
 
-    if (socket()?.readyState === WebSocket.OPEN) {
+    const currentClient = client();
+    if (
+      currentClient &&
+      currentClient.getStatus() === ConnectionStatus.Connected
+    ) {
       log('Already connected');
       return;
     }
@@ -129,9 +118,15 @@ const WebSocketHandler = (props: WebSocketHandlerProps) => {
     log(`Connecting to ${websocketUrl()}`);
 
     try {
-      const newSocket = new WebSocket(websocketUrl());
-      setSocket(newSocket);
-      setupSocketListeners(newSocket);
+      const newClient = new WebSocketClient({
+        url: websocketUrl(),
+        autoReconnect: true,
+        debug: props.showDebugLog || false,
+      });
+
+      setClient(newClient);
+      setupClientListeners(newClient);
+      newClient.connect();
     } catch (error) {
       setError(`Connection failed: ${error}`);
       updateStatus(ConnectionStatus.Error);
@@ -141,181 +136,136 @@ const WebSocketHandler = (props: WebSocketHandlerProps) => {
   const disconnect = () => {
     log('Disconnecting...');
 
-    const currentSocket = socket();
-    if (currentSocket) {
-      currentSocket.close(1000, 'Client disconnect');
-      setSocket(null);
+    const currentClient = client();
+    if (currentClient) {
+      currentClient.disconnect();
+      setClient(null);
     }
 
     updateStatus(ConnectionStatus.Disconnected);
   };
 
-  const setupSocketListeners = (ws: WebSocket) => {
-    ws.onopen = () => {
-      log('Connected successfully');
-      updateStatus(ConnectionStatus.Connected);
-      clearError();
-    };
-
-    ws.onclose = (event) => {
-      log('Connection closed', { code: event.code, reason: event.reason });
-      updateStatus(ConnectionStatus.Disconnected);
-    };
-
-    ws.onerror = (error) => {
-      log('Socket error', error);
-      updateStatus(ConnectionStatus.Error);
-      setError('Connection error occurred');
-    };
-
-    ws.onmessage = (event) => {
-      handleMessage(event.data);
-    };
-  };
-
-  const handleMessage = (rawMessage: string) => {
-    log('Received message');
-
-    try {
-      const response: WebSocketResponse = JSON.parse(rawMessage);
-      log('Parsed message type:', response.type);
-
-      switch (response.type) {
-        case 'Welcome':
-          log('Welcome received', response.data);
-          break;
-
-        case 'Pong':
-          log('Pong received');
-          break;
-
-        case 'MediaBlobs': {
-          const blobsData = response.data as {
-            blobs?: MediaBlob[];
-            total_count?: number;
-          };
-          log('Media blobs received:', {
-            count: blobsData?.blobs?.length || 0,
-            total_count: blobsData?.total_count,
-          });
-          setMediaBlobs(blobsData?.blobs || []);
-
-          // Dispatch event
-          const blobsEvent = new CustomEvent('media-blobs-received', {
-            detail: {
-              blobs: mediaBlobs(),
-              totalCount: blobsData?.total_count,
-            },
-            bubbles: true,
-          });
-          setTimeout(() => {
-            const host = document.querySelector('websocket-handler');
-            if (host) {
-              host.dispatchEvent(blobsEvent);
-            }
-          }, 0);
-          break;
-        }
-
-        case 'MediaBlob': {
-          const blobData = response.data as { blob?: MediaBlob };
-          log('Single media blob received:', {
-            id: blobData?.blob?.id,
-            size: blobData?.blob?.size,
-            mime: blobData?.blob?.mime,
-          });
-
-          // Dispatch event
-          const blobEvent = new CustomEvent('media-blob-received', {
-            detail: { blob: blobData?.blob },
-            bubbles: true,
-          });
-          setTimeout(() => {
-            const host = document.querySelector('websocket-handler');
-            if (host) {
-              host.dispatchEvent(blobEvent);
-            }
-          }, 0);
-          break;
-        }
-
-        case 'Error': {
-          log('Error message received', response.data);
-          const errorData = response.data as { message?: string };
-          setError(errorData?.message || 'Server error');
-          break;
-        }
-
-        case 'ConnectionStatus': {
-          log('Connection status update', response.data);
-          const statusData = response.data as { user_count?: number };
-          setUserCount(statusData?.user_count || 0);
-          break;
-        }
-
-        default:
-          log('Unknown message type:', response.type);
+  const setupClientListeners = (wsClient: WebSocketClient) => {
+    wsClient.on('statusChange', (newStatus) => {
+      log('Status changed to:', newStatus);
+      updateStatus(newStatus);
+      if (newStatus === ConnectionStatus.Connected) {
+        clearError();
       }
-    } catch (error) {
-      log('Failed to parse message', {
-        error: error instanceof Error ? error.toString() : String(error),
-        messageLength: rawMessage.length,
+    });
+
+    wsClient.on('welcome', (data) => {
+      log('Welcome received', data);
+    });
+
+    wsClient.on('mediaBlobs', (data) => {
+      log('Media blobs received:', {
+        count: data.blobs.length,
+        total_count: data.total_count,
       });
-      setError(`Message parse error: ${error}`);
-    }
+      setMediaBlobs(data.blobs);
+
+      // Dispatch event
+      const blobsEvent = new CustomEvent('media-blobs-received', {
+        detail: {
+          blobs: data.blobs,
+          totalCount: data.total_count,
+        },
+        bubbles: true,
+      });
+      setTimeout(() => {
+        const host = document.querySelector('websocket-handler');
+        if (host) {
+          host.dispatchEvent(blobsEvent);
+        }
+      }, 0);
+    });
+
+    wsClient.on('mediaBlob', (data) => {
+      log('Single media blob received:', data.blob.id);
+    });
+
+    wsClient.on('error', (data) => {
+      log('Server error:', data.message);
+      setError(`Server error: ${data.message}`);
+    });
+
+    wsClient.on('connectionStatus', (data) => {
+      log('Connection status update:', data);
+      setUserCount(data.user_count);
+    });
+
+    wsClient.on('parseError', (error, rawMessage) => {
+      log('Parse error:', error.message);
+      setError(`Message parse error: ${error.message}`);
+    });
+
+    wsClient.on('rawMessage', (message) => {
+      if (props.showDebugLog) {
+        log('Raw message received (length):', message.length);
+      }
+    });
   };
 
-  const sendMessage = (message: WebSocketMessage): boolean => {
-    const currentSocket = socket();
-    if (!currentSocket || currentSocket.readyState !== WebSocket.OPEN) {
-      setError('Cannot send message: not connected');
-      return false;
+  // Public API methods using WebSocketClient
+  const ping = () => {
+    const currentClient = client();
+    if (currentClient) {
+      const success = currentClient.ping();
+      if (!success) {
+        setError('Failed to send ping');
+      }
+      return success;
     }
+    setError('Cannot ping: not connected');
+    return false;
+  };
 
-    try {
-      const json = JSON.stringify(message);
-      currentSocket.send(json);
+  const getMediaBlobs = (limit?: number, offset?: number) => {
+    const currentClient = client();
+    if (currentClient) {
+      const success = currentClient.getMediaBlobs(limit, offset);
+      if (!success) {
+        setError('Failed to request media blobs');
+      }
+      return success;
+    }
+    setError('Cannot get media blobs: not connected');
+    return false;
+  };
 
-      // Log safe version of message without blob data
-      if (message.type === 'UploadMediaBlob') {
+  const getMediaBlob = (id: string) => {
+    const currentClient = client();
+    if (currentClient) {
+      const success = currentClient.getMediaBlob(id);
+      if (!success) {
+        setError('Failed to request media blob');
+      }
+      return success;
+    }
+    setError('Cannot get media blob: not connected');
+    return false;
+  };
+
+  const uploadMediaBlob = (blob: MediaBlob) => {
+    const currentClient = client();
+    if (currentClient) {
+      const success = currentClient.uploadMediaBlob(blob);
+      if (success) {
         log('Sent UploadMediaBlob message', {
-          type: message.type,
-          blob_id: (message.data as any)?.blob?.id,
-          blob_size: (message.data as any)?.blob?.size,
-          blob_mime: (message.data as any)?.blob?.mime,
-          blob_sha256:
-            (message.data as any)?.blob?.sha256?.substring(0, 8) + '...',
+          blob_id: blob.id,
+          blob_size: blob.size,
+          blob_mime: blob.mime,
+          blob_sha256: blob.sha256.substring(0, 8) + '...',
         });
       } else {
-        log('Sent message', message);
+        setError('Failed to upload media blob');
       }
-      return true;
-    } catch (error) {
-      setError(`Send error: ${error}`);
-      return false;
+      return success;
     }
+    setError('Cannot upload media blob: not connected');
+    return false;
   };
-
-  // Public API methods
-  const ping = () => sendMessage({ type: 'Ping' });
-
-  const getMediaBlobs = (limit?: number, offset?: number) =>
-    sendMessage({
-      type: 'GetMediaBlobs',
-      data: { limit, offset },
-    });
-
-  const getMediaBlob = (id: string) =>
-    sendMessage({
-      type: 'GetMediaBlob',
-      data: { id },
-    });
-
-  const uploadMediaBlob = (blob: MediaBlob) =>
-    sendMessage({
-      type: 'UploadMediaBlob',
-      data: { blob },
-    });
 
   // File upload helpers
   const calculateSHA256 = async (file: File): Promise<string> => {
@@ -678,10 +628,10 @@ const WebSocketHandler = (props: WebSocketHandlerProps) => {
         }
       `}</style>
 
-      <div class='container'>
-        <div class='header'>
-          <h2 class='title'>WebSocket Handler</h2>
-          <div class='controls'>
+      <div class="container">
+        <div class="header">
+          <h2 class="title">WebSocket Handler</h2>
+          <div class="controls">
             <button
               onClick={ping}
               disabled={status() !== ConnectionStatus.Connected}
@@ -689,7 +639,7 @@ const WebSocketHandler = (props: WebSocketHandlerProps) => {
               Ping
             </button>
             <button
-              onClick={() => getMediaBlobs()}
+              onClick={getMediaBlobs}
               disabled={status() !== ConnectionStatus.Connected}
             >
               Get Media Blobs
@@ -697,7 +647,7 @@ const WebSocketHandler = (props: WebSocketHandlerProps) => {
             <Show
               when={status() === ConnectionStatus.Connected}
               fallback={
-                <button onClick={connect} class='primary'>
+                <button onClick={connect} class="primary">
                   Connect
                 </button>
               }
@@ -707,7 +657,7 @@ const WebSocketHandler = (props: WebSocketHandlerProps) => {
           </div>
         </div>
 
-        <div class='status-section'>
+        <div class="status-section">
           {WebSocketStatus({
             status: status(),
             userCount: userCount(),
@@ -718,11 +668,11 @@ const WebSocketHandler = (props: WebSocketHandlerProps) => {
         </div>
 
         <Show when={errorMessage()}>
-          <div class='error-message'>{errorMessage()}</div>
+          <div class="error-message">{errorMessage()}</div>
         </Show>
 
         <Show when={showDebugLog()}>
-          <div class='debug-log'>{debugLog().join('\n')}</div>
+          <div class="debug-log">{debugLog().join('\n')}</div>
         </Show>
 
         <Show when={status() === ConnectionStatus.Connected}>
@@ -732,56 +682,56 @@ const WebSocketHandler = (props: WebSocketHandlerProps) => {
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
           >
-            <div class='upload-controls'>
-              <div class='file-input-wrapper'>
+            <div class="upload-controls">
+              <div class="file-input-wrapper">
                 <input
-                  type='file'
-                  id='file-input'
-                  class='file-input'
+                  type="file"
+                  id="file-input"
+                  class="file-input"
                   multiple
                   onChange={handleFileSelect}
                   disabled={isUploading()}
                 />
                 <label
-                  for='file-input'
+                  for="file-input"
                   class={`file-input-label ${isUploading() ? 'disabled' : ''}`}
                 >
                   <svg
-                    class='upload-icon'
-                    fill='none'
-                    stroke='currentColor'
-                    viewBox='0 0 24 24'
+                    class="upload-icon"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
                   >
                     <path
-                      stroke-linecap='round'
-                      stroke-linejoin='round'
-                      stroke-width='2'
-                      d='M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12'
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
                     ></path>
                   </svg>
                   {isUploading() ? 'Uploading...' : 'Choose Files'}
                 </label>
               </div>
 
-              <div class='upload-hint'>
+              <div class="upload-hint">
                 {isDragOver()
                   ? 'Drop files here to upload'
                   : 'Drag & drop files here or click to select'}
               </div>
 
               <Show when={uploadProgress()}>
-                <div class='upload-progress'>{uploadProgress()}</div>
+                <div class="upload-progress">{uploadProgress()}</div>
               </Show>
             </div>
           </div>
         </Show>
 
-        <div class='media-blobs'>
+        <div class="media-blobs">
           <h3>Media Blobs ({mediaBlobs().length})</h3>
           <Show
             when={mediaBlobs().length > 0}
             fallback={
-              <div class='empty-state'>
+              <div class="empty-state">
                 No media blobs received yet. Click "Get Media Blobs" to fetch
                 from server.
               </div>
@@ -789,15 +739,15 @@ const WebSocketHandler = (props: WebSocketHandlerProps) => {
           >
             <For each={mediaBlobs()}>
               {(blob) => (
-                <div class='media-blob'>
-                  <div class='media-blob-header'>
-                    <div class='media-blob-id'>{blob.id}</div>
-                    <div class='media-blob-info'>
+                <div class="media-blob">
+                  <div class="media-blob-header">
+                    <div class="media-blob-id">{blob.id}</div>
+                    <div class="media-blob-info">
                       {blob.mime || 'Unknown type'} •{' '}
                       {formatFileSize(blob.size)}
                     </div>
                   </div>
-                  <div class='media-blob-meta'>
+                  <div class="media-blob-meta">
                     SHA256: {blob.sha256}
                     <br />
                     Client: {blob.source_client_id || 'Unknown'}

@@ -7,10 +7,10 @@
  */
 
 import {
-  WebSocketConnection,
-  ConnectionStatus,
-  type WebSocketConnectionOptions,
-} from './websocket-connection.js';
+  WebSocketClient,
+  type WebSocketClientConfig,
+} from './websocket-client.js';
+import { ConnectionStatus } from './websocket-types.js';
 import {
   MediaBlobManager,
   type MediaBlob,
@@ -19,7 +19,7 @@ import {
 import { FileUploadHandler, type FileUploadOptions } from './file-upload.js';
 
 export interface WebSocketDemoClientOptions {
-  websocket?: WebSocketConnectionOptions;
+  websocket?: WebSocketClientConfig;
   fileUpload?: FileUploadOptions;
   autoGetMediaBlobs?: boolean;
   logLevel?: 'none' | 'error' | 'warn' | 'info' | 'debug';
@@ -32,7 +32,7 @@ export interface DemoClientEvent {
 }
 
 export class WebSocketDemoClient extends EventTarget {
-  private connection: WebSocketConnection;
+  private client: WebSocketClient;
   private blobManager: MediaBlobManager;
   private uploadHandler: FileUploadHandler;
   private eventLog: DemoClientEvent[] = [];
@@ -48,8 +48,9 @@ export class WebSocketDemoClient extends EventTarget {
     };
 
     // Initialize components
-    this.connection = new WebSocketConnection({
+    this.client = new WebSocketClient({
       url: websocketUrl,
+      debug: this.options.logLevel === 'debug',
       ...this.options.websocket,
     });
 
@@ -68,7 +69,7 @@ export class WebSocketDemoClient extends EventTarget {
    */
   async connect(): Promise<void> {
     this.log('info', 'Connecting to WebSocket server');
-    return this.connection.connect();
+    this.client.connect();
   }
 
   /**
@@ -76,7 +77,7 @@ export class WebSocketDemoClient extends EventTarget {
    */
   disconnect(): void {
     this.log('info', 'Disconnecting from WebSocket server');
-    this.connection.disconnect();
+    this.client.disconnect();
   }
 
   /**
@@ -84,7 +85,7 @@ export class WebSocketDemoClient extends EventTarget {
    */
   ping(): void {
     this.log('debug', 'Sending ping');
-    this.connection.ping();
+    this.client.ping();
   }
 
   /**
@@ -95,10 +96,7 @@ export class WebSocketDemoClient extends EventTarget {
       'debug',
       `Requesting media blobs (limit: ${limit}, offset: ${offset})`
     );
-    this.connection.send({
-      type: 'GetMediaBlobs',
-      data: { limit, offset },
-    });
+    this.client.getMediaBlobs(limit, offset);
   }
 
   /**
@@ -130,35 +128,37 @@ export class WebSocketDemoClient extends EventTarget {
    */
   loadBlobData(blobId: string): void {
     this.log('debug', `Loading blob data: ${blobId}`);
-    this.blobManager.requestBlobData(blobId);
+    this.client.getMediaBlob(blobId);
   }
 
   /**
    * Get current connection status
    */
   getConnectionStatus(): ConnectionStatus {
-    return this.connection.getStatus();
+    return this.client.getStatus();
   }
 
   /**
    * Check if connected
    */
   isConnected(): boolean {
-    return this.connection.isConnected();
+    return this.client.getStatus() === ConnectionStatus.Connected;
   }
 
   /**
    * Get current user count
    */
   getUserCount(): number {
-    return this.connection.getUserCount();
+    // User count is maintained by connection status messages
+    return 0; // TODO: Track this from ConnectionStatus messages
   }
 
   /**
    * Get connection ID
    */
   getConnectionId(): string {
-    return this.connection.getConnectionId();
+    // Connection ID is received in Welcome message
+    return ''; // TODO: Track this from Welcome messages
   }
 
   /**
@@ -223,39 +223,54 @@ export class WebSocketDemoClient extends EventTarget {
   }
 
   private setupEventHandlers(): void {
-    // WebSocket connection events
-    this.connection.addEventListener('status-change', (e: any) => {
-      const { status, userCount, connectionId } = e.detail;
-      this.log('info', `Connection status changed: ${status}`, {
-        userCount,
-        connectionId,
-      });
+    // WebSocket client events
+    this.client.on('statusChange', (status) => {
+      this.log('info', `Connection status changed: ${status}`);
 
       this.dispatchEvent(
-        new CustomEvent('status-change', { detail: e.detail })
+        new CustomEvent('status-change', {
+          detail: { status },
+        })
       );
 
       // Auto-request media blobs when connected
-      if (status === 'connected' && this.options.autoGetMediaBlobs) {
+      if (
+        status === ConnectionStatus.Connected &&
+        this.options.autoGetMediaBlobs
+      ) {
         setTimeout(() => this.getMediaBlobs(), 100);
       }
     });
 
-    this.connection.addEventListener('message', (e: any) => {
-      const { message } = e.detail;
-      this.handleServerMessage(message);
+    this.client.on('welcome', (data) => {
+      this.log('info', 'Welcome received', data);
+      this.dispatchEvent(new CustomEvent('welcome', { detail: data }));
     });
 
-    this.connection.addEventListener('connection-error', (e: any) => {
-      this.log('error', 'Connection error', e.detail);
+    this.client.on('error', (data) => {
+      this.log('error', 'Server error', data);
+      this.dispatchEvent(new CustomEvent('server-error', { detail: data }));
+    });
+
+    this.client.on('parseError', (error, rawMessage) => {
+      this.log('error', 'Parse error', { error: error.message, rawMessage });
       this.dispatchEvent(
-        new CustomEvent('connection-error', { detail: e.detail })
+        new CustomEvent('parse-error', {
+          detail: { error: error.message, rawMessage },
+        })
       );
     });
 
-    this.connection.addEventListener('pong', (e: any) => {
-      this.log('debug', 'Pong received');
-      this.dispatchEvent(new CustomEvent('pong', { detail: e.detail }));
+    this.client.on('mediaBlobs', (data) => {
+      this.handleServerMessage({ type: 'MediaBlobs', data });
+    });
+
+    this.client.on('mediaBlob', (data) => {
+      this.handleServerMessage({ type: 'MediaBlob', data });
+    });
+
+    this.client.on('connectionStatus', (data) => {
+      this.handleServerMessage({ type: 'ConnectionStatus', data });
     });
 
     // Media blob manager events
@@ -268,10 +283,7 @@ export class WebSocketDemoClient extends EventTarget {
 
     this.blobManager.addEventListener('blob-data-requested', (e: any) => {
       const { id } = e.detail;
-      this.connection.send({
-        type: 'GetMediaBlobData',
-        data: { id },
-      });
+      this.client.getMediaBlob(id);
     });
 
     this.blobManager.addEventListener('blob-data-cached', (e: any) => {
@@ -295,10 +307,7 @@ export class WebSocketDemoClient extends EventTarget {
       this.log('info', `Upload completed: ${file.name}`);
 
       // Send the blob to the server
-      this.connection.send({
-        type: 'UploadMediaBlob',
-        data: { blob },
-      });
+      this.client.uploadMediaBlob(blob);
 
       this.dispatchEvent(
         new CustomEvent('upload-completed', { detail: e.detail })
@@ -331,7 +340,9 @@ export class WebSocketDemoClient extends EventTarget {
       case 'MediaBlobData':
         const blobData = message.data as MediaBlobData;
         this.log('debug', `Received blob data: ${blobData?.id}`);
-        this.blobManager.cacheBlobData(blobData);
+        if (blobData) {
+          this.blobManager.cacheBlobData(blobData);
+        }
         break;
 
       case 'Error':
@@ -409,7 +420,7 @@ export class WebSocketDemoClient extends EventTarget {
   destroy(): void {
     this.log('info', 'Destroying WebSocket demo client');
 
-    this.connection.destroy();
+    this.client.disconnect();
     this.blobManager.destroy();
     this.uploadHandler.destroy();
 
@@ -418,17 +429,17 @@ export class WebSocketDemoClient extends EventTarget {
     // Remove all event listeners
     const events = [
       'status-change',
+      'welcome',
       'blobs-updated',
       'blob-data-cached',
       'upload-started',
       'upload-completed',
       'upload-error',
-      'connection-error',
       'server-error',
+      'parse-error',
       'message',
       'log',
       'log-cleared',
-      'pong',
     ];
     events.forEach((event) => {
       const listeners = (this as any)._listeners?.[event] || [];

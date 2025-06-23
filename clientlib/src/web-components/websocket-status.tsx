@@ -7,13 +7,9 @@
 
 import { customElement } from 'solid-element';
 import { createSignal, createEffect, Show } from 'solid-js';
+import { ConnectionStatus } from '../lib/websocket-types.js';
 
-export enum ConnectionStatus {
-  Disconnected = 'disconnected',
-  Connecting = 'connecting',
-  Connected = 'connected',
-  Error = 'error',
-}
+export { ConnectionStatus };
 
 export interface WebSocketStatusProps {
   status?: ConnectionStatus;
@@ -172,7 +168,7 @@ const WebSocketStatus = (props: WebSocketStatusProps) => {
       </Show>
 
       <Show when={showUserCount() && userCount() > 0 && !compact()}>
-        <span class='user-count'>
+        <span class="user-count">
           ({userCount()} user{userCount() !== 1 ? 's' : ''})
         </span>
       </Show>

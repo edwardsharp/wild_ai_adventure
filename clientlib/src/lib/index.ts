@@ -53,6 +53,10 @@ export {
   isMediaBlobsMessage,
   isErrorMessage,
   isConnectionStatusMessage,
+  isMediaBlobMessage,
+  isMediaBlobDataMessage,
+  validateIncomingMessage,
+  validateOutgoingMessage,
 } from './websocket-types.js';
 export type {
   MediaBlob,
@@ -63,10 +67,9 @@ export type {
 // Modular WebSocket components
 export { WebSocketConnection } from './websocket-connection.js';
 export type {
-  ConnectionStatus as WsConnectionStatus,
+  WebSocketConnectionStatus,
   ConnectionStatusEvent,
   WebSocketConnectionOptions,
-  WebSocketMessage as WsMessage,
 } from './websocket-connection.js';
 
 export { MediaBlobManager } from './media-blob-manager.js';

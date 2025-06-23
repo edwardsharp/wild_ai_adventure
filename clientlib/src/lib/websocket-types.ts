@@ -38,10 +38,12 @@ export const WebSocketMessageSchema = z.discriminatedUnion('type', [
   }),
   z.object({
     type: z.literal('GetMediaBlobs'),
-    data: z.object({
-      limit: z.number().int().positive().optional(),
-      offset: z.number().int().min(0).optional(),
-    }),
+    data: z
+      .object({
+        limit: z.number().int().positive().optional(),
+        offset: z.number().int().min(0).optional(),
+      })
+      .optional(),
   }),
   z.object({
     type: z.literal('UploadMediaBlob'),
@@ -51,6 +53,18 @@ export const WebSocketMessageSchema = z.discriminatedUnion('type', [
   }),
   z.object({
     type: z.literal('GetMediaBlob'),
+    data: z.object({
+      id: UuidSchema,
+    }),
+  }),
+  z.object({
+    type: z.literal('GetMediaBlobData'),
+    data: z.object({
+      id: UuidSchema,
+    }),
+  }),
+  z.object({
+    type: z.literal('GetMediaBlobData'),
     data: z.object({
       id: UuidSchema,
     }),
@@ -85,6 +99,14 @@ export const WebSocketResponseSchema = z.discriminatedUnion('type', [
     type: z.literal('MediaBlob'),
     data: z.object({
       blob: MediaBlobSchema,
+    }),
+  }),
+  z.object({
+    type: z.literal('MediaBlobData'),
+    data: z.object({
+      id: UuidSchema,
+      data: z.array(z.number()),
+      mime: z.string().optional(),
     }),
   }),
   z.object({
@@ -128,6 +150,11 @@ export const createMessage = {
 
   getMediaBlob: (id: string): WebSocketMessage => ({
     type: 'GetMediaBlob',
+    data: { id },
+  }),
+
+  getMediaBlobData: (id: string): WebSocketMessage => ({
+    type: 'GetMediaBlobData',
     data: { id },
   }),
 
@@ -185,4 +212,67 @@ export const isConnectionStatusMessage = (
   response: WebSocketResponse
 ): response is Extract<WebSocketResponse, { type: 'ConnectionStatus' }> => {
   return response.type === 'ConnectionStatus';
+};
+
+export const isMediaBlobMessage = (
+  response: WebSocketResponse
+): response is Extract<WebSocketResponse, { type: 'MediaBlob' }> => {
+  return response.type === 'MediaBlob';
+};
+
+export const isMediaBlobDataMessage = (
+  response: WebSocketResponse
+): response is Extract<WebSocketResponse, { type: 'MediaBlobData' }> => {
+  return response.type === 'MediaBlobData';
+};
+
+/**
+ * Validates and parses incoming WebSocket message with detailed error info
+ */
+export const validateIncomingMessage = (
+  rawData: string
+):
+  | { success: true; data: WebSocketResponse }
+  | { success: false; error: string; details?: any } => {
+  try {
+    const json = JSON.parse(rawData);
+    const result = WebSocketResponseSchema.safeParse(json);
+
+    if (result.success) {
+      return { success: true, data: result.data };
+    } else {
+      return {
+        success: false,
+        error: 'Message validation failed',
+        details: result.error.flatten(),
+      };
+    }
+  } catch (error) {
+    return {
+      success: false,
+      error: 'Invalid JSON',
+      details: error instanceof Error ? error.message : String(error),
+    };
+  }
+};
+
+/**
+ * Validates outgoing WebSocket message before sending
+ */
+export const validateOutgoingMessage = (
+  message: unknown
+):
+  | { success: true; data: WebSocketMessage }
+  | { success: false; error: string; details?: any } => {
+  const result = WebSocketMessageSchema.safeParse(message);
+
+  if (result.success) {
+    return { success: true, data: result.data };
+  } else {
+    return {
+      success: false,
+      error: 'Message validation failed',
+      details: result.error.flatten(),
+    };
+  }
 };

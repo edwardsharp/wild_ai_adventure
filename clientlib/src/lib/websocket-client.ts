@@ -13,6 +13,9 @@ import {
   MediaBlob,
 } from './websocket-types.js';
 
+// Re-export types for convenience
+export { ConnectionStatus } from './websocket-types.js';
+
 export interface WebSocketClientConfig {
   /** WebSocket URL (e.g., 'ws://localhost:3000/ws') */
   url: string;
