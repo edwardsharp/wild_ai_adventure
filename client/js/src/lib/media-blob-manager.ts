@@ -56,10 +56,11 @@ export class MediaBlobManager extends EventTarget {
   updateBlobs(blobs: MediaBlob[]): void {
     this.blobs = [...blobs];
 
-    // Auto-load images for thumbnails
+    // Auto-load images for thumbnails (only for database-stored images)
     this.blobs.forEach((blob) => {
       if (
         blob.mime?.startsWith("image/") &&
+        !blob.local_path && // Only load database-stored images
         !this.isCached(blob.id) &&
         !this.isLoading(blob.id)
       ) {
@@ -224,7 +225,12 @@ export class MediaBlobManager extends EventTarget {
         return `<div style="${baseStyle} ${placeholderStyle}" onclick="window.loadBlobData('${blob.id}')">LOAD VIDEO</div>`;
       }
     } else if (mime.startsWith("audio/")) {
-      if (cachedData) {
+      // For large files stored on disk, use the direct URL
+      if (storageType === "disk" && fileUrl) {
+        return `<audio style="${baseStyle}" controls><source src="${fileUrl}" type="${mime}"></audio>`;
+      }
+      // For small files in database, use cached data or load on demand
+      else if (cachedData) {
         return `<audio style="${baseStyle}" controls><source src="${cachedData}" type="${mime}"></audio>`;
       } else if (isLoading) {
         return `<div style="${baseStyle} ${placeholderStyle}">Loading...</div>`;
