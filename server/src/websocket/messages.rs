@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 /// Messages sent from client to server
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 #[serde(tag = "type", content = "data")]
 pub enum WebSocketMessage {
     /// Client sends a ping to check connection
@@ -22,10 +22,12 @@ pub enum WebSocketMessage {
     UploadMediaBlob { blob: MediaBlob },
     /// Client requests specific media blob by ID
     GetMediaBlob { id: Uuid },
+    /// Client requests media blob data by ID
+    GetMediaBlobData { id: Uuid },
 }
 
 /// Messages sent from server to client
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 #[serde(tag = "type", content = "data")]
 pub enum WebSocketResponse {
     /// Server greeting on connection
@@ -43,6 +45,12 @@ pub enum WebSocketResponse {
     },
     /// Server sends single media blob
     MediaBlob { blob: MediaBlob },
+    /// Server sends media blob data (binary content)
+    MediaBlobData {
+        id: Uuid,
+        data: Vec<u8>,
+        mime: Option<String>,
+    },
     /// Server sends error message
     Error {
         message: String,
@@ -61,6 +69,32 @@ impl WebSocketMessage {
     /// Serialize message to JSON text
     pub fn to_json(&self) -> Result<String, serde_json::Error> {
         serde_json::to_string(self)
+    }
+}
+
+impl std::fmt::Debug for WebSocketMessage {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            WebSocketMessage::Ping => f.debug_struct("Ping").finish(),
+            WebSocketMessage::GetMediaBlobs { limit, offset } => f
+                .debug_struct("GetMediaBlobs")
+                .field("limit", limit)
+                .field("offset", offset)
+                .finish(),
+            WebSocketMessage::UploadMediaBlob { blob } => f
+                .debug_struct("UploadMediaBlob")
+                .field("blob_id", &blob.id)
+                .field("blob_size", &blob.size)
+                .field("blob_mime", &blob.mime)
+                .field("blob_sha256_prefix", &format!("{}...", &blob.sha256[..8]))
+                .finish(),
+            WebSocketMessage::GetMediaBlob { id } => {
+                f.debug_struct("GetMediaBlob").field("id", id).finish()
+            }
+            WebSocketMessage::GetMediaBlobData { id } => {
+                f.debug_struct("GetMediaBlobData").field("id", id).finish()
+            }
+        }
     }
 }
 
@@ -92,6 +126,55 @@ impl WebSocketResponse {
         Self::Error {
             message: message.into(),
             code: Some(code.into()),
+        }
+    }
+}
+
+impl std::fmt::Debug for WebSocketResponse {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            WebSocketResponse::Welcome {
+                message,
+                user_id,
+                connection_id,
+            } => f
+                .debug_struct("Welcome")
+                .field("message", message)
+                .field("user_id", user_id)
+                .field("connection_id", connection_id)
+                .finish(),
+            WebSocketResponse::Pong => f.debug_struct("Pong").finish(),
+            WebSocketResponse::MediaBlobs { blobs, total_count } => f
+                .debug_struct("MediaBlobs")
+                .field("blob_count", &blobs.len())
+                .field("total_count", total_count)
+                .finish(),
+            WebSocketResponse::MediaBlob { blob } => f
+                .debug_struct("MediaBlob")
+                .field("blob_id", &blob.id)
+                .field("blob_size", &blob.size)
+                .field("blob_mime", &blob.mime)
+                .field("blob_sha256_prefix", &format!("{}...", &blob.sha256[..8]))
+                .finish(),
+            WebSocketResponse::MediaBlobData { id, data, mime } => f
+                .debug_struct("MediaBlobData")
+                .field("id", id)
+                .field("data_size", &data.len())
+                .field("mime", mime)
+                .finish(),
+            WebSocketResponse::Error { message, code } => f
+                .debug_struct("Error")
+                .field("message", message)
+                .field("code", code)
+                .finish(),
+            WebSocketResponse::ConnectionStatus {
+                connected,
+                user_count,
+            } => f
+                .debug_struct("ConnectionStatus")
+                .field("connected", connected)
+                .field("user_count", user_count)
+                .finish(),
         }
     }
 }

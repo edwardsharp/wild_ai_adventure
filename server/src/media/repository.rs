@@ -6,6 +6,8 @@
 use crate::database::DatabaseConnection;
 use crate::error::WebauthnError;
 use crate::media::models::{CreateMediaBlob, MediaBlob, MediaBlobQuery, MediaBlobStats};
+use sqlx::postgres::PgRow;
+use sqlx::Row;
 use time::OffsetDateTime;
 use tracing::{debug, error, info};
 use uuid::Uuid;
@@ -56,8 +58,6 @@ impl<'a> MediaRepository<'a> {
 
         let blob = MediaBlob::new(params);
 
-        // TODO: Uncomment after running sqlx prepare
-        /*
         let result = sqlx::query!(
             r#"
             INSERT INTO media_blobs (
@@ -95,19 +95,12 @@ impl<'a> MediaRepository<'a> {
                 Err(WebauthnError::SqlxError(e))
             }
         }
-        */
-
-        // Temporary mock implementation
-        info!("Successfully created media blob: {}", blob.id);
-        Ok(blob)
     }
 
     /// Find a media blob by ID
     pub async fn find_by_id(&self, id: Uuid) -> Result<MediaBlob, WebauthnError> {
         debug!("Finding media blob by ID: {}", id);
 
-        // TODO: Uncomment after running sqlx prepare
-        /*
         let row = sqlx::query!(
             r#"
             SELECT id, data, sha256, size, mime, source_client_id,
@@ -135,18 +128,12 @@ impl<'a> MediaRepository<'a> {
             }),
             None => Err(WebauthnError::UserNotFound),
         }
-        */
-
-        // Temporary mock implementation
-        Err(WebauthnError::UserNotFound)
     }
 
     /// Find a media blob by SHA256 hash
     pub async fn get_by_sha256(&self, sha256: &str) -> Result<MediaBlob, WebauthnError> {
         debug!("Finding media blob by SHA256: {}", sha256);
 
-        // TODO: Uncomment after running sqlx prepare
-        /*
         let row = sqlx::query!(
             r#"
             SELECT id, data, sha256, size, mime, source_client_id,
@@ -174,18 +161,13 @@ impl<'a> MediaRepository<'a> {
             }),
             None => Err(WebauthnError::UserNotFound),
         }
-        */
-
-        // Temporary mock implementation
-        Err(WebauthnError::UserNotFound)
     }
 
     /// Find a media blob by ID without data (for efficient responses)
+    /// Get a media blob by ID without data field for efficiency
     pub async fn get_by_id_without_data(&self, id: Uuid) -> Result<MediaBlob, WebauthnError> {
         debug!("Finding media blob by ID without data: {}", id);
 
-        // TODO: Uncomment after running sqlx prepare
-        /*
         let row = sqlx::query!(
             r#"
             SELECT id, sha256, size, mime, source_client_id,
@@ -201,7 +183,7 @@ impl<'a> MediaRepository<'a> {
         match row {
             Some(r) => Ok(MediaBlob {
                 id: r.id,
-                data: None,
+                data: None, // Explicitly exclude data
                 sha256: r.sha256,
                 size: r.size,
                 mime: r.mime,
@@ -213,18 +195,12 @@ impl<'a> MediaRepository<'a> {
             }),
             None => Err(WebauthnError::UserNotFound),
         }
-        */
-
-        // Temporary mock implementation
-        Err(WebauthnError::UserNotFound)
     }
 
     /// Query media blobs with filtering and pagination
     pub async fn query(&self, params: MediaBlobQuery) -> Result<Vec<MediaBlob>, WebauthnError> {
         debug!("Querying media blobs with params: {:?}", params);
 
-        // TODO: Uncomment after running sqlx prepare
-        /*
         let limit = params.limit.unwrap_or(50).min(1000); // Cap at 1000
         let offset = params.offset.unwrap_or(0);
 
@@ -234,17 +210,17 @@ impl<'a> MediaRepository<'a> {
         );
         let mut param_count = 0;
 
-        if let Some(ref sha256) = params.sha256 {
+        if let Some(ref _sha256) = params.sha256 {
             param_count += 1;
             sql.push_str(&format!(" AND sha256 = ${}", param_count));
         }
 
-        if let Some(ref client_id) = params.source_client_id {
+        if let Some(ref _client_id) = params.source_client_id {
             param_count += 1;
             sql.push_str(&format!(" AND source_client_id = ${}", param_count));
         }
 
-        if let Some(ref mime_pattern) = params.mime_pattern {
+        if let Some(ref _mime_pattern) = params.mime_pattern {
             param_count += 1;
             sql.push_str(&format!(" AND mime LIKE ${}", param_count));
         }
@@ -295,10 +271,6 @@ impl<'a> MediaRepository<'a> {
             .collect();
 
         Ok(blobs)
-        */
-
-        // Temporary mock implementation
-        Ok(vec![])
     }
 
     /// Get media blob statistics

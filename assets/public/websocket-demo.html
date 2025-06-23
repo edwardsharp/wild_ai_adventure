@@ -237,6 +237,45 @@
                 font-style: italic;
                 padding: 20px;
             }
+
+            .media-blob-preview {
+                display: flex;
+                gap: 12px;
+                align-items: flex-start;
+                margin-top: 10px;
+                padding-top: 10px;
+                border-top: 1px solid #e5e7eb;
+            }
+
+            .media-blob-thumbnail {
+                width: 80px;
+                height: 80px;
+                object-fit: cover;
+                border-radius: 4px;
+                border: 1px solid #d1d5db;
+                flex-shrink: 0;
+            }
+
+            .media-blob-actions {
+                display: flex;
+                flex-direction: column;
+                gap: 6px;
+            }
+
+            .media-blob-actions button {
+                padding: 4px 8px;
+                background: #f3f4f6;
+                color: #374151;
+                border: 1px solid #d1d5db;
+                border-radius: 4px;
+                font-size: 12px;
+                cursor: pointer;
+                transition: background-color 0.2s;
+            }
+
+            .media-blob-actions button:hover {
+                background: #e5e7eb;
+            }
         </style>
     </head>
     <body>
@@ -291,6 +330,9 @@
                 />
                 <button id="file-upload-btn" disabled>Upload Files</button>
                 <button id="clear-log-btn">Clear Log</button>
+                <div style="font-size: 12px; color: #6b7280; margin-top: 8px">
+                    Maximum file size: 10MB per file
+                </div>
             </div>
         </div>
 
@@ -324,6 +366,7 @@
                     this.mediaBlobs = [];
                     this.userCount = 0;
                     this.connectionId = "";
+                    this.mediaBlobDataCache = new Map();
 
                     this.bindElements();
                     this.bindEvents();
@@ -531,6 +574,16 @@
                                 });
                                 break;
 
+                            case "MediaBlobData":
+                                const blobData = response.data;
+                                this.log("Media blob data received:", {
+                                    id: blobData?.id,
+                                    dataSize: blobData?.data?.length,
+                                    mime: blobData?.mime,
+                                });
+                                this.handleMediaBlobData(blobData);
+                                break;
+
                             case "Error":
                                 this.log(
                                     "Error message received",
@@ -598,6 +651,13 @@
                             Path: ${blob.local_path || "None"}<br>
                             Created: ${new Date(blob.created_at).toLocaleString()}
                             ${Object.keys(blob.metadata || {}).length > 0 ? `<br>Metadata: ${JSON.stringify(blob.metadata)}` : ""}
+                        </div>
+                        <div class="media-blob-preview">
+                            ${this.generateThumbnail(blob)}
+                            <div class="media-blob-actions">
+                                <button onclick="window.demoClient.downloadMediaBlob('${blob.id}', '${blob.local_path || "download"}')">Download</button>
+                                <button onclick="window.demoClient.viewMediaBlob('${blob.id}')">View</button>
+                            </div>
                         </div>
                     </div>
                 `,
@@ -667,14 +727,51 @@
                     });
                 }
 
+                generateThumbnail(blob) {
+                    const mime = blob.mime || "";
+                    const cachedData = this.mediaBlobDataCache.get(blob.id);
+
+                    if (mime.startsWith("image/")) {
+                        if (cachedData) {
+                            return `<img src="${cachedData}" alt="Thumbnail" class="media-blob-thumbnail" loading="lazy">`;
+                        } else {
+                            // Auto-load the image data
+                            setTimeout(
+                                () => this.loadMediaBlobData(blob.id),
+                                100,
+                            );
+                            return `<div class="media-blob-thumbnail" style="display: flex; align-items: center; justify-content: center; background: #f0f0f0; font-size: 0.7em;">Loading...</div>`;
+                        }
+                    } else if (mime.startsWith("video/")) {
+                        if (cachedData) {
+                            return `<video class="media-blob-thumbnail" controls muted><source src="${cachedData}" type="${mime}"></video>`;
+                        } else {
+                            return `<div class="media-blob-thumbnail media-blob-placeholder" data-blob-id="${blob.id}" style="display: flex; align-items: center; justify-content: center; background: #f0f0f0; font-size: 0.7em; cursor: pointer;" onclick="window.demoClient.loadMediaBlobData('${blob.id}')">LOAD VIDEO</div>`;
+                        }
+                    } else if (mime === "application/pdf") {
+                        return `<div class="media-blob-thumbnail" style="display: flex; align-items: center; justify-content: center; background: #f0f0f0; font-size: 0.7em;">PDF</div>`;
+                    } else {
+                        return `<div class="media-blob-thumbnail" style="display: flex; align-items: center; justify-content: center; background: #f0f0f0; font-size: 0.7em;">FILE</div>`;
+                    }
+                }
+
                 async handleFileUpload(event) {
                     const files = event.target.files;
                     if (!files || files.length === 0) return;
 
                     for (const file of files) {
                         try {
+                            // Check file size limit (10MB)
+                            const maxSize = 10 * 1024 * 1024; // 10MB in bytes
+                            if (file.size > maxSize) {
+                                this.setError(
+                                    `File "${file.name}" is too large (${this.formatFileSize(file.size)}). Maximum size is 10MB.`,
+                                );
+                                continue;
+                            }
+
                             this.log(
-                                `Starting upload: ${file.name} (${file.size} bytes)`,
+                                `Starting upload: ${file.name} (${this.formatFileSize(file.size)})`,
                             );
 
                             // Calculate SHA256
@@ -735,6 +832,57 @@
 
                     // Reset input
                     event.target.value = "";
+                }
+
+                loadMediaBlobData(blobId) {
+                    this.log(`Loading data for blob: ${blobId}`);
+                    this.sendMessage({
+                        type: "GetMediaBlobData",
+                        data: { id: blobId },
+                    });
+                }
+
+                handleMediaBlobData(blobData) {
+                    if (!blobData || !blobData.id || !blobData.data) return;
+
+                    // Convert data array to Uint8Array and create blob
+                    const uint8Array = new Uint8Array(blobData.data);
+                    const blob = new Blob([uint8Array], {
+                        type: blobData.mime || "application/octet-stream",
+                    });
+                    const dataUrl = URL.createObjectURL(blob);
+
+                    // Cache the data URL
+                    this.mediaBlobDataCache.set(blobData.id, dataUrl);
+
+                    // Update the display
+                    this.updateMediaBlobs();
+                }
+
+                downloadMediaBlob(blobId, filename) {
+                    const cachedData = this.mediaBlobDataCache.get(blobId);
+                    if (cachedData) {
+                        // Create download link
+                        const a = document.createElement("a");
+                        a.href = cachedData;
+                        a.download = filename;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                    } else {
+                        // Load data first, then download
+                        this.loadMediaBlobData(blobId);
+                        // Note: Download will happen after data loads and updateMediaBlobs is called
+                    }
+                }
+
+                viewMediaBlob(blobId) {
+                    const cachedData = this.mediaBlobDataCache.get(blobId);
+                    if (cachedData) {
+                        window.open(cachedData, "_blank");
+                    } else {
+                        this.loadMediaBlobData(blobId);
+                    }
                 }
             }
 

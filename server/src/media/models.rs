@@ -9,7 +9,7 @@ use time::OffsetDateTime;
 use uuid::Uuid;
 
 /// Media blob data structure matching the database schema
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Clone, Serialize, Deserialize, FromRow)]
 pub struct MediaBlob {
     pub id: Uuid,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -28,7 +28,7 @@ pub struct MediaBlob {
 }
 
 /// Parameters for creating a new media blob
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct CreateMediaBlob {
     pub data: Option<Vec<u8>>,
     pub sha256: String,
@@ -131,7 +131,46 @@ impl MediaBlob {
             return Err("Either data or local_path must be provided".to_string());
         }
 
+        // Check file size limit (10MB = 10 * 1024 * 1024 bytes)
+        const MAX_FILE_SIZE: usize = 10 * 1024 * 1024;
+        if let Some(ref data) = self.data {
+            if data.len() > MAX_FILE_SIZE {
+                return Err(format!(
+                    "File size {} bytes exceeds maximum allowed size of {} bytes (10MB)",
+                    data.len(),
+                    MAX_FILE_SIZE
+                ));
+            }
+        }
+
+        // Also check the size field if provided
+        if let Some(size) = self.size {
+            if size > MAX_FILE_SIZE as i64 {
+                return Err(format!(
+                    "File size {} bytes exceeds maximum allowed size of {} bytes (10MB)",
+                    size, MAX_FILE_SIZE
+                ));
+            }
+        }
+
         Ok(())
+    }
+}
+
+impl std::fmt::Debug for MediaBlob {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MediaBlob")
+            .field("id", &self.id)
+            .field("data_size", &self.data.as_ref().map(|d| d.len()))
+            .field("sha256", &format!("{}...", &self.sha256[..8]))
+            .field("size", &self.size)
+            .field("mime", &self.mime)
+            .field("source_client_id", &self.source_client_id)
+            .field("local_path", &self.local_path)
+            .field("metadata", &self.metadata)
+            .field("created_at", &self.created_at)
+            .field("updated_at", &self.updated_at)
+            .finish()
     }
 }
 
@@ -152,7 +191,43 @@ impl CreateMediaBlob {
             return Err("Either data or local_path must be provided".to_string());
         }
 
+        // Check file size limit (10MB = 10 * 1024 * 1024 bytes)
+        const MAX_FILE_SIZE: usize = 10 * 1024 * 1024;
+        if let Some(ref data) = self.data {
+            if data.len() > MAX_FILE_SIZE {
+                return Err(format!(
+                    "File size {} bytes exceeds maximum allowed size of {} bytes (10MB)",
+                    data.len(),
+                    MAX_FILE_SIZE
+                ));
+            }
+        }
+
+        // Also check the size field if provided
+        if let Some(size) = self.size {
+            if size > MAX_FILE_SIZE as i64 {
+                return Err(format!(
+                    "File size {} bytes exceeds maximum allowed size of {} bytes (10MB)",
+                    size, MAX_FILE_SIZE
+                ));
+            }
+        }
+
         Ok(())
+    }
+}
+
+impl std::fmt::Debug for CreateMediaBlob {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CreateMediaBlob")
+            .field("data_size", &self.data.as_ref().map(|d| d.len()))
+            .field("sha256", &format!("{}...", &self.sha256[..8]))
+            .field("size", &self.size)
+            .field("mime", &self.mime)
+            .field("source_client_id", &self.source_client_id)
+            .field("local_path", &self.local_path)
+            .field("metadata", &self.metadata)
+            .finish()
     }
 }
 

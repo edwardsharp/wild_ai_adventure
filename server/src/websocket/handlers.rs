@@ -260,6 +260,34 @@ async fn handle_message(
                 }
             }
         }
+        WebSocketMessage::GetMediaBlobData { id } => {
+            info!(
+                "GetMediaBlobData request for ID: {} from user: {:?}",
+                id, user_id
+            );
+
+            let repository = MediaRepository::new(db);
+            let service = MediaService::new(repository);
+
+            match service.get_blob(id, true).await {
+                Ok(blob) => {
+                    if let Some(data) = blob.data {
+                        Some(WebSocketResponse::MediaBlobData {
+                            id: blob.id,
+                            data,
+                            mime: blob.mime,
+                        })
+                    } else {
+                        warn!("Media blob {} has no data", id);
+                        Some(WebSocketResponse::error("Media blob has no data"))
+                    }
+                }
+                Err(e) => {
+                    warn!("Media blob not found: {} - {}", id, e);
+                    Some(WebSocketResponse::error("Media blob not found"))
+                }
+            }
+        }
         WebSocketMessage::UploadMediaBlob { blob } => {
             info!(
                 "UploadMediaBlob request (size: {:?}, mime: {:?}) from user: {:?}",
